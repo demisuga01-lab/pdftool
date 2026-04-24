@@ -1,0 +1,13 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.0
+python-multipart==0.0.20
+celery[redis]==5.4.0
+redis==5.2.1
+aiofiles==24.1.0
+python-dotenv==1.0.1
+img2pdf==0.5.1
+pyvips==2.2.3
+opencv-python-headless==4.10.0.84
+numpy==2.2.0
