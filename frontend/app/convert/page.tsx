@@ -161,10 +161,17 @@ export default function ConvertPage() {
     toFormat: "",
     transparent: false,
   });
-  const [selectedOutput, setSelectedOutput] = useState("");
+  const [selectedOutput, setSelectedOutput] = useState<string>(() =>
+    typeof window === "undefined" ? "" : normalizeFormat(new URLSearchParams(window.location.search).get("to")),
+  );
   const inputFormat = normalizeFormat(fileMeta?.extension || searchParams.get("from"));
   const inputKind = detectKind(inputFormat);
   const outputOptions = useMemo(() => optionsForKind(inputKind), [inputKind]);
+  const outputOptionsKey = useMemo(
+    () => outputOptions.map((option) => option.value).join("|"),
+    [outputOptions],
+  );
+  const queryTo = normalizeFormat(searchParams.get("to"));
   const outputFormat = selectedOutput;
   const { items, pageCount } = useUploadedPdfPageItems(
     inputKind === "pdf" && fileMeta ? fileMeta.file_id : null,
@@ -212,33 +219,29 @@ export default function ConvertPage() {
   }, [pathname]);
 
   useEffect(() => {
-    if (outputOptions.length === 0) {
+    const outputValues = outputOptionsKey ? outputOptionsKey.split("|") : [];
+    if (!outputValues.length) {
       return;
     }
-    const requestedOutput = normalizeFormat(searchParams.get("to"));
-    const nextOutput =
-      requestedOutput && outputOptions.some((option) => option.value === requestedOutput)
-        ? requestedOutput
-        : selectedOutput && outputOptions.some((option) => option.value === selectedOutput)
-          ? selectedOutput
-          : outputOptions[0].value;
-    if (nextOutput !== selectedOutput) {
-      setSelectedOutput(nextOutput);
-      update("toFormat", nextOutput);
-    }
-  }, [outputOptions, searchParams, selectedOutput, update]);
+
+    setSelectedOutput((current) => {
+      if (current && outputValues.includes(current)) {
+        return current;
+      }
+
+      if (queryTo && outputValues.includes(queryTo)) {
+        return queryTo;
+      }
+
+      return outputValues[0];
+    });
+  }, [outputOptionsKey, queryTo]);
 
   useEffect(() => {
-    const requestedOutput = normalizeFormat(searchParams.get("to"));
-    if (
-      requestedOutput &&
-      requestedOutput !== selectedOutput &&
-      (outputOptions.length === 0 || outputOptions.some((option) => option.value === requestedOutput))
-    ) {
-      setSelectedOutput(requestedOutput);
-      update("toFormat", requestedOutput);
+    if (settings.toFormat !== selectedOutput) {
+      update("toFormat", selectedOutput);
     }
-  }, [outputOptions, searchParams, selectedOutput, update]);
+  }, [selectedOutput, settings.toFormat, update]);
 
   const selectOutput = useCallback(
     (value: string) => {
@@ -346,8 +349,9 @@ export default function ConvertPage() {
               const active = selectedOutput === option.value;
               return (
                 <button
+                  aria-pressed={active}
                   className={[
-                    "rounded-lg border px-3 py-3 text-left transition",
+                    "relative rounded-lg border px-3 py-3 text-left transition",
                     active
                       ? "border-[#2563EB] bg-[#2563EB]/[0.06] ring-2 ring-[#2563EB]/15"
                       : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
@@ -360,9 +364,19 @@ export default function ConvertPage() {
                     {option.label}
                   </span>
                   <span className="mt-1 block text-sm font-medium text-slate-500">{option.description}</span>
+                  {active ? (
+                    <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-[#2563EB] text-[11px] font-bold text-white">
+                      ✓
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
+            {process.env.NODE_ENV !== "production" ? (
+              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
+                Selected output: {selectedOutput || "(none)"}
+              </p>
+            ) : null}
           </div>
         ),
         fields: [
