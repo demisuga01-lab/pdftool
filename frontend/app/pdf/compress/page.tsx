@@ -1,118 +1,230 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import type { ControlSection } from "@/components/workspace/Controls";
+import { SinglePdfWorkspacePage } from "@/components/workspace/WorkspacePageBuilders";
+import { slugifyBaseName } from "@/lib/format";
 
-import { ToolLayout } from "@/components/layout/ToolLayout";
-import { FileUpload } from "@/components/ui/FileUpload";
-import { JobProgress } from "@/components/ui/JobProgress";
-import { uploadFile } from "@/lib/api";
-
-const qualityOptions = [
-  { value: "screen", label: "Screen", description: "Strongest compression for quick sharing and previews." },
-  { value: "ebook", label: "eBook", description: "Balanced quality for reading on phones, tablets, and web." },
-  { value: "printer", label: "Printer", description: "Higher fidelity for local printing and office use." },
-  { value: "prepress", label: "Prepress", description: "Best quality for archival copies and press output." },
-] as const;
-
-const tipByQuality: Record<(typeof qualityOptions)[number]["value"], string> = {
-  screen: "Screen mode often produces the biggest reduction, especially for image-heavy PDFs.",
-  ebook: "eBook mode is usually the safest starting point if you want smaller files without obvious degradation.",
-  printer: "Printer mode keeps more detail, so size savings tend to be more modest.",
-  prepress: "Prepress keeps the most fidelity and is best when print quality matters more than file size.",
+type CompressSettings = {
+  addSuffix: boolean;
+  colorMode: "rgb" | "cmyk" | "gray";
+  colorProfile: "srgb" | "adobe-rgb" | "cmyk-coated";
+  compatibilityLevel: "1.4" | "1.5" | "1.6" | "1.7";
+  compressionType: "jpeg" | "jpeg2000" | "zip" | "lzw";
+  downsampleImages: boolean;
+  flattenTransparency: boolean;
+  imageDpi: number;
+  imageQuality: number;
+  linearize: boolean;
+  outputFilename: string;
+  quality: "screen" | "ebook" | "printer" | "prepress";
+  removeAnnotations: boolean;
+  removeBookmarks: boolean;
+  removeMetadata: boolean;
+  subsetFonts: boolean;
 };
 
-const panelClass =
-  "rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/85";
+const initialSettings: CompressSettings = {
+  addSuffix: true,
+  colorMode: "rgb",
+  colorProfile: "srgb",
+  compatibilityLevel: "1.4",
+  compressionType: "jpeg",
+  downsampleImages: true,
+  flattenTransparency: false,
+  imageDpi: 150,
+  imageQuality: 85,
+  linearize: true,
+  outputFilename: "",
+  quality: "ebook",
+  removeAnnotations: false,
+  removeBookmarks: false,
+  removeMetadata: false,
+  subsetFonts: true,
+};
+
+const sections: Array<ControlSection<CompressSettings>> = [
+  {
+    key: "compression-level",
+    label: "Compression Level",
+    fields: [
+      {
+        key: "quality",
+        label: "Compression level",
+        type: "radioCards",
+        options: [
+          {
+            description: "Smallest file, 72 DPI, for web viewing only",
+            label: "Screen",
+            value: "screen",
+          },
+          {
+            description: "Balanced, 150 DPI, good for most uses",
+            label: "Ebook",
+            value: "ebook",
+          },
+          {
+            description: "High quality, 300 DPI, for printing",
+            label: "Printer",
+            value: "printer",
+          },
+          {
+            description: "Maximum quality, 300 DPI, professional print",
+            label: "Prepress",
+            value: "prepress",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    key: "color-settings",
+    label: "Color Settings",
+    fields: [
+      {
+        key: "colorMode",
+        label: "Color mode",
+        type: "select",
+        options: [
+          { label: "RGB", value: "rgb" },
+          { label: "CMYK", value: "cmyk" },
+          { label: "Grayscale", value: "gray" },
+        ],
+      },
+      {
+        key: "colorProfile",
+        label: "Color profile",
+        type: "select",
+        options: [
+          { label: "sRGB", value: "srgb" },
+          { label: "Adobe RGB", value: "adobe-rgb" },
+          { label: "CMYK Coated", value: "cmyk-coated" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "image-settings",
+    label: "Image Settings",
+    fields: [
+      {
+        key: "downsampleImages",
+        label: "Downsample images",
+        type: "toggle",
+      },
+      {
+        key: "imageDpi",
+        label: "Image resolution",
+        type: "slider",
+        min: 72,
+        max: 300,
+        valueSuffix: " DPI",
+      },
+      {
+        key: "imageQuality",
+        label: "Image quality",
+        type: "slider",
+        min: 1,
+        max: 100,
+      },
+      {
+        key: "compressionType",
+        label: "Compression type",
+        type: "select",
+        options: [
+          { label: "JPEG", value: "jpeg" },
+          { label: "JPEG 2000", value: "jpeg2000" },
+          { label: "ZIP", value: "zip" },
+          { label: "LZW", value: "lzw" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "advanced",
+    label: "Advanced",
+    fields: [
+      {
+        key: "compatibilityLevel",
+        label: "PDF compatibility version",
+        type: "select",
+        options: [
+          { label: "PDF 1.4", value: "1.4" },
+          { label: "PDF 1.5", value: "1.5" },
+          { label: "PDF 1.6", value: "1.6" },
+          { label: "PDF 1.7", value: "1.7" },
+        ],
+      },
+      { key: "flattenTransparency", label: "Flatten all transparency", type: "toggle" },
+      { key: "removeMetadata", label: "Remove metadata", type: "toggle" },
+      { key: "removeAnnotations", label: "Remove annotations", type: "toggle" },
+      { key: "removeBookmarks", label: "Remove bookmarks", type: "toggle" },
+      { key: "linearize", label: "Linearize for web", type: "toggle" },
+      { key: "subsetFonts", label: "Subset fonts", type: "toggle" },
+    ],
+  },
+  {
+    key: "output",
+    label: "Output",
+    fields: [
+      {
+        key: "outputFilename",
+        label: "Output filename",
+        type: "text",
+        placeholder: "compressed-document.pdf",
+      },
+      {
+        key: "addSuffix",
+        label: "Add suffix -compressed",
+        type: "toggle",
+      },
+    ],
+  },
+];
 
 export default function PdfCompressPage() {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [prefix] = useState<"pdf" | "image">("pdf");
-  const [isUploading, setIsUploading] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-  const [quality, setQuality] = useState<(typeof qualityOptions)[number]["value"]>("ebook");
-
-  const filename = useMemo(() => `compressed-${quality}.pdf`, [quality]);
-
-  const handleSubmit = async () => {
-    if (!files[0]) {
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", files[0]);
-      formData.append("quality", quality);
-
-      const response = await uploadFile("pdf/compress", formData);
-      setJobId(response.job_id);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   return (
-    <ToolLayout>
-      <div className="space-y-6">
-        <section className={panelClass}>
-          <div className="space-y-3">
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-700 dark:text-sky-300">
-              PDF Compress
-            </p>
-            <h1 className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">
-              Shrink PDF files without the usual friction
-            </h1>
-            <p className="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-              Choose the output quality you want, upload a PDF, and let the backend optimize it for delivery,
-              storage, or print.
-            </p>
-          </div>
-        </section>
-
-        <section className={`${panelClass} space-y-6`}>
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Compression quality</h2>
-            <div className="grid gap-3 md:grid-cols-2">
-              {qualityOptions.map((option) => (
-                <button
-                  className={[
-                    "rounded-2xl border p-4 text-left transition",
-                    quality === option.value
-                      ? "border-sky-500 bg-sky-500/10"
-                      : "border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700",
-                  ].join(" ")}
-                  key={option.value}
-                  onClick={() => setQuality(option.value)}
-                  type="button"
-                >
-                  <p className="font-medium text-slate-950 dark:text-white">{option.label}</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">{option.description}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
-            {tipByQuality[quality]}
-          </div>
-
-          <FileUpload accept=".pdf,application/pdf" maxSizeMB={100} onFilesSelected={setFiles} />
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
-              disabled={!files.length || isUploading}
-              onClick={handleSubmit}
-              type="button"
-            >
-              {isUploading ? "Uploading..." : "Compress PDF"}
-            </button>
-          </div>
-        </section>
-
-        <JobProgress filename={filename} jobId={jobId} prefix={prefix} onComplete={() => setIsUploading(false)} />
-      </div>
-    </ToolLayout>
+    <SinglePdfWorkspacePage<CompressSettings>
+      buildFormData={({ file, settings }) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("quality", settings.quality);
+        formData.append("color_mode", settings.colorMode);
+        formData.append("color_profile", settings.colorProfile);
+        formData.append("downsample_images", String(settings.downsampleImages));
+        formData.append("image_dpi", String(settings.imageDpi));
+        formData.append("image_quality", String(settings.imageQuality));
+        formData.append("compression_type", settings.compressionType);
+        formData.append("compatibility_level", settings.compatibilityLevel);
+        formData.append("flatten_transparency", String(settings.flattenTransparency));
+        formData.append("remove_metadata", String(settings.removeMetadata));
+        formData.append("remove_annotations", String(settings.removeAnnotations));
+        formData.append("remove_bookmarks", String(settings.removeBookmarks));
+        formData.append("linearize", String(settings.linearize));
+        formData.append("subset_fonts", String(settings.subsetFonts));
+        formData.append("output_filename", settings.outputFilename);
+        return formData;
+      }}
+      description="Tune compression, cleanup, and output behavior from one workspace before sending the PDF to the backend."
+      downloadFilename={(file, settings) => {
+        const base = slugifyBaseName(file.name);
+        if (settings.outputFilename.trim()) {
+          return settings.outputFilename.trim().endsWith(".pdf")
+            ? settings.outputFilename.trim()
+            : `${settings.outputFilename.trim()}.pdf`;
+        }
+        return `${base}${settings.addSuffix ? "-compressed" : ""}.pdf`;
+      }}
+      emptyDescription="Upload a PDF to inspect pages, choose a compression profile, and export a smaller file."
+      endpoint="pdf/compress"
+      initialSettings={initialSettings}
+      presets={[
+        { label: "Web Ready", values: { quality: "screen", removeMetadata: true, colorMode: "rgb" } },
+        { label: "Email", values: { quality: "ebook", flattenTransparency: true } },
+        { label: "Archive", values: { quality: "prepress", colorMode: "cmyk", removeMetadata: false } },
+        { label: "Max Compression", values: { quality: "screen", colorMode: "gray", removeMetadata: true } },
+      ]}
+      sections={sections}
+      title="Compress PDF"
+    />
   );
 }

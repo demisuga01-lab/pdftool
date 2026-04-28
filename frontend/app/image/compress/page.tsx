@@ -1,84 +1,199 @@
 "use client";
 
-import { useState } from "react";
+import type { ControlSection } from "@/components/workspace/Controls";
+import { SingleImageWorkspacePage, PreviewStage } from "@/components/workspace/WorkspacePageBuilders";
+import { formatBytes, formatDimensions, slugifyBaseName } from "@/lib/format";
 
-import { ToolLayout } from "@/components/layout/ToolLayout";
-import { FileUpload } from "@/components/ui/FileUpload";
-import { JobProgress } from "@/components/ui/JobProgress";
-import { uploadFile } from "@/lib/api";
+type CompressSettings = {
+  chromaSubsampling: "4:4:4" | "4:2:2" | "4:2:0";
+  colorDepth: "32-bit" | "24-bit" | "8-bit";
+  convertToSrgb: boolean;
+  format: "auto" | "jpeg" | "png" | "webp" | "avif";
+  maxOutputKb: number;
+  pngCompression: number;
+  progressive: boolean;
+  quality: number;
+  sharpen: boolean;
+  sharpenAmount: number;
+  stripGps: boolean;
+  stripMetadata: boolean;
+  tryAllFormats: boolean;
+};
 
-const panelClass =
-  "rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/85";
+const sections: Array<ControlSection<CompressSettings>> = [
+  {
+    key: "target-quality",
+    label: "Target Quality",
+    fields: [{ key: "quality", label: "Quality", type: "slider", min: 1, max: 100 }],
+  },
+  {
+    key: "output-format",
+    label: "Output Format",
+    fields: [
+      {
+        key: "format",
+        label: "Format",
+        type: "buttonGroup",
+        options: [
+          { label: "Auto", value: "auto" },
+          { label: "JPEG", value: "jpeg" },
+          { label: "PNG", value: "png" },
+          { label: "WebP", value: "webp" },
+          { label: "AVIF", value: "avif" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "jpeg-settings",
+    label: "JPEG Settings",
+    fields: [
+      { key: "progressive", label: "Progressive encoding", type: "toggle" },
+      {
+        key: "chromaSubsampling",
+        label: "Chroma subsampling",
+        type: "select",
+        options: [
+          { label: "4:4:4", value: "4:4:4" },
+          { label: "4:2:2", value: "4:2:2" },
+          { label: "4:2:0", value: "4:2:0" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "png-settings",
+    label: "PNG Settings",
+    fields: [
+      { key: "pngCompression", label: "Compression level", type: "slider", min: 0, max: 9 },
+      {
+        key: "colorDepth",
+        label: "Color depth",
+        type: "select",
+        options: [
+          { label: "32-bit", value: "32-bit" },
+          { label: "24-bit", value: "24-bit" },
+          { label: "8-bit", value: "8-bit" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "advanced",
+    label: "Advanced",
+    fields: [
+      { key: "stripMetadata", label: "Strip all metadata", type: "toggle" },
+      { key: "stripGps", label: "Strip GPS specifically", type: "toggle" },
+      { key: "convertToSrgb", label: "Convert to sRGB", type: "toggle" },
+      { key: "sharpen", label: "Sharpen after compression", type: "toggle" },
+      {
+        key: "sharpenAmount",
+        label: "Sharpen amount",
+        type: "slider",
+        min: 0,
+        max: 100,
+        show: (settings) => settings.sharpen,
+      },
+    ],
+  },
+  {
+    key: "optimization",
+    label: "Optimization",
+    fields: [
+      { key: "tryAllFormats", label: "Try all formats and pick smallest", type: "toggle" },
+      { key: "maxOutputKb", label: "Max output size in KB", type: "number", min: 0 },
+    ],
+  },
+];
 
 export default function ImageCompressPage() {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [prefix] = useState<"pdf" | "image">("image");
-  const [isUploading, setIsUploading] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-  const [quality, setQuality] = useState(85);
-
-  const handleSubmit = async () => {
-    if (!files[0]) {
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", files[0]);
-      formData.append("quality", String(quality));
-
-      const response = await uploadFile("image/compress", formData);
-      setJobId(response.job_id);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   return (
-    <ToolLayout>
-      <div className="space-y-6">
-        <section className={panelClass}>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-700 dark:text-cyan-300">
-            Image Compress
-          </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">Reduce image size while keeping useful detail</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-            Tune the quality level and get a smaller file that is easier to publish, upload, or share.
-          </p>
-        </section>
-
-        <section className={`${panelClass} space-y-6`}>
-          <FileUpload accept="image/*" maxSizeMB={100} onFilesSelected={setFiles} />
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-900 dark:text-white" htmlFor="quality">
-              Quality: {quality}
-            </label>
-            <input
-              className="w-full accent-sky-500"
-              id="quality"
-              max={100}
-              min={1}
-              onChange={(event) => setQuality(Number(event.target.value))}
-              type="range"
-              value={quality}
-            />
+    <SingleImageWorkspacePage<CompressSettings>
+      buildFormData={({ file, settings }) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("quality", String(settings.quality));
+        formData.append("format", settings.format);
+        formData.append("progressive", String(settings.progressive));
+        formData.append("png_compression", String(settings.pngCompression));
+        formData.append("strip_metadata", String(settings.stripMetadata));
+        formData.append("strip_gps", String(settings.stripGps));
+        formData.append("convert_to_srgb", String(settings.convertToSrgb));
+        formData.append("sharpen", String(settings.sharpen));
+        formData.append("sharpen_amount", String(settings.sharpenAmount));
+        formData.append("max_output_kb", String(settings.maxOutputKb));
+        return formData;
+      }}
+      description="Compare the image side by side, tune compression settings, and export a smaller file."
+      downloadFilename={(file, settings) => {
+        const base = slugifyBaseName(file.name);
+        const extension =
+          settings.format === "auto"
+            ? file.name.split(".").pop() ?? "jpg"
+            : settings.format === "jpeg"
+              ? "jpg"
+              : settings.format;
+        return `${base}-compressed.${extension}`;
+      }}
+      emptyDescription="Upload an image to compare it before and after compression in the workspace."
+      endpoint="image/compress"
+      initialSettings={{
+        chromaSubsampling: "4:2:0",
+        colorDepth: "24-bit",
+        convertToSrgb: true,
+        format: "auto",
+        maxOutputKb: 0,
+        pngCompression: 6,
+        progressive: true,
+        quality: 82,
+        sharpen: false,
+        sharpenAmount: 20,
+        stripGps: true,
+        stripMetadata: true,
+        tryAllFormats: false,
+      }}
+      presets={[
+        { label: "Aggressive", values: { quality: 60, stripMetadata: true, progressive: true } },
+        { label: "Balanced", values: { quality: 82, progressive: true } },
+        { label: "Lossless", values: { format: "png", quality: 100 } },
+        { label: "Web Fast", values: { format: "webp", quality: 75, stripMetadata: true } },
+      ]}
+      renderCenter={({ file, preview, settings }) => (
+        <PreviewStage className="mx-auto max-w-5xl">
+          <div className="grid gap-4 p-6 lg:grid-cols-2">
+            {[
+              { label: "Original", size: preview ? formatBytes(preview.size) : "--" },
+              {
+                label: "Compressed preview",
+                size: preview ? `~${Math.max(1, Math.round((preview.size * settings.quality) / 100))} B` : "--",
+              },
+            ].map((panel) => (
+              <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4" key={panel.label}>
+                <div className="mb-3 flex items-center justify-between text-[13px] text-slate-500">
+                  <span>{panel.label}</span>
+                  <span>{panel.size}</span>
+                </div>
+                <div className="flex min-h-[340px] items-center justify-center">
+                  {preview ? (
+                    <img
+                      alt={file.name}
+                      className="max-h-[320px] max-w-full rounded-xl border border-[#E5E7EB] bg-white object-contain"
+                      src={preview.dataUrl}
+                    />
+                  ) : null}
+                </div>
+                {preview ? (
+                  <p className="mt-3 text-[13px] text-slate-500">
+                    {formatDimensions(preview.width, preview.height)} / {preview.format}
+                  </p>
+                ) : null}
+              </div>
+            ))}
           </div>
-
-          <button
-            className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
-            disabled={!files.length || isUploading}
-            onClick={handleSubmit}
-            type="button"
-          >
-            {isUploading ? "Uploading..." : "Compress image"}
-          </button>
-        </section>
-
-        <JobProgress filename="compressed-image" jobId={jobId} prefix={prefix} onComplete={() => setIsUploading(false)} />
-      </div>
-    </ToolLayout>
+        </PreviewStage>
+      )}
+      sections={sections}
+      title="Compress Image"
+    />
   );
 }

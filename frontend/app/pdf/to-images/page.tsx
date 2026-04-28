@@ -1,107 +1,177 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import type { ControlSection } from "@/components/workspace/Controls";
+import { SinglePdfWorkspacePage } from "@/components/workspace/WorkspacePageBuilders";
+import { selectedPagesLabel } from "@/lib/workspace-data";
 
-import { ToolLayout } from "@/components/layout/ToolLayout";
-import { FileUpload } from "@/components/ui/FileUpload";
-import { JobProgress } from "@/components/ui/JobProgress";
-import { uploadFile } from "@/lib/api";
+type ToImagesSettings = {
+  dpi: number;
+  downloadZip: boolean;
+  filenamePattern: "page-{n}" | "{original}-{n}" | "{n}";
+  format: "png" | "jpeg" | "webp" | "tiff";
+  jpegQuality: number;
+  pageRange: string;
+  pngCompressionLevel: number;
+  scope: "all" | "range";
+  selectedOnly: boolean;
+  transparent: boolean;
+  zeroPadding: boolean;
+};
 
-const panelClass =
-  "rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/85";
+const initialSettings: ToImagesSettings = {
+  dpi: 150,
+  downloadZip: true,
+  filenamePattern: "page-{n}",
+  format: "png",
+  jpegQuality: 85,
+  pageRange: "",
+  pngCompressionLevel: 6,
+  scope: "all",
+  selectedOnly: false,
+  transparent: false,
+  zeroPadding: true,
+};
+
+const sections: Array<ControlSection<ToImagesSettings>> = [
+  {
+    key: "output-format",
+    label: "Output Format",
+    fields: [
+      {
+        key: "format",
+        label: "Format",
+        type: "radioCards",
+        options: [
+          { label: "PNG", description: "Lossless, supports transparency", value: "png" },
+          { label: "JPEG", description: "Smaller files, no transparency", value: "jpeg" },
+          { label: "WebP", description: "Modern format, excellent compression", value: "webp" },
+          { label: "TIFF", description: "Professional, uncompressed", value: "tiff" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "resolution",
+    label: "Resolution",
+    fields: [
+      {
+        key: "dpi",
+        label: "DPI",
+        type: "slider",
+        min: 72,
+        max: 600,
+        valueSuffix: " DPI",
+      },
+      {
+        key: "jpegQuality",
+        label: "Quality",
+        type: "slider",
+        min: 1,
+        max: 100,
+        show: (settings) => settings.format === "jpeg" || settings.format === "webp",
+      },
+    ],
+  },
+  {
+    key: "png-options",
+    label: "PNG Options",
+    fields: [
+      {
+        key: "transparent",
+        label: "Transparent background",
+        type: "toggle",
+        show: (settings) => settings.format === "png",
+      },
+      {
+        key: "pngCompressionLevel",
+        label: "PNG compression level",
+        type: "slider",
+        min: 0,
+        max: 9,
+        show: (settings) => settings.format === "png",
+      },
+    ],
+  },
+  {
+    key: "pages",
+    label: "Pages",
+    fields: [
+      {
+        key: "scope",
+        label: "Page scope",
+        type: "buttonGroup",
+        options: [
+          { label: "All pages", value: "all" },
+          { label: "Range", value: "range" },
+          { label: "Selected", value: "all" },
+        ],
+      },
+      {
+        key: "pageRange",
+        label: "Page range",
+        type: "text",
+        placeholder: "1-3, 5, 7-9",
+        show: (settings) => settings.scope === "range",
+      },
+      {
+        key: "selectedOnly",
+        label: "Selected pages only",
+        type: "toggle",
+      },
+    ],
+  },
+  {
+    key: "output",
+    label: "Output",
+    fields: [
+      {
+        key: "filenamePattern",
+        label: "Filename pattern",
+        type: "select",
+        options: [
+          { label: "page-{n}", value: "page-{n}" },
+          { label: "{original}-{n}", value: "{original}-{n}" },
+          { label: "{n}", value: "{n}" },
+        ],
+      },
+      { key: "zeroPadding", label: "Zero padding", type: "toggle" },
+      { key: "downloadZip", label: "Download as ZIP", type: "toggle" },
+    ],
+  },
+];
 
 export default function PdfToImagesPage() {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [prefix] = useState<"pdf" | "image">("pdf");
-  const [isUploading, setIsUploading] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-  const [dpi, setDpi] = useState<72 | 150 | 300>(150);
-  const [format, setFormat] = useState<"png" | "jpeg" | "webp">("png");
-
-  const filename = useMemo(() => `pdf-pages-${format}.zip`, [format]);
-
-  const handleSubmit = async () => {
-    if (!files[0]) {
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", files[0]);
-      formData.append("dpi", String(dpi));
-      formData.append("format", format);
-
-      const response = await uploadFile("pdf/to-images", formData);
-      setJobId(response.job_id);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   return (
-    <ToolLayout>
-      <div className="space-y-6">
-        <section className={panelClass}>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
-            PDF to Images
-          </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">Render each page as an image</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-            Great for previews, thumbnails, slides, or workflows that need one image per page.
-          </p>
-        </section>
-
-        <section className={`${panelClass} space-y-6`}>
-          <FileUpload accept=".pdf,application/pdf" maxSizeMB={100} onFilesSelected={setFiles} />
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-900 dark:text-white" htmlFor="dpi">
-                DPI
-              </label>
-              <select
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                id="dpi"
-                onChange={(event) => setDpi(Number(event.target.value) as 72 | 150 | 300)}
-                value={dpi}
-              >
-                <option value={72}>72 DPI</option>
-                <option value={150}>150 DPI</option>
-                <option value={300}>300 DPI</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-900 dark:text-white" htmlFor="format">
-                Output format
-              </label>
-              <select
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                id="format"
-                onChange={(event) => setFormat(event.target.value as "png" | "jpeg" | "webp")}
-                value={format}
-              >
-                <option value="png">PNG</option>
-                <option value="jpeg">JPEG</option>
-                <option value="webp">WEBP</option>
-              </select>
-            </div>
-          </div>
-
-          <button
-            className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
-            disabled={!files.length || isUploading}
-            onClick={handleSubmit}
-            type="button"
-          >
-            {isUploading ? "Uploading..." : "Convert to images"}
-          </button>
-        </section>
-
-        <JobProgress filename={filename} jobId={jobId} prefix={prefix} onComplete={() => setIsUploading(false)} />
-      </div>
-    </ToolLayout>
+    <SinglePdfWorkspacePage<ToImagesSettings>
+      buildFormData={({ file, items, settings }) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("dpi", String(settings.dpi));
+        formData.append("format", settings.format);
+        formData.append("jpeg_quality", String(settings.jpegQuality));
+        formData.append("transparent", String(settings.transparent));
+        formData.append("page_range", settings.scope === "range" ? settings.pageRange : "all");
+        formData.append("selected_pages", settings.selectedOnly ? selectedPagesLabel(items) : "all");
+        formData.append("filename_pattern", settings.filenamePattern);
+        formData.append("zero_padding", String(settings.zeroPadding));
+        formData.append("download_zip", String(settings.downloadZip));
+        return formData;
+      }}
+      description="Render page thumbnails in the browser, choose export settings, then generate an image set from the PDF."
+      downloadFilename={(file, settings) =>
+        `${file.name.replace(/\.pdf$/i, "")}-${settings.format}${settings.downloadZip ? ".zip" : ""}`
+      }
+      emptyDescription="Upload a PDF to convert every page or a selected subset into images."
+      endpoint="pdf/to-images"
+      initialSettings={initialSettings}
+      presets={[
+        { label: "Quick Preview", values: { dpi: 72, format: "jpeg", jpegQuality: 70 } },
+        { label: "Standard", values: { dpi: 150, format: "png" } },
+        { label: "Print Quality", values: { dpi: 300, format: "png", transparent: true } },
+        { label: "Ultra HD", values: { dpi: 600, format: "png" } },
+      ]}
+      sections={sections}
+      title="PDF to Images"
+    />
   );
 }

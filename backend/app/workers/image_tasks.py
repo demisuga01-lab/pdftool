@@ -1,10 +1,16 @@
 import asyncio
+import logging
+import traceback
+from pathlib import Path
 from typing import Any, Awaitable
 
 from fastapi import HTTPException
 
 from app.services.image_service import ImageService
+from app.services.ocr_service import OCRService
 from app.workers.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
 
 
 def _task_id(task: Any) -> str:
@@ -14,7 +20,8 @@ def _task_id(task: Any) -> str:
 def _success(task: Any, **result: str | list[str] | dict[str, Any]) -> dict[str, Any]:
     return {
         "task_id": _task_id(task),
-        "status": "completed",
+        "status": "success",
+        "stage": "finalizing",
         **result,
         "error": None,
     }
@@ -22,12 +29,15 @@ def _success(task: Any, **result: str | list[str] | dict[str, Any]) -> dict[str,
 
 def _failure(task: Any, exc: Exception) -> dict[str, Any]:
     error = exc.detail if isinstance(exc, HTTPException) else str(exc)
+    logger.exception("Image task %s failed", _task_id(task))
     return {
         "task_id": _task_id(task),
-        "status": "failed",
+        "status": "failure",
+        "stage": "processing",
         "output_path": None,
         "result": None,
         "error": error,
+        "traceback": traceback.format_exc(),
     }
 
 
@@ -47,9 +57,23 @@ def convert_image_task(
     input_path: str,
     output_path: str,
     format: str,
+    quality: int = 85,
+    preserve_metadata: bool = False,
+    color_space: str = "srgb",
 ) -> dict[str, Any]:
     try:
-        output = _run_service(ImageService().convert_image(input_path, output_path, format))
+        output = _run_service(
+            ImageService().convert_image(
+                input_path,
+                output_path,
+                format,
+                quality,
+                preserve_metadata,
+                color_space,
+            )
+        )
+        if isinstance(output, dict):
+            return _success(self, output_path=str(output.get("output_path")), result=output)
         return _success(self, output_path=str(output))
     except Exception as exc:
         return _failure(self, exc)
@@ -69,9 +93,33 @@ def resize_image_task(
     width: int | None = None,
     height: int | None = None,
     fit: str = "cover",
+    kernel: str = "lanczos3",
+    without_enlargement: bool = False,
+    quality: int = 85,
+    mode: str = "pixels",
+    percentage: float | None = None,
+    allow_upscale: bool = True,
+    background: str = "#ffffff",
 ) -> dict[str, Any]:
     try:
-        output = _run_service(ImageService().resize_image(input_path, output_path, width, height, fit))
+        output = _run_service(
+            ImageService().resize_image(
+                input_path,
+                output_path,
+                width,
+                height,
+                fit,
+                kernel,
+                without_enlargement,
+                quality,
+                mode,
+                percentage,
+                allow_upscale,
+                background,
+            )
+        )
+        if isinstance(output, dict):
+            return _success(self, output_path=str(output.get("output_path")), result=output)
         return _success(self, output_path=str(output))
     except Exception as exc:
         return _failure(self, exc)
@@ -90,9 +138,26 @@ def compress_image_task(
     output_path: str,
     quality: int = 85,
     format: str | None = None,
+    progressive: bool = False,
+    strip_metadata: bool = False,
+    compression_level: int = 6,
+    force_recompress: bool = False,
 ) -> dict[str, Any]:
     try:
-        output = _run_service(ImageService().compress_image(input_path, output_path, quality, format))
+        output = _run_service(
+            ImageService().compress_image(
+                input_path,
+                output_path,
+                quality,
+                format,
+                progressive,
+                strip_metadata,
+                compression_level,
+                force_recompress,
+            )
+        )
+        if isinstance(output, dict):
+            return _success(self, output_path=str(output.get("output_path")), result=output)
         return _success(self, output_path=str(output))
     except Exception as exc:
         return _failure(self, exc)
@@ -128,9 +193,26 @@ def crop_image_task(
     time_limit=60,
     soft_time_limit=55,
 )
-def rotate_image_task(self: Any, input_path: str, output_path: str, angle: int) -> dict[str, Any]:
+def rotate_image_task(
+    self: Any,
+    input_path: str,
+    output_path: str,
+    angle: int,
+    flip_horizontal: bool = False,
+    flip_vertical: bool = False,
+    output_format: str | None = None,
+) -> dict[str, Any]:
     try:
-        output = _run_service(ImageService().rotate_image(input_path, output_path, angle))
+        output = _run_service(
+            ImageService().rotate_image(
+                input_path,
+                output_path,
+                angle,
+                flip_horizontal,
+                flip_vertical,
+                output_format,
+            )
+        )
         return _success(self, output_path=str(output))
     except Exception as exc:
         return _failure(self, exc)
@@ -150,10 +232,26 @@ def watermark_image_task(
     watermark_text: str,
     opacity: float = 0.5,
     position: str = "bottom-right",
+    x_percent: float | None = None,
+    y_percent: float | None = None,
+    font_size: int = 36,
+    font_color: str = "#ffffff",
+    font_weight: str = "bold",
 ) -> dict[str, Any]:
     try:
         output = _run_service(
-            ImageService().watermark_image(input_path, output_path, watermark_text, opacity, position)
+            ImageService().watermark_image(
+                input_path,
+                output_path,
+                watermark_text,
+                opacity,
+                position,
+                x_percent,
+                y_percent,
+                font_size,
+                font_color,
+                font_weight,
+            )
         )
         return _success(self, output_path=str(output))
     except Exception as exc:
@@ -178,14 +276,26 @@ def remove_background_task(self: Any, input_path: str, output_path: str) -> dict
 @celery_app.task(
     bind=True,
     name="app.workers.image_tasks.ocr_image_task",
-    queue="fast",
-    time_limit=60,
-    soft_time_limit=55,
+    queue="heavy",
+    time_limit=300,
+    soft_time_limit=290,
 )
-def ocr_image_task(self: Any, input_path: str, language: str = "eng") -> dict[str, Any]:
+def ocr_image_task(
+    self: Any,
+    input_path: str,
+    output_dir: str,
+    language: str = "eng",
+    output_format: str = "txt",
+    input_type: str = "auto",
+    page_range: str = "all",
+    deskew: bool = False,
+    denoise: bool = False,
+    enhance_contrast: bool = False,
+    dpi: int = 300,
+) -> dict[str, Any]:
     try:
-        text = _run_service(ImageService().ocr_image(input_path, language))
-        return _success(self, result=str(text))
+        output = _run_service(OCRService().ocr(input_path, output_dir, language, output_format, dpi))
+        return _success(self, output_path=str(output))
     except Exception as exc:
         return _failure(self, exc)
 

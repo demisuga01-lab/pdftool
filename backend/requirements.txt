@@ -11,3 +11,5 @@ img2pdf==0.5.1
 pyvips==2.2.3
 opencv-python-headless==4.10.0.84
 numpy==2.2.0
+python-docx==1.1.2
+openpyxl==3.1.5

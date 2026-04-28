@@ -1,181 +1,371 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import type { ControlSection } from "@/components/workspace/Controls";
+import { SingleImageWorkspacePage, PreviewStage } from "@/components/workspace/WorkspacePageBuilders";
+import { formatDimensions, slugifyBaseName } from "@/lib/format";
 
-import { ToolLayout } from "@/components/layout/ToolLayout";
-import { FileUpload } from "@/components/ui/FileUpload";
-import { JobProgress } from "@/components/ui/JobProgress";
-import { uploadFile } from "@/lib/api";
+type ResizeSettings = {
+  allowUpscale: boolean;
+  aspectRatio: "original" | "1:1" | "4:3" | "3:4" | "16:9" | "9:16" | "3:2" | "2:3" | "a4-portrait" | "a4-landscape" | "custom";
+  background: "white" | "transparent" | "custom";
+  backgroundColor: string;
+  customRatioHeight: number;
+  customRatioWidth: number;
+  fit: "cover" | "contain" | "fill" | "stretch";
+  height: number;
+  kernel: "lanczos3" | "lanczos2" | "cubic" | "linear" | "nearest";
+  lockAspect: boolean;
+  outputFormat: "same" | "jpeg" | "png" | "webp";
+  percentage: number;
+  presetSize: "instagram-post" | "instagram-story" | "youtube-thumbnail" | "x-post" | "facebook-cover" | "linkedin-cover" | "a4-300" | "custom";
+  quality: number;
+  resizeMode: "pixels" | "percentage" | "preset" | "aspect-ratio" | "fit-box";
+  unit: "px" | "%";
+  width: number;
+  withoutEnlargement: boolean;
+};
 
-const panelClass =
-  "rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/85";
-
-export default function ImageResizePage() {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [prefix] = useState<"pdf" | "image">("image");
-  const [isUploading, setIsUploading] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-  const [width, setWidth] = useState("");
-  const [height, setHeight] = useState("");
-  const [lockRatio, setLockRatio] = useState(true);
-  const [fit, setFit] = useState<"cover" | "contain" | "fill">("cover");
-  const [originalSize, setOriginalSize] = useState<{ width: number; height: number } | null>(null);
-
-  useEffect(() => {
-    const file = files[0];
-    if (!file || !file.type.startsWith("image/")) {
-      setOriginalSize(null);
-      return;
-    }
-
-    const url = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      setOriginalSize({ width: image.naturalWidth, height: image.naturalHeight });
-      URL.revokeObjectURL(url);
-    };
-    image.src = url;
-
-    return () => URL.revokeObjectURL(url);
-  }, [files]);
-
-  const handleWidthChange = (value: string) => {
-    setWidth(value);
-
-    if (lockRatio && originalSize && value) {
-      const nextWidth = Number(value);
-      if (Number.isFinite(nextWidth) && nextWidth > 0) {
-        setHeight(String(Math.round((nextWidth / originalSize.width) * originalSize.height)));
-      }
-    }
-  };
-
-  const handleHeightChange = (value: string) => {
-    setHeight(value);
-
-    if (lockRatio && originalSize && value) {
-      const nextHeight = Number(value);
-      if (Number.isFinite(nextHeight) && nextHeight > 0) {
-        setWidth(String(Math.round((nextHeight / originalSize.height) * originalSize.width)));
-      }
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!files[0] || (!width && !height)) {
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", files[0]);
-      if (width) {
-        formData.append("width", width);
-      }
-      if (height) {
-        formData.append("height", height);
-      }
-      formData.append("fit", fit);
-
-      const response = await uploadFile("image/resize", formData);
-      setJobId(response.job_id);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  return (
-    <ToolLayout>
-      <div className="space-y-6">
-        <section className={panelClass}>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
-            Image Resize
-          </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">Resize with control over fit and proportions</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-            Set exact dimensions, keep the original aspect ratio when needed, and choose how the image should fill the frame.
-          </p>
-        </section>
-
-        <section className={`${panelClass} space-y-6`}>
-          <FileUpload accept="image/*" maxSizeMB={100} onFilesSelected={setFiles} />
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-900 dark:text-white" htmlFor="width">
-                Width
-              </label>
-              <input
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                id="width"
-                min={1}
-                onChange={(event) => handleWidthChange(event.target.value)}
-                type="number"
-                value={width}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-900 dark:text-white" htmlFor="height">
-                Height
-              </label>
-              <input
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                id="height"
-                min={1}
-                onChange={(event) => handleHeightChange(event.target.value)}
-                type="number"
-                value={height}
-              />
-            </div>
-          </div>
-
-          <label className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
-            <input
-              checked={lockRatio}
-              className="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-500"
-              onChange={(event) => setLockRatio(event.target.checked)}
-              type="checkbox"
-            />
-            Lock aspect ratio
-          </label>
-
-          {originalSize ? (
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Original size: {originalSize.width} x {originalSize.height}
-            </p>
-          ) : null}
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-900 dark:text-white" htmlFor="fit">
-              Fit mode
-            </label>
-            <select
-              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-              id="fit"
-              onChange={(event) => setFit(event.target.value as "cover" | "contain" | "fill")}
-              value={fit}
-            >
-              <option value="cover">Cover</option>
-              <option value="contain">Contain</option>
-              <option value="fill">Fill</option>
-            </select>
-          </div>
-
+const sections: Array<ControlSection<ResizeSettings>> = [
+  {
+    key: "resize-mode",
+    label: "Resize Mode",
+    fields: [
+      {
+        key: "resizeMode",
+        label: "Mode",
+        type: "radioCards",
+        options: [
+          { label: "By pixels", description: "Set exact pixel dimensions", value: "pixels" },
+          { label: "By percentage", description: "Scale from original size", value: "percentage" },
+          { label: "By preset size", description: "Use a social or print preset", value: "preset" },
+          { label: "By aspect ratio", description: "Calculate dimensions from a ratio", value: "aspect-ratio" },
+          { label: "Fit inside box", description: "Constrain inside a target box", value: "fit-box" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "dimensions",
+    label: "Dimensions",
+    render: (settings, update) => (
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <label className="block text-[13px] text-slate-700">Width</label>
+          <input
+            className="h-9 w-full rounded-md border border-slate-200 px-3 text-[14px] text-slate-700 outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-1"
+            min={1}
+            onChange={(event) => {
+              const nextWidth = Number(event.target.value);
+              update("width", nextWidth);
+              if (settings.lockAspect && settings.width > 0) {
+                update("height", Math.max(1, Math.round(nextWidth * (settings.height / settings.width))));
+              }
+            }}
+            type="number"
+            value={settings.width}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-[13px] text-slate-700">Height</label>
+          <input
+            className="h-9 w-full rounded-md border border-slate-200 px-3 text-[14px] text-slate-700 outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-1"
+            min={1}
+            onChange={(event) => {
+              const nextHeight = Number(event.target.value);
+              update("height", nextHeight);
+              if (settings.lockAspect && settings.height > 0) {
+                update("width", Math.max(1, Math.round(nextHeight * (settings.width / settings.height))));
+              }
+            }}
+            type="number"
+            value={settings.height}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-[13px] text-slate-700">Unit</label>
+          <select
+            className="field-input"
+            onChange={(event) => update("unit", event.target.value as ResizeSettings["unit"])}
+            value={settings.unit}
+          >
+            <option value="px">px</option>
+            <option value="%">%</option>
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-[13px] text-slate-700">Percentage</label>
+          <input
+            className="field-input"
+            min={1}
+            onChange={(event) => update("percentage", Number(event.target.value))}
+            type="number"
+            value={settings.percentage}
+          />
+        </div>
+        <div className="col-span-2 flex items-center justify-between rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2">
+          <span className="text-[13px] text-slate-600">Lock aspect ratio</span>
           <button
-            className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
-            disabled={!files.length || (!width && !height) || isUploading}
-            onClick={handleSubmit}
+            className={[
+              "relative inline-flex h-6 w-11 items-center rounded-full transition",
+              settings.lockAspect ? "bg-[#2563EB]" : "bg-slate-200",
+            ].join(" ")}
+            onClick={() => update("lockAspect", !settings.lockAspect)}
             type="button"
           >
-            {isUploading ? "Uploading..." : "Resize image"}
+            <span
+              className={[
+                "inline-block h-5 w-5 rounded-full bg-white transition",
+                settings.lockAspect ? "translate-x-5" : "translate-x-0.5",
+              ].join(" ")}
+            />
           </button>
-        </section>
-
-        <JobProgress filename="resized-image" jobId={jobId} prefix={prefix} onComplete={() => setIsUploading(false)} />
+        </div>
       </div>
-    </ToolLayout>
+    ),
+  },
+  {
+    key: "aspect-ratio",
+    label: "Aspect Ratio",
+    render: (settings, update) => (
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            ["original", "Original"],
+            ["1:1", "1:1"],
+            ["4:3", "4:3"],
+            ["3:4", "3:4"],
+            ["16:9", "16:9"],
+            ["9:16", "9:16"],
+            ["3:2", "3:2"],
+            ["2:3", "2:3"],
+            ["a4-portrait", "A4 portrait"],
+            ["a4-landscape", "A4 landscape"],
+            ["custom", "Custom"],
+          ].map(([value, label]) => (
+            <button
+              className={[
+                "rounded-lg border px-3 py-2 text-[13px]",
+                settings.aspectRatio === value ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-slate-200 text-slate-700",
+              ].join(" ")}
+              key={value}
+              onClick={() => update("aspectRatio", value as ResizeSettings["aspectRatio"])}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {settings.aspectRatio === "custom" ? (
+          <div className="grid grid-cols-2 gap-2">
+            <input className="field-input" min={1} onChange={(event) => update("customRatioWidth", Number(event.target.value))} type="number" value={settings.customRatioWidth} />
+            <input className="field-input" min={1} onChange={(event) => update("customRatioHeight", Number(event.target.value))} type="number" value={settings.customRatioHeight} />
+          </div>
+        ) : null}
+      </div>
+    ),
+  },
+  {
+    key: "resampling",
+    label: "Resampling Algorithm",
+    fields: [
+      {
+        key: "kernel",
+        label: "Kernel",
+        type: "select",
+        options: [
+          { label: "Lanczos3", value: "lanczos3" },
+          { label: "Lanczos2", value: "lanczos2" },
+          { label: "Cubic", value: "cubic" },
+          { label: "Linear", value: "linear" },
+          { label: "Nearest Neighbor", value: "nearest" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "output-size",
+    label: "Preset Sizes",
+    render: (_settings, update) => (
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          [1080, 1080, "Instagram Post", "instagram-post"],
+          [1080, 1920, "Instagram Story", "instagram-story"],
+          [1280, 720, "YouTube Thumb", "youtube-thumbnail"],
+          [1600, 900, "Twitter/X Post", "x-post"],
+          [1640, 924, "Facebook Cover", "facebook-cover"],
+          [1584, 396, "LinkedIn Cover", "linkedin-cover"],
+          [2480, 3508, "A4 300 DPI", "a4-300"],
+        ].map(([width, height, label, preset]) => (
+          <button
+            className="rounded-lg border border-slate-200 px-3 py-2 text-[13px] text-slate-700"
+            key={label}
+            onClick={() => {
+              update("presetSize", preset as ResizeSettings["presetSize"]);
+              update("width", Number(width));
+              update("height", Number(height));
+            }}
+            type="button"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    ),
+  },
+  {
+    key: "fit-mode",
+    label: "Fit Mode",
+    fields: [
+      {
+        key: "fit",
+        label: "Fit",
+        type: "radioCards",
+        options: [
+          { label: "Contain", description: "Fit inside the box", value: "contain" },
+          { label: "Cover", description: "Fill and crop excess", value: "cover" },
+          { label: "Fill", description: "Pad to exact dimensions", value: "fill" },
+          { label: "Stretch", description: "Ignore aspect ratio", value: "stretch" },
+        ],
+      },
+      { key: "allowUpscale", label: "Allow upscale", type: "toggle" },
+      { key: "withoutEnlargement", label: "No upscale", type: "toggle" },
+      {
+        key: "background",
+        label: "Background color",
+        type: "select",
+        options: [
+          { label: "White", value: "white" },
+          { label: "Transparent", value: "transparent" },
+          { label: "Custom", value: "custom" },
+        ],
+      },
+      {
+        key: "backgroundColor",
+        label: "Custom color",
+        type: "color",
+        show: (settings) => settings.background === "custom",
+      },
+    ],
+  },
+  {
+    key: "quality",
+    label: "Quality",
+    fields: [
+      {
+        key: "outputFormat",
+        label: "Output format",
+        type: "select",
+        options: [
+          { label: "Same as input", value: "same" },
+          { label: "JPEG", value: "jpeg" },
+          { label: "PNG", value: "png" },
+          { label: "WebP", value: "webp" },
+        ],
+      },
+      {
+        key: "quality",
+        label: "Quality",
+        type: "slider",
+        min: 1,
+        max: 100,
+        show: (settings) => settings.outputFormat === "jpeg" || settings.outputFormat === "webp",
+      },
+    ],
+  },
+];
+
+export default function ImageResizePage() {
+  return (
+    <SingleImageWorkspacePage<ResizeSettings>
+      buildFormData={({ file, settings }) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("width", String(settings.width));
+        formData.append("height", String(settings.height));
+        formData.append("mode", settings.resizeMode === "fit-box" ? "pixels" : settings.resizeMode);
+        formData.append("percentage", String(settings.percentage));
+        formData.append("fit", settings.fit);
+        formData.append("kernel", settings.kernel === "linear" ? "cubic" : settings.kernel);
+        formData.append("without_enlargement", String(settings.withoutEnlargement));
+        formData.append("allow_upscale", String(settings.allowUpscale && !settings.withoutEnlargement));
+        formData.append("background", settings.background === "custom" ? settings.backgroundColor : settings.background === "transparent" ? "#00000000" : "#ffffff");
+        formData.append("quality", String(settings.quality));
+        formData.append("output_format", settings.outputFormat);
+        return formData;
+      }}
+      description="Resize with explicit dimensions, fit rules, and resampling choices while keeping the preview in view."
+      downloadFilename={(file, settings) => {
+        const base = slugifyBaseName(file.name);
+        const extension =
+          settings.outputFormat === "same"
+            ? file.name.split(".").pop() ?? "png"
+            : settings.outputFormat === "jpeg"
+              ? "jpg"
+              : settings.outputFormat;
+        return `${base}-${settings.width}x${settings.height}.${extension}`;
+      }}
+      emptyDescription="Upload an image to preview the resize result and adjust dimensions before processing."
+      endpoint="image/resize"
+      initialSettings={{
+        allowUpscale: false,
+        aspectRatio: "original",
+        background: "white",
+        backgroundColor: "#ffffff",
+        customRatioHeight: 1,
+        customRatioWidth: 1,
+        fit: "contain",
+        height: 1080,
+        kernel: "lanczos3",
+        lockAspect: true,
+        outputFormat: "same",
+        percentage: 100,
+        presetSize: "custom",
+        quality: 85,
+        resizeMode: "pixels",
+        unit: "px",
+        width: 1920,
+        withoutEnlargement: true,
+      }}
+      presets={[
+        { label: "1920x1080", values: { width: 1920, height: 1080 } },
+        { label: "Square", values: { width: 1080, height: 1080, fit: "cover" } },
+        { label: "Twitter Header", values: { width: 1500, height: 500, fit: "cover" } },
+        { label: "A4 300 DPI", values: { width: 2480, height: 3508, fit: "contain" } },
+      ]}
+      renderCenter={({ file, preview, settings }) => (
+        <PreviewStage className="mx-auto max-w-4xl">
+          <div className="grid gap-4 p-6 lg:grid-cols-[1fr_220px]">
+            <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-6">
+              {preview ? (
+                <div className="relative flex min-h-[420px] items-center justify-center">
+                  <img
+                    alt={file.name}
+                    className="max-h-[420px] max-w-full rounded-xl border border-[#E5E7EB] bg-white object-contain"
+                    src={preview.dataUrl}
+                  />
+                  <div className="absolute bottom-4 left-4 rounded-full bg-slate-900/80 px-3 py-1 text-[12px] text-white">
+                    New: {settings.width} x {settings.height} px
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            <div className="space-y-3 rounded-2xl border border-[#E5E7EB] bg-white p-4">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">Current size</p>
+                <p className="mt-2 text-[15px] text-slate-900">
+                  {preview ? formatDimensions(preview.width, preview.height) : "--"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">New size</p>
+                <p className="mt-2 text-[15px] text-slate-900">{settings.width} x {settings.height} px</p>
+              </div>
+            </div>
+          </div>
+        </PreviewStage>
+      )}
+      sections={sections}
+      title="Resize Image"
+    />
   );
 }

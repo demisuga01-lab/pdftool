@@ -1,67 +1,148 @@
 "use client";
 
-import { useState } from "react";
+import type { ControlSection } from "@/components/workspace/Controls";
+import { SinglePdfWorkspacePage } from "@/components/workspace/WorkspacePageBuilders";
+import { slugifyBaseName } from "@/lib/format";
 
-import { ToolLayout } from "@/components/layout/ToolLayout";
-import { FileUpload } from "@/components/ui/FileUpload";
-import { JobProgress } from "@/components/ui/JobProgress";
-import { uploadFile } from "@/lib/api";
+type ExtractTextSettings = {
+  encoding: "utf-8" | "ascii";
+  extractFormValues: boolean;
+  languageHint: "auto" | "english" | "hindi" | "arabic" | "chinese" | "french" | "german" | "spanish";
+  mode: "plain" | "layout" | "html" | "json";
+  outputFormat: "txt" | "html" | "json";
+  pageRange: string;
+  preserveLineBreaks: boolean;
+  removeHeadersFooters: boolean;
+  scope: "all" | "range";
+};
 
-const panelClass =
-  "rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/85";
+const initialSettings: ExtractTextSettings = {
+  encoding: "utf-8",
+  extractFormValues: false,
+  languageHint: "auto",
+  mode: "plain",
+  outputFormat: "txt",
+  pageRange: "",
+  preserveLineBreaks: true,
+  removeHeadersFooters: false,
+  scope: "all",
+};
+
+const sections: Array<ControlSection<ExtractTextSettings>> = [
+  {
+    key: "extraction-mode",
+    label: "Extraction Mode",
+    fields: [
+      {
+        key: "mode",
+        label: "Mode",
+        type: "radioCards",
+        options: [
+          { label: "Plain text", value: "plain" },
+          { label: "Preserve layout", value: "layout" },
+          { label: "HTML output", value: "html" },
+          { label: "JSON output", value: "json" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "pages",
+    label: "Pages",
+    fields: [
+      {
+        key: "scope",
+        label: "Page scope",
+        type: "buttonGroup",
+        options: [
+          { label: "All pages", value: "all" },
+          { label: "Range", value: "range" },
+        ],
+      },
+      {
+        key: "pageRange",
+        label: "Page range",
+        type: "text",
+        placeholder: "1-3, 5, 7-9",
+        show: (settings) => settings.scope === "range",
+      },
+    ],
+  },
+  {
+    key: "options",
+    label: "Options",
+    fields: [
+      { key: "preserveLineBreaks", label: "Preserve line breaks", type: "toggle" },
+      { key: "removeHeadersFooters", label: "Remove headers and footers", type: "toggle" },
+      { key: "extractFormValues", label: "Extract form field values", type: "toggle" },
+      {
+        key: "languageHint",
+        label: "Language hint",
+        type: "select",
+        options: [
+          { label: "Auto-detect", value: "auto" },
+          { label: "English", value: "english" },
+          { label: "Hindi", value: "hindi" },
+          { label: "Arabic", value: "arabic" },
+          { label: "Chinese", value: "chinese" },
+          { label: "French", value: "french" },
+          { label: "German", value: "german" },
+          { label: "Spanish", value: "spanish" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "output",
+    label: "Output",
+    fields: [
+      {
+        key: "outputFormat",
+        label: "Output format",
+        type: "select",
+        options: [
+          { label: "TXT", value: "txt" },
+          { label: "HTML", value: "html" },
+          { label: "JSON", value: "json" },
+        ],
+      },
+      {
+        key: "encoding",
+        label: "Encoding",
+        type: "select",
+        options: [
+          { label: "UTF-8", value: "utf-8" },
+          { label: "ASCII", value: "ascii" },
+        ],
+      },
+    ],
+  },
+];
 
 export default function PdfExtractTextPage() {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [prefix] = useState<"pdf" | "image">("pdf");
-  const [isUploading, setIsUploading] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-
-  const handleSubmit = async () => {
-    if (!files[0]) {
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", files[0]);
-
-      const response = await uploadFile("pdf/extract-text", formData);
-      setJobId(response.job_id);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   return (
-    <ToolLayout>
-      <div className="space-y-6">
-        <section className={panelClass}>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-700 dark:text-slate-300">
-            Extract Text
-          </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">Pull text out of a PDF into a plain text file</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-            Useful for copy review, search indexing, and content recovery from existing documents.
-          </p>
-        </section>
-
-        <section className={`${panelClass} space-y-6`}>
-          <FileUpload accept=".pdf,application/pdf" maxSizeMB={100} onFilesSelected={setFiles} />
-
-          <button
-            className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
-            disabled={!files.length || isUploading}
-            onClick={handleSubmit}
-            type="button"
-          >
-            {isUploading ? "Uploading..." : "Extract text"}
-          </button>
-        </section>
-
-        <JobProgress filename="extracted-text.txt" jobId={jobId} prefix={prefix} onComplete={() => setIsUploading(false)} />
-      </div>
-    </ToolLayout>
+    <SinglePdfWorkspacePage<ExtractTextSettings>
+      buildFormData={({ file, settings }) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("layout", String(settings.mode === "layout"));
+        formData.append("mode", settings.mode);
+        formData.append("pages", settings.scope === "range" ? settings.pageRange : "all");
+        formData.append("preserve_line_breaks", String(settings.preserveLineBreaks));
+        formData.append("remove_headers_footers", String(settings.removeHeadersFooters));
+        formData.append("extract_form_values", String(settings.extractFormValues));
+        formData.append("language_hint", settings.languageHint);
+        formData.append("output_format", settings.outputFormat);
+        formData.append("encoding", settings.encoding);
+        return formData;
+      }}
+      description="Inspect pages, choose an extraction profile, and export plain text, layout-aware text, HTML, or JSON."
+      downloadFilename={(file, settings) => `${slugifyBaseName(file.name)}.${settings.outputFormat}`}
+      emptyDescription="Upload a PDF to review its pages before extracting text."
+      endpoint="pdf/extract-text"
+      initialSettings={initialSettings}
+      sections={sections}
+      title="Extract Text"
+    />
   );
 }

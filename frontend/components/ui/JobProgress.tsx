@@ -1,85 +1,165 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, Download, LoaderCircle } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, Download, X } from "lucide-react";
 
 import { downloadFile, type JobStatus, pollJobStatus } from "@/lib/api";
+import { useGlobalSettings } from "@/lib/settings";
 
 type JobProgressProps = {
   jobId?: string | null;
   prefix: "pdf" | "image";
   filename: string;
   onComplete?: (status: JobStatus) => void;
+  onReset?: () => void;
 };
 
 type ProgressState = "idle" | "uploading" | "queued" | "processing" | "success" | "failure";
 
 const stateCopy: Record<Exclude<ProgressState, "idle">, string> = {
-  uploading: "Uploading files",
-  queued: "Queued for processing",
-  processing: "Processing your file",
-  success: "Completed successfully",
+  uploading: "Uploading your file...",
+  queued: "Waiting in queue...",
+  processing: "Processing your file...",
+  success: "Done!",
   failure: "Something went wrong",
 };
 
-export function JobProgress({ jobId, prefix, filename, onComplete }: JobProgressProps) {
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException
+    ? error.name === "AbortError"
+    : error instanceof Error && error.name === "AbortError";
+}
+
+export function JobProgress({ jobId, prefix, filename, onComplete, onReset }: JobProgressProps) {
   const [state, setState] = useState<ProgressState>("idle");
   const [result, setResult] = useState<JobStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { globalSettings } = useGlobalSettings();
+  const mountedRef = useRef(false);
+  const timeoutRef = useRef<number | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const activeJobIdRef = useRef<string | null>(null);
+  const terminalStateRef = useRef<Extract<ProgressState, "success" | "failure"> | null>(null);
+  const autoDownloadedRef = useRef<string | null>(null);
+  const onCompleteRef = useRef(onComplete);
+  const onResetRef = useRef(onReset);
 
   useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    onResetRef.current = onReset;
+  }, [onReset]);
+
+  const clearPollingTimeout = () => {
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    clearPollingTimeout();
+
     if (!jobId) {
+      activeJobIdRef.current = null;
+      terminalStateRef.current = null;
       setState("idle");
       setResult(null);
       setError(null);
-      return;
+      return () => {
+        mountedRef.current = false;
+        clearPollingTimeout();
+      };
     }
 
-    let cancelled = false;
-    const queuedTimer = window.setTimeout(() => {
-      if (!cancelled) {
-        setState("queued");
-      }
-    }, 150);
-    const processingTimer = window.setTimeout(() => {
-      if (!cancelled) {
-        setState("processing");
-      }
-    }, 2200);
-
+    activeJobIdRef.current = jobId;
+    terminalStateRef.current = null;
+    autoDownloadedRef.current = null;
     setState("uploading");
     setResult(null);
     setError(null);
 
-    pollJobStatus(prefix, jobId)
-      .then((finalStatus) => {
-        if (cancelled) {
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    timeoutRef.current = window.setTimeout(() => {
+      if (
+        !mountedRef.current ||
+        controller.signal.aborted ||
+        activeJobIdRef.current !== jobId ||
+        terminalStateRef.current
+      ) {
+        return;
+      }
+
+      setState("queued");
+
+      timeoutRef.current = window.setTimeout(() => {
+        if (
+          !mountedRef.current ||
+          controller.signal.aborted ||
+          activeJobIdRef.current !== jobId ||
+          terminalStateRef.current
+        ) {
           return;
         }
 
+        setState("processing");
+        timeoutRef.current = null;
+      }, 2050);
+    }, 150);
+
+    pollJobStatus(prefix, jobId, controller.signal)
+      .then((finalStatus) => {
+        if (
+          !mountedRef.current ||
+          controller.signal.aborted ||
+          activeJobIdRef.current !== jobId
+        ) {
+          return;
+        }
+
+        const terminalStatus = finalStatus.status === "failure" ? "failure" : "success";
+
+        terminalStateRef.current = terminalStatus;
+        clearPollingTimeout();
         setResult(finalStatus);
-        setState(finalStatus.status);
+        setState(terminalStatus);
         setError(finalStatus.error ?? null);
-        onComplete?.(finalStatus);
+        onCompleteRef.current?.(finalStatus);
       })
       .catch((caughtError: unknown) => {
-        if (cancelled) {
+        if (
+          isAbortError(caughtError) ||
+          !mountedRef.current ||
+          controller.signal.aborted ||
+          activeJobIdRef.current !== jobId
+        ) {
           return;
         }
 
         const nextError =
           caughtError instanceof Error ? caughtError.message : "Unable to fetch job status.";
 
+        terminalStateRef.current = "failure";
+        clearPollingTimeout();
+        setResult(null);
         setState("failure");
         setError(nextError);
       });
 
     return () => {
-      cancelled = true;
-      window.clearTimeout(queuedTimer);
-      window.clearTimeout(processingTimer);
+      mountedRef.current = false;
+      controller.abort();
+      clearPollingTimeout();
     };
-  }, [jobId, onComplete, prefix]);
+  }, [jobId, prefix]);
 
   const statusText = useMemo(() => {
     if (state === "idle") {
@@ -95,67 +175,92 @@ export function JobProgress({ jobId, prefix, filename, onComplete }: JobProgress
 
   const isActive = state === "uploading" || state === "queued" || state === "processing";
 
+  useEffect(() => {
+    if (
+      !globalSettings.autoDownload ||
+      state !== "success" ||
+      !jobId ||
+      !result?.output_path ||
+      autoDownloadedRef.current === jobId
+    ) {
+      return;
+    }
+
+    autoDownloadedRef.current = jobId;
+    downloadFile(prefix, jobId, filename);
+  }, [filename, globalSettings.autoDownload, jobId, prefix, result?.output_path, state]);
+
+  const handleReset = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    clearPollingTimeout();
+    activeJobIdRef.current = null;
+    terminalStateRef.current = null;
+
+    if (mountedRef.current) {
+      setState("idle");
+      setResult(null);
+      setError(null);
+    }
+
+    onResetRef.current?.();
+  };
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/85">
-      <div className="flex items-start gap-3">
-        <div
+    <div className="space-y-3">
+      <div className="flex items-center gap-3 text-sm">
+        <span
           className={[
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl",
+            "h-2.5 w-2.5 rounded-full",
             state === "success"
-              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+              ? "bg-emerald-500"
               : state === "failure"
-                ? "bg-rose-500/10 text-rose-600 dark:text-rose-300"
-                : "bg-sky-500/10 text-sky-600 dark:text-sky-300",
+                ? "bg-rose-500"
+                : state === "processing"
+                  ? "animate-pulse bg-[#2563EB]"
+                  : "bg-slate-300",
           ].join(" ")}
-        >
-          {state === "success" ? (
-            <CheckCircle2 className="h-6 w-6" />
-          ) : state === "failure" ? (
-            <AlertCircle className="h-6 w-6" />
-          ) : (
-            <LoaderCircle className="h-6 w-6 animate-spin" />
-          )}
-        </div>
-
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{statusText}</p>
-            {jobId ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Job ID: <span className="font-mono">{jobId}</span>
-              </p>
-            ) : null}
-          </div>
-
-          {isActive ? (
-            <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-              <div className="h-full w-2/3 animate-pulse rounded-full bg-sky-500" />
-            </div>
-          ) : null}
-
-          {state === "failure" ? (
-            <p className="text-sm text-rose-700 dark:text-rose-300">{error ?? "The job failed."}</p>
-          ) : null}
-
-          {state === "success" ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                {result?.result ? "Result is ready." : "Your file is ready to download."}
-              </p>
-              {result?.output_path ? (
-                <button
-                  className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
-                  onClick={() => downloadFile(prefix, jobId ?? "", filename)}
-                  type="button"
-                >
-                  <Download className="h-4 w-4" />
-                  Download
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
+        />
+        <span className="font-medium text-[#111827]">{statusText}</span>
+        {jobId ? <span className="font-mono text-xs text-slate-400">{jobId}</span> : null}
       </div>
+
+      {isActive && state === "processing" ? (
+        <div className="h-1 w-full overflow-hidden rounded-full bg-slate-200">
+          <div className="h-full w-2/3 animate-pulse rounded-full bg-[#2563EB]" />
+        </div>
+      ) : null}
+
+      {state === "failure" ? (
+        <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-3 text-sm text-rose-600">
+          <X className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{error ?? "The job failed."}</span>
+        </div>
+      ) : null}
+
+      {state === "success" ? (
+        <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-emerald-700">
+            <Check className="h-4 w-4" />
+            <span>{result?.result ? "Result is ready." : "Done!"}</span>
+          </div>
+          {result?.output_path ? (
+            <button
+              className="primary-button w-full gap-2"
+              onClick={() => downloadFile(prefix, jobId ?? "", filename)}
+              type="button"
+            >
+              <Download className="h-4 w-4" />
+              Download file
+            </button>
+          ) : null}
+          {onReset ? (
+            <button className="secondary-button w-full" onClick={handleReset} type="button">
+              Process Another File
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

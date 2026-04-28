@@ -1,122 +1,168 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
-import { ToolLayout } from "@/components/layout/ToolLayout";
-import { FileUpload } from "@/components/ui/FileUpload";
-import { JobProgress } from "@/components/ui/JobProgress";
+import { ImageWorkspace, EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
+import { formatBytes, formatDimensions, joinMeta } from "@/lib/format";
+import { useSingleImagePreview } from "@/lib/workspace-data";
 
-const panelClass =
-  "rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/85";
-
-type InfoResult = {
-  width?: number;
-  height?: number;
+type ImageInfoResult = {
+  bands?: number;
   format?: string;
-  size_bytes?: number;
+  height?: number;
   interpretation?: string;
+  size_bytes?: number;
+  width?: number;
 };
 
-function formatBytes(bytes?: number): string {
-  if (!bytes) {
-    return "0 B";
-  }
-
-  const units = ["B", "KB", "MB", "GB"];
-  const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / 1024 ** unitIndex;
-
-  return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
-}
-
 export default function ImageInfoPage() {
-  const [jobId] = useState<string | null>(null);
-  const [prefix] = useState<"pdf" | "image">("image");
-  const [isUploading, setIsUploading] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-  const [result, setResult] = useState<InfoResult | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [result, setResult] = useState<ImageInfoResult | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const preview = useSingleImagePreview(file);
 
-  const handleSubmit = async () => {
-    if (!files[0]) {
+  const handleProcess = async () => {
+    if (!file) {
       return;
     }
 
-    setIsUploading(true);
+    setLoading(true);
     setError(null);
 
     try {
       const formData = new FormData();
-      formData.append("file", files[0]);
+      formData.append("file", file);
 
       const response = await fetch("/api/image/info", {
-        method: "POST",
         body: formData,
+        method: "POST",
       });
-      const data = (await response.json()) as { result?: InfoResult; detail?: string };
 
+      const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.detail ?? "Unable to read image info");
+        throw new Error(data.detail ?? data.error ?? "Failed to inspect image");
       }
 
       setResult(data.result ?? null);
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to read image info");
+      setError(caughtError instanceof Error ? caughtError.message : "Failed to inspect image");
     } finally {
-      setIsUploading(false);
+      setLoading(false);
     }
   };
 
+  const jsonValue = result ? JSON.stringify(result, null, 2) : "";
+
   return (
-    <ToolLayout>
-      <div className="space-y-6">
-        <section className={panelClass}>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-700 dark:text-slate-300">
-            Image Info
-          </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">Inspect dimensions, format, and color metadata</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-            Handy for checking assets before upload, export, or handoff to another workflow.
-          </p>
-        </section>
-
-        <section className={`${panelClass} space-y-6`}>
-          <FileUpload accept="image/*" maxSizeMB={100} onFilesSelected={setFiles} />
-
-          <button className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white" disabled={!files.length || isUploading} onClick={handleSubmit} type="button">
-            {isUploading ? "Uploading..." : "Read image info"}
-          </button>
-
-          {error ? <p className="text-sm text-rose-700 dark:text-rose-300">{error}</p> : null}
+    <ImageWorkspace
+      breadcrumbTitle="Image Info"
+      centerContent={
+        preview ? (
+          <div className="mx-auto max-w-4xl rounded-2xl border border-[#E5E7EB] bg-white p-6">
+            <div className="flex min-h-[520px] items-center justify-center rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-6">
+              <img
+                alt={file?.name ?? "Preview"}
+                className="max-h-[460px] max-w-full rounded-xl border border-[#E5E7EB] bg-white object-contain"
+                src={preview.dataUrl}
+              />
+            </div>
+          </div>
+        ) : null
+      }
+      countLabel={preview ? formatDimensions(preview.width, preview.height) : undefined}
+      description="Inspect the uploaded image, then export the discovered metadata as JSON or text."
+      emptyState={
+        <EmptyWorkspaceState
+          accept="image/*"
+          description="Upload an image to inspect its basic metadata and file characteristics."
+          onFilesSelected={(files) => {
+            setFile(files[0] ?? null);
+            setResult(null);
+            setError(null);
+          }}
+        />
+      }
+      fileInfo={preview ? joinMeta([formatBytes(preview.size), preview.format]) : undefined}
+      fileName={file?.name}
+      hasContent={Boolean(file)}
+      onProcess={handleProcess}
+      processButtonDisabled={!file || loading}
+      processingLabel={loading ? "Inspecting image" : null}
+      rightPanel={
+        <div className="space-y-6">
+          <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] leading-6 text-slate-500">
+            {error ?? "Process the image to populate the metadata panel."}
+          </div>
 
           {result ? (
-            <div className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 dark:border-slate-800 dark:bg-slate-950">
-              <div>
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Width</p>
-                <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">{result.width ?? "-"}</p>
+            <>
+              <div className="space-y-3">
+                <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
+                  Basic Info
+                </p>
+                <div className="rounded-xl border border-[#E5E7EB] bg-white">
+                  {[
+                    ["Filename", file?.name ?? "--"],
+                    ["File size", result.size_bytes ? `${formatBytes(result.size_bytes)} (${result.size_bytes} bytes)` : "--"],
+                    ["Format", result.format ?? "--"],
+                    ["Dimensions", result.width && result.height ? `${result.width} x ${result.height}` : "--"],
+                    [
+                      "Aspect ratio",
+                      result.width && result.height ? (result.width / result.height).toFixed(2) : "--",
+                    ],
+                    ["Color mode", result.interpretation ?? "--"],
+                    ["Bit depth", result.bands ? `${result.bands * 8}-bit` : "--"],
+                    ["Estimated print size at 300 DPI", result.width && result.height ? `${(result.width / 300).toFixed(2)} x ${(result.height / 300).toFixed(2)} in` : "--"],
+                  ].map(([label, value]) => (
+                    <div className="flex items-center justify-between gap-4 border-b border-[#E5E7EB] px-4 py-3 text-[13px] last:border-b-0" key={label}>
+                      <span className="text-slate-500">{label}</span>
+                      <span className="text-right text-slate-700">{value}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Height</p>
-                <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">{result.height ?? "-"}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Format</p>
-                <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">{result.format ?? "-"}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Size</p>
-                <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">{formatBytes(result.size_bytes)}</p>
-              </div>
-              <div className="sm:col-span-2">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Color space</p>
-                <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-white">{result.interpretation ?? "-"}</p>
-              </div>
-            </div>
-          ) : null}
-        </section>
 
-        <JobProgress filename="image-info.json" jobId={jobId} prefix={prefix} />
-      </div>
-    </ToolLayout>
+              <div className="space-y-3">
+                <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
+                  Actions
+                </p>
+                <div className="grid gap-2">
+                  <button
+                    className="h-9 rounded-md border border-slate-200 px-3 text-[14px] text-slate-700"
+                    onClick={() => navigator.clipboard.writeText(jsonValue)}
+                    type="button"
+                  >
+                    Copy all info as JSON
+                  </button>
+                  <button
+                    className="h-9 rounded-md border border-slate-200 px-3 text-[14px] text-slate-700"
+                    onClick={() => {
+                      const blob = new Blob([jsonValue], { type: "text/plain;charset=utf-8" });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.download = `${file?.name ?? "image"}-info.txt`;
+                      link.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    type="button"
+                  >
+                    Download info as TXT
+                  </button>
+                  <Link
+                    className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 px-3 text-[14px] text-slate-700"
+                    href="/image/compress"
+                  >
+                    Strip all metadata
+                  </Link>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
+      }
+    />
   );
 }

@@ -1,119 +1,213 @@
 "use client";
 
-import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import type { ControlSection } from "@/components/workspace/Controls";
+import { EyeIcon, EyeOffIcon, LockIcon } from "@/components/icons/SiteIcons";
+import { SinglePdfWorkspacePage, PreviewStage } from "@/components/workspace/WorkspacePageBuilders";
+import { formatBytes, slugifyBaseName } from "@/lib/format";
 
-import { ToolLayout } from "@/components/layout/ToolLayout";
-import { FileUpload } from "@/components/ui/FileUpload";
-import { JobProgress } from "@/components/ui/JobProgress";
-import { uploadFile } from "@/lib/api";
+type ProtectSettings = {
+  allowCopying: "allow" | "deny";
+  editing: "none" | "pages" | "forms" | "comment" | "full";
+  encryptionStrength: "128-rc4" | "256-aes";
+  ownerPassword: string;
+  printing: "none" | "low" | "high";
+  sameOwnerPassword: boolean;
+  screenReaderAccess: "allow" | "deny";
+  showPasswords: boolean;
+  userPassword: string;
+  userPasswordConfirm: string;
+};
 
-const panelClass =
-  "rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/85";
+function createPassword() {
+  return Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 8).toUpperCase();
+}
 
-export default function PdfProtectPage() {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [prefix] = useState<"pdf" | "image">("pdf");
-  const [isUploading, setIsUploading] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async () => {
-    if (!files[0] || !password) {
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-
-    setError(null);
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", files[0]);
-      formData.append("user_password", password);
-      formData.append("owner_password", "");
-
-      const response = await uploadFile("pdf/encrypt", formData);
-      setJobId(response.job_id);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  return (
-    <ToolLayout>
-      <div className="space-y-6">
-        <section className={panelClass}>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-fuchsia-700 dark:text-fuchsia-300">
-            Protect PDF
-          </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">Add password protection before you share</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-            Encrypt a PDF with a password so only the right people can open it.
-          </p>
-        </section>
-
-        <section className={`${panelClass} space-y-6`}>
-          <FileUpload accept=".pdf,application/pdf" maxSizeMB={100} onFilesSelected={setFiles} />
-
-          <div className="grid gap-5 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-900 dark:text-white" htmlFor="password">
-                Password
-              </label>
-              <div className="flex rounded-2xl border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-950">
-                <input
-                  className="w-full rounded-l-2xl bg-transparent px-4 py-3 text-sm text-slate-950 outline-none dark:text-white"
-                  id="password"
-                  onChange={(event) => setPassword(event.target.value)}
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                />
-                <button
-                  className="px-4 text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                  onClick={() => setShowPassword((current) => !current)}
-                  type="button"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-900 dark:text-white" htmlFor="confirm-password">
-                Confirm password
-              </label>
-              <input
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                id="confirm-password"
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                type={showPassword ? "text" : "password"}
-                value={confirmPassword}
-              />
-            </div>
+const sections: Array<ControlSection<ProtectSettings>> = [
+  {
+    key: "user-password",
+    label: "User Password",
+    render: (settings, update) => (
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <label className="block text-[13px] text-slate-700">Password</label>
+          <div className="flex gap-2">
+            <input
+              className="h-9 w-full rounded-md border border-slate-200 px-3 text-[14px] text-slate-700 outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-1"
+              onChange={(event) => update("userPassword", event.target.value)}
+              type={settings.showPasswords ? "text" : "password"}
+              value={settings.userPassword}
+            />
+            <button
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-500"
+              onClick={() => update("showPasswords", !settings.showPasswords)}
+              type="button"
+            >
+              {settings.showPasswords ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+            </button>
           </div>
-
-          {error ? <p className="text-sm text-rose-700 dark:text-rose-300">{error}</p> : null}
-
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-[13px] text-slate-700">Confirm password</label>
+          <input
+            className="h-9 w-full rounded-md border border-slate-200 px-3 text-[14px] text-slate-700 outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-1"
+            onChange={(event) => update("userPasswordConfirm", event.target.value)}
+            type={settings.showPasswords ? "text" : "password"}
+            value={settings.userPasswordConfirm}
+          />
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-[13px] text-slate-600">
+          <span>
+            Password strength:{" "}
+            {settings.userPassword.length >= 12 ? "Strong" : settings.userPassword.length >= 8 ? "Medium" : "Weak"}
+          </span>
           <button
-            className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
-            disabled={!files.length || !password || !confirmPassword || isUploading}
-            onClick={handleSubmit}
+            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-slate-700"
+            onClick={() => {
+              const next = createPassword();
+              update("userPassword", next);
+              update("userPasswordConfirm", next);
+            }}
             type="button"
           >
-            {isUploading ? "Uploading..." : "Protect PDF"}
+            Generate
           </button>
-        </section>
-
-        <JobProgress filename="protected.pdf" jobId={jobId} prefix={prefix} onComplete={() => setIsUploading(false)} />
+        </div>
       </div>
-    </ToolLayout>
+    ),
+  },
+  {
+    key: "owner-password",
+    label: "Owner Password",
+    fields: [
+      { key: "sameOwnerPassword", label: "Different owner password", type: "toggle" },
+      {
+        key: "ownerPassword",
+        label: "Owner password",
+        type: "password",
+        show: (settings) => !settings.sameOwnerPassword,
+      },
+    ],
+  },
+  {
+    key: "permissions",
+    label: "Permissions",
+    fields: [
+      {
+        key: "printing",
+        label: "Printing",
+        type: "select",
+        options: [
+          { label: "Not allowed", value: "none" },
+          { label: "Low resolution", value: "low" },
+          { label: "High resolution", value: "high" },
+        ],
+      },
+      {
+        key: "allowCopying",
+        label: "Copying text",
+        type: "select",
+        options: [
+          { label: "Allow", value: "allow" },
+          { label: "Deny", value: "deny" },
+        ],
+      },
+      {
+        key: "editing",
+        label: "Editing",
+        type: "select",
+        options: [
+          { label: "Not allowed", value: "none" },
+          { label: "Insert/delete pages", value: "pages" },
+          { label: "Fill forms", value: "forms" },
+          { label: "Comment only", value: "comment" },
+          { label: "Full editing", value: "full" },
+        ],
+      },
+      {
+        key: "screenReaderAccess",
+        label: "Screen reader access",
+        type: "select",
+        options: [
+          { label: "Allow", value: "allow" },
+          { label: "Deny", value: "deny" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "encryption",
+    label: "Encryption",
+    fields: [
+      {
+        key: "encryptionStrength",
+        label: "Encryption strength",
+        type: "select",
+        options: [
+          { label: "128-bit RC4", value: "128-rc4" },
+          { label: "256-bit AES", value: "256-aes" },
+        ],
+      },
+    ],
+  },
+];
+
+export default function PdfProtectPage() {
+  return (
+    <SinglePdfWorkspacePage<ProtectSettings>
+      buildFormData={({ file, settings }) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("user_password", settings.userPassword);
+        formData.append(
+          "owner_password",
+          settings.sameOwnerPassword ? settings.userPassword : settings.ownerPassword,
+        );
+        formData.append("printing", settings.printing);
+        formData.append("copying", settings.allowCopying);
+        formData.append("editing", settings.editing);
+        formData.append("screen_reader_access", settings.screenReaderAccess);
+        formData.append("encryption_strength", settings.encryptionStrength);
+        return formData;
+      }}
+      description="Protect a PDF with a user password, owner permissions, and encryption settings before export."
+      downloadFilename={(file) => `${slugifyBaseName(file.name)}-protected.pdf`}
+      emptyDescription="Upload a PDF to apply password protection and permissions."
+      endpoint="pdf/encrypt"
+      initialSettings={{
+        allowCopying: "deny",
+        editing: "none",
+        encryptionStrength: "256-aes",
+        ownerPassword: "",
+        printing: "none",
+        sameOwnerPassword: true,
+        screenReaderAccess: "allow",
+        showPasswords: false,
+        userPassword: "",
+        userPasswordConfirm: "",
+      }}
+      processDisabled={({ file, settings }) =>
+        !file ||
+        !settings.userPassword ||
+        settings.userPassword !== settings.userPasswordConfirm ||
+        (!settings.sameOwnerPassword && !settings.ownerPassword)
+      }
+      renderCenter={({ file }) => (
+        <PreviewStage className="mx-auto max-w-3xl">
+          <div className="flex min-h-[420px] items-center justify-center bg-[#F9FAFB] p-8">
+            <div className="w-full max-w-md rounded-2xl border border-[#E5E7EB] bg-white p-8 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#2563EB]">
+                <LockIcon className="h-7 w-7" />
+              </div>
+              <h2 className="mt-4 text-[24px] text-slate-900">{file.name}</h2>
+              <p className="mt-2 text-[14px] leading-6 text-slate-500">{formatBytes(file.size)}</p>
+            </div>
+          </div>
+        </PreviewStage>
+      )}
+      sections={sections}
+      showSelectionBar={false}
+      showSizeToggle={false}
+      title="Protect PDF"
+    />
   );
 }

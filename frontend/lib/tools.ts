@@ -1,4 +1,4 @@
-export type ToolCategory = "pdf" | "image";
+export type ToolCategory = "pdf" | "image" | "shared";
 
 export type ToolDefinition = {
   id: string;
@@ -48,22 +48,13 @@ export const tools: ToolDefinition[] = [
     color: "violet",
   },
   {
-    id: "extract-text",
-    name: "Extract Text",
-    description: "Pull searchable text from PDF pages while preserving layout.",
-    icon: "FileText",
+    id: "convert",
+    name: "PDF Converter",
+    description: "Convert PDF to Word, Excel, images, HTML, text, and Office files to PDF.",
+    icon: "RefreshCw",
     category: "pdf",
-    href: "/pdf/extract-text",
+    href: "/pdf/convert",
     color: "slate",
-  },
-  {
-    id: "to-images",
-    name: "PDF to Images",
-    description: "Turn each PDF page into crisp PNG or JPG output.",
-    icon: "Images",
-    category: "pdf",
-    href: "/pdf/to-images",
-    color: "emerald",
   },
   {
     id: "images-to-pdf",
@@ -73,15 +64,6 @@ export const tools: ToolDefinition[] = [
     category: "pdf",
     href: "/pdf/images-to-pdf",
     color: "rose",
-  },
-  {
-    id: "office-to-pdf",
-    name: "Office to PDF",
-    description: "Convert Word, Excel, or PowerPoint files into PDF format.",
-    icon: "FileSpreadsheet",
-    category: "pdf",
-    href: "/pdf/office-to-pdf",
-    color: "amber",
   },
   {
     id: "protect",
@@ -103,8 +85,8 @@ export const tools: ToolDefinition[] = [
   },
   {
     id: "convert",
-    name: "Convert Image",
-    description: "Convert images between JPG, PNG, WEBP, TIFF, and AVIF.",
+    name: "Image Converter",
+    description: "Convert images between common raster formats and export SVG files to image formats.",
     icon: "RefreshCw",
     category: "image",
     href: "/image/convert",
@@ -166,11 +148,11 @@ export const tools: ToolDefinition[] = [
   },
   {
     id: "ocr",
-    name: "OCR Image",
-    description: "Extract readable text from screenshots, scans, and photos.",
+    name: "OCR",
+    description: "Extract text from PDFs and images",
     icon: "ScanSearch",
-    category: "image",
-    href: "/image/ocr",
+    category: "shared",
+    href: "/tools/ocr",
     color: "teal",
   },
   {
@@ -193,5 +175,5 @@ export const tools: ToolDefinition[] = [
   },
 ];
 
-export const pdfTools = tools.filter((tool) => tool.category === "pdf");
-export const imageTools = tools.filter((tool) => tool.category === "image");
+export const pdfTools = tools.filter((tool) => tool.category === "pdf" || tool.category === "shared");
+export const imageTools = tools.filter((tool) => tool.category === "image" || tool.category === "shared");

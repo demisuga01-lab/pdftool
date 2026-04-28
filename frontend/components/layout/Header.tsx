@@ -1,10 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { GitBranch, Menu, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import {
+  ChevronDownIcon,
+  CloseIcon,
+  MenuIcon,
+} from "@/components/icons/SiteIcons";
+import { Logo } from "@/components/ui/Logo";
 import { imageTools, pdfTools } from "@/lib/tools";
+import { GitBranch } from "lucide-react";
 
 function NavDropdown({
   label,
@@ -58,80 +64,97 @@ function NavDropdown({
     >
       <button
         aria-expanded={open}
-        className="inline-flex items-center border border-transparent px-3 py-2 text-sm font-semibold uppercase tracking-[0.14em] text-slate-700 transition hover:border-slate-950 hover:text-slate-950 focus-visible:border-slate-950 focus-visible:outline-none dark:text-slate-300 dark:hover:border-slate-100 dark:hover:text-white dark:focus-visible:border-slate-100"
+        className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/20"
         onClick={toggleMenu}
         onFocus={openMenu}
-        onMouseEnter={openMenu}
-        onMouseLeave={closeMenu}
         type="button"
       >
-        {label}
+        <span>{label}</span>
+        <ChevronDownIcon className="ml-1 h-4 w-4" />
       </button>
 
-      {open ? (
-        <div
-          className="absolute left-0 top-full z-50 mt-3 w-72 border border-slate-950 bg-white p-3 shadow-[8px_8px_0_0_rgba(0,0,0,1)] dark:border-slate-100 dark:bg-slate-950 dark:shadow-[8px_8px_0_0_rgba(255,255,255,0.14)]"
-          onFocus={openMenu}
-          onMouseEnter={openMenu}
-          onMouseLeave={closeMenu}
-        >
-          <div className="space-y-1">
-            {items.map((item) => (
-              <Link
-                className="block border border-transparent px-3 py-2 text-sm text-slate-700 transition hover:border-slate-950 hover:bg-slate-950 hover:text-white dark:text-slate-300 dark:hover:border-slate-100 dark:hover:bg-slate-100 dark:hover:text-slate-950"
-                href={item.href}
-                key={item.href}
-                onClick={() => setOpen(false)}
-              >
-                {item.name}
-              </Link>
-            ))}
-          </div>
+      <div
+        className={[
+          "absolute left-0 top-full z-50 w-64 origin-top-left pt-2 transition duration-150",
+          open ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
+        ].join(" ")}
+        onFocus={openMenu}
+      >
+        <div className="space-y-1 rounded-lg border border-[#E5E7EB] bg-white p-2 shadow-lg shadow-slate-900/8">
+          {items.map((item) => (
+            <Link
+              className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
+              href={item.href}
+              key={item.href}
+              onClick={() => setOpen(false)}
+            >
+              {item.name}
+            </Link>
+          ))}
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  const mobileGroups = useMemo(
-    () => [
-      { label: "PDF Tools", items: pdfTools },
-      { label: "Image Tools", items: imageTools },
-    ],
+  const desktopPdfTools = useMemo(
+    () => pdfTools.filter((tool, index, list) => list.findIndex((candidate) => candidate.href === tool.href) === index),
+    [],
+  );
+  const desktopImageTools = useMemo(
+    () => imageTools.filter((tool, index, list) => list.findIndex((candidate) => candidate.href === tool.href) === index),
     [],
   );
 
-  return (
-    <header className="sticky top-0 z-50 border-b-2 border-slate-950 bg-white dark:border-slate-100 dark:bg-slate-950">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4 sm:px-6 lg:px-8">
-        <Link className="flex items-center gap-3" href="/">
-          <span className="flex h-11 w-11 items-center justify-center border-2 border-slate-950 bg-slate-950 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950">
-            <GitBranch className="h-5 w-5 text-[#2563EB]" />
-          </span>
-          <span className="space-y-1">
-            <span className="block text-base font-semibold tracking-tight text-slate-950 dark:text-white">
-              PDFTools by WellFriend
-            </span>
-            <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2563EB]">
-              Free &amp; Open Source
-            </span>
-          </span>
-        </Link>
+  const mobileGroups = useMemo(
+    () => [
+      { label: "PDF Tools", items: desktopPdfTools },
+      { label: "Image Tools", items: desktopImageTools },
+    ],
+    [desktopImageTools, desktopPdfTools],
+  );
 
-        <nav className="hidden items-center gap-2 md:flex">
+  return (
+    <header className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white/95 backdrop-blur">
+      <div className="mx-auto grid h-20 max-w-[1560px] grid-cols-[1fr_auto_1fr] items-center px-10 xl:px-14">
+        <div className="justify-self-start pl-2">
+          <Logo />
+        </div>
+
+        <nav className="hidden items-center justify-center gap-6 justify-self-center md:flex">
           <NavDropdown
-            items={pdfTools.map((tool) => ({ href: tool.href, name: tool.name }))}
+            items={desktopPdfTools.map((tool) => ({ href: tool.href, name: tool.name }))}
             label="PDF Tools"
           />
           <NavDropdown
-            items={imageTools.map((tool) => ({ href: tool.href, name: tool.name }))}
+            items={desktopImageTools.map((tool) => ({ href: tool.href, name: tool.name }))}
             label="Image Tools"
           />
           <Link
-            className="inline-flex items-center gap-2 border border-slate-950 px-3 py-2 text-sm font-semibold uppercase tracking-[0.14em] text-slate-950 transition hover:bg-slate-950 hover:text-white dark:border-slate-100 dark:text-slate-100 dark:hover:bg-slate-100 dark:hover:text-slate-950"
+            className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
+            href="/pricing"
+          >
+            Pricing
+          </Link>
+          <Link
+            className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
+            href="/about"
+          >
+            About
+          </Link>
+          <Link
+            className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
+            href="/contact"
+          >
+            Contact
+          </Link>
+        </nav>
+
+        <div className="hidden justify-self-end pr-2 md:flex md:items-center md:justify-end">
+          <Link
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#D1D5DB] px-3 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-[#F9FAFB] hover:text-[#111827]"
             href="https://github.com/demisuga01-lab/pdftool"
             rel="noreferrer"
             target="_blank"
@@ -139,31 +162,31 @@ export function Header() {
             <GitBranch className="h-4 w-4" />
             GitHub
           </Link>
-        </nav>
+        </div>
 
         <button
           aria-expanded={mobileOpen}
           aria-label="Toggle navigation"
-          className="inline-flex h-11 w-11 items-center justify-center border-2 border-slate-950 bg-white text-slate-950 transition hover:bg-slate-950 hover:text-white dark:border-slate-100 dark:bg-slate-950 dark:text-slate-100 dark:hover:bg-slate-100 dark:hover:text-slate-950 md:hidden"
+          className="inline-flex h-9 w-9 items-center justify-center justify-self-end rounded-lg border border-[#D1D5DB] text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827] md:hidden"
           onClick={() => setMobileOpen((current) => !current)}
           type="button"
         >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {mobileOpen ? <CloseIcon className="h-4 w-4" /> : <MenuIcon className="h-4 w-4" />}
         </button>
       </div>
 
       {mobileOpen ? (
-        <div className="border-t-2 border-slate-950 px-4 py-4 dark:border-slate-100 md:hidden">
+        <div className="border-t border-[#E5E7EB] bg-white px-4 py-4 md:hidden">
           <div className="space-y-5">
             {mobileGroups.map((group) => (
               <div className="space-y-2" key={group.label}>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2563EB]">
+                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">
                   {group.label}
                 </p>
                 <div className="grid gap-1">
                   {group.items.map((tool) => (
                     <Link
-                      className="border border-transparent px-3 py-2 text-sm text-slate-700 transition hover:border-slate-950 hover:bg-slate-950 hover:text-white dark:text-slate-300 dark:hover:border-slate-100 dark:hover:bg-slate-100 dark:hover:text-slate-950"
+                      className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
                       href={tool.href}
                       key={tool.href}
                       onClick={() => setMobileOpen(false)}
@@ -176,7 +199,29 @@ export function Header() {
             ))}
 
             <Link
-              className="inline-flex items-center gap-2 border border-slate-950 px-3 py-2 text-sm font-semibold uppercase tracking-[0.14em] text-slate-950 transition hover:bg-slate-950 hover:text-white dark:border-slate-100 dark:text-slate-100 dark:hover:bg-slate-100 dark:hover:text-slate-950"
+              className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
+              href="/pricing"
+              onClick={() => setMobileOpen(false)}
+            >
+              Pricing
+            </Link>
+            <Link
+              className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
+              href="/about"
+              onClick={() => setMobileOpen(false)}
+            >
+              About
+            </Link>
+            <Link
+              className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
+              href="/contact"
+              onClick={() => setMobileOpen(false)}
+            >
+              Contact
+            </Link>
+
+            <Link
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#D1D5DB] px-3 text-sm font-semibold text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
               href="https://github.com/demisuga01-lab/pdftool"
               rel="noreferrer"
               target="_blank"

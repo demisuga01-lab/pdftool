@@ -1,9 +1,15 @@
 export type JobStatus = {
   job_id: string;
   status: "queued" | "processing" | "success" | "failure";
+  stage?: "uploading" | "preparing" | "processing" | "finalizing" | "queued" | string;
+  progress?: number;
   output_path?: string;
+  output_paths?: string[];
+  queue_position?: number;
+  estimated_seconds_remaining?: number;
   result?: any;
   error?: string;
+  traceback?: string;
 };
 
 export type ApiResponse = {
@@ -13,12 +19,16 @@ export type ApiResponse = {
 };
 
 const API_BASE_URL = "/api";
-const POLL_INTERVAL_MS = 2000;
-const POLL_TIMEOUT_MS = 30000;
-const NETWORK_ERROR_MESSAGE = "Cannot connect to server. Make sure the backend is running.";
-const JOB_TIMEOUT_MESSAGE = "Job is taking too long. Make sure Redis and Celery worker are running.";
+const NETWORK_ERROR_MESSAGE = "Cannot connect to processing server. Please try again in a moment.";
+const JOB_TIMEOUT_MESSAGE = "Job is taking longer than expected. The file may still be processing.";
 
-function toApiPath(endpoint: string): string {
+const JOB_TIMEOUTS_MS = {
+  fast: 2 * 60 * 1000,
+  heavy: 10 * 60 * 1000,
+  ocr: 15 * 60 * 1000,
+};
+
+export function toApiPath(endpoint: string): string {
   return `${API_BASE_URL}/${endpoint.replace(/^\/+/, "")}`;
 }
 
@@ -41,7 +51,13 @@ function normalizeStatus(status: string): JobStatus["status"] {
 }
 
 async function parseResponse<T>(response: Response): Promise<T> {
-  const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+  const rawText = await response.text().catch(() => "");
+  let data: Record<string, unknown> | null = null;
+  try {
+    data = rawText ? (JSON.parse(rawText) as Record<string, unknown>) : null;
+  } catch {
+    data = null;
+  }
 
   if (!response.ok) {
     const detail =
@@ -49,7 +65,15 @@ async function parseResponse<T>(response: Response): Promise<T> {
         ? data.detail
         : typeof data?.error === "string"
           ? data.error
-          : "Request failed";
+          : rawText.trim() || "Request failed";
+
+    if (process.env.NODE_ENV !== "production") {
+      console.error("API request failed", {
+        status: response.status,
+        url: response.url,
+        detail,
+      });
+    }
 
     throw new Error(detail);
   }
@@ -73,65 +97,123 @@ function normalizeNetworkError(error: unknown, fallbackMessage: string): Error {
   return new Error(fallbackMessage);
 }
 
-export async function uploadFile(endpoint: string, formData: FormData): Promise<{ job_id: string }> {
-  let response: Response;
-
-  try {
-    response = await fetch(toApiPath(endpoint), {
-      method: "POST",
-      body: formData,
-    });
-  } catch (error: unknown) {
-    throw normalizeNetworkError(error, NETWORK_ERROR_MESSAGE);
-  }
-
-  const data = await parseResponse<ApiResponse>(response);
-  return { job_id: data.job_id };
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException
+    ? error.name === "AbortError"
+    : error instanceof Error && error.name === "AbortError";
 }
 
-export async function getJobStatus(prefix: "pdf" | "image", jobId: string): Promise<JobStatus> {
+function abortError(): DOMException {
+  return new DOMException("The operation was aborted.", "AbortError");
+}
+
+async function waitForPollInterval(intervalMs: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    throw abortError();
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      cleanup();
+      resolve();
+    }, intervalMs);
+
+    const handleAbort = () => {
+      window.clearTimeout(timeoutId);
+      cleanup();
+      reject(abortError());
+    };
+
+    const cleanup = () => {
+      signal?.removeEventListener("abort", handleAbort);
+    };
+
+    signal?.addEventListener("abort", handleAbort, { once: true });
+  });
+}
+
+export async function getJobStatus(
+  prefix: "pdf" | "image",
+  jobId: string,
+  signal?: AbortSignal,
+): Promise<JobStatus> {
   let response: Response;
 
   try {
     response = await fetch(toApiPath(`${prefix}/status/${jobId}`), {
       cache: "no-store",
+      signal,
     });
   } catch (error: unknown) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+
     throw normalizeNetworkError(error, NETWORK_ERROR_MESSAGE);
   }
 
   const data = await parseResponse<Record<string, unknown>>(response);
+  const normalizedStatus = normalizeStatus(String(data.status ?? "queued"));
+  const outputPath = typeof data.output_path === "string" ? data.output_path : undefined;
+  const outputPaths = Array.isArray(data.output_paths) ? data.output_paths.map((path) => String(path)) : undefined;
+  const error = typeof data.error === "string" ? data.error : undefined;
 
   return {
     job_id: String(data.job_id ?? jobId),
-    status: normalizeStatus(String(data.status ?? "queued")),
-    output_path: typeof data.output_path === "string" ? data.output_path : undefined,
+    status: normalizedStatus,
+    stage: typeof data.stage === "string" ? data.stage : undefined,
+    progress: typeof data.progress === "number" ? data.progress : undefined,
+    output_path: outputPath,
+    output_paths: outputPaths,
+    queue_position: typeof data.queue_position === "number" ? data.queue_position : undefined,
+    estimated_seconds_remaining:
+      typeof data.estimated_seconds_remaining === "number" ? data.estimated_seconds_remaining : undefined,
     result: data.result,
-    error: typeof data.error === "string" ? data.error : undefined,
+    error:
+      normalizedStatus === "success" && !outputPath && !outputPaths && !data.result
+        ? "Job completed but no output file was returned."
+        : error,
+    traceback: typeof data.traceback === "string" ? data.traceback : undefined,
   };
 }
 
-export async function pollJobStatus(prefix: "pdf" | "image", jobId: string): Promise<JobStatus> {
+export async function pollJobStatus(
+  prefix: "pdf" | "image",
+  jobId: string,
+  signal?: AbortSignal,
+  onUpdate?: (status: JobStatus) => void,
+  timeoutKind: "fast" | "heavy" | "ocr" = "heavy",
+): Promise<JobStatus> {
   const startedAt = Date.now();
 
   while (true) {
+    if (signal?.aborted) {
+      throw abortError();
+    }
+
     let status: JobStatus;
 
     try {
-      status = await getJobStatus(prefix, jobId);
+      status = await getJobStatus(prefix, jobId, signal);
     } catch (error: unknown) {
+      if (isAbortError(error)) {
+        throw error;
+      }
+
       throw normalizeNetworkError(error, NETWORK_ERROR_MESSAGE);
     }
+
+    onUpdate?.(status);
 
     if (status.status === "success" || status.status === "failure") {
       return status;
     }
 
-    if (Date.now() - startedAt >= POLL_TIMEOUT_MS) {
+    if (Date.now() - startedAt >= JOB_TIMEOUTS_MS[timeoutKind]) {
       throw new Error(JOB_TIMEOUT_MESSAGE);
     }
 
-    await new Promise((resolve) => window.setTimeout(resolve, POLL_INTERVAL_MS));
+    await waitForPollInterval(Date.now() - startedAt > 30_000 ? 5000 : 2000, signal);
   }
 }
 

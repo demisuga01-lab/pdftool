@@ -1,82 +1,94 @@
 "use client";
 
-import { useState } from "react";
+import type { ControlSection } from "@/components/workspace/Controls";
+import { EyeIcon, EyeOffIcon, LockIcon } from "@/components/icons/SiteIcons";
+import { SinglePdfWorkspacePage, PreviewStage } from "@/components/workspace/WorkspacePageBuilders";
+import { formatBytes, slugifyBaseName } from "@/lib/format";
 
-import { ToolLayout } from "@/components/layout/ToolLayout";
-import { FileUpload } from "@/components/ui/FileUpload";
-import { JobProgress } from "@/components/ui/JobProgress";
-import { uploadFile } from "@/lib/api";
+type DecryptSettings = {
+  keepMetadata: boolean;
+  password: string;
+  removeRestrictions: boolean;
+  showPassword: boolean;
+};
 
-const panelClass =
-  "rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/85";
+const sections: Array<ControlSection<DecryptSettings>> = [
+  {
+    key: "password",
+    label: "Password",
+    render: (settings, update) => (
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <label className="block text-[13px] text-slate-700">Password</label>
+          <div className="flex gap-2">
+            <input
+              className="h-9 w-full rounded-md border border-slate-200 px-3 text-[14px] text-slate-700 outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-1"
+              onChange={(event) => update("password", event.target.value)}
+              type={settings.showPassword ? "text" : "password"}
+              value={settings.password}
+            />
+            <button
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-500"
+              onClick={() => update("showPassword", !settings.showPassword)}
+              type="button"
+            >
+              {settings.showPassword ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+        <p className="text-sm text-slate-500">Enter the user or owner password to unlock this PDF.</p>
+      </div>
+    ),
+  },
+  {
+    key: "after-decryption",
+    label: "After Decryption",
+    fields: [
+      { key: "removeRestrictions", label: "Remove all restrictions", type: "toggle" },
+      { key: "keepMetadata", label: "Keep original metadata", type: "toggle" },
+    ],
+  },
+];
 
 export default function PdfDecryptPage() {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [prefix] = useState<"pdf" | "image">("pdf");
-  const [isUploading, setIsUploading] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-  const [password, setPassword] = useState("");
-
-  const handleSubmit = async () => {
-    if (!files[0] || !password) {
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", files[0]);
-      formData.append("password", password);
-
-      const response = await uploadFile("pdf/decrypt", formData);
-      setJobId(response.job_id);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   return (
-    <ToolLayout>
-      <div className="space-y-6">
-        <section className={panelClass}>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-teal-700 dark:text-teal-300">
-            Decrypt PDF
-          </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">Remove a PDF password when you have permission</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-            Enter the current password and download an unlocked version for your workflow.
-          </p>
-        </section>
-
-        <section className={`${panelClass} space-y-6`}>
-          <FileUpload accept=".pdf,application/pdf" maxSizeMB={100} onFilesSelected={setFiles} />
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-900 dark:text-white" htmlFor="decrypt-password">
-              Password
-            </label>
-            <input
-              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-              id="decrypt-password"
-              onChange={(event) => setPassword(event.target.value)}
-              type="password"
-              value={password}
-            />
+    <SinglePdfWorkspacePage<DecryptSettings>
+      buildFormData={({ file, settings }) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("password", settings.password);
+        formData.append("remove_restrictions", String(settings.removeRestrictions));
+        formData.append("keep_metadata", String(settings.keepMetadata));
+        return formData;
+      }}
+      description="Unlock an encrypted PDF with the correct password and export a clean decrypted copy."
+      downloadFilename={(file) => `${slugifyBaseName(file.name)}-unlocked.pdf`}
+      emptyDescription="Upload a locked PDF to remove its password and restrictions."
+      endpoint="pdf/decrypt"
+      initialSettings={{
+        keepMetadata: true,
+        password: "",
+        removeRestrictions: true,
+        showPassword: false,
+      }}
+      processDisabled={({ file, settings }) => !file || !settings.password}
+      renderCenter={({ file }) => (
+        <PreviewStage className="mx-auto max-w-3xl">
+          <div className="flex min-h-[420px] items-center justify-center bg-[#F9FAFB] p-8">
+            <div className="w-full max-w-md rounded-2xl border border-[#E5E7EB] bg-white p-8 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#2563EB]">
+                <LockIcon className="h-7 w-7" />
+              </div>
+              <h2 className="mt-4 text-[24px] text-slate-900">{file.name}</h2>
+              <p className="mt-2 text-[14px] leading-6 text-slate-500">{formatBytes(file.size)}</p>
+            </div>
           </div>
-
-          <button
-            className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
-            disabled={!files.length || !password || isUploading}
-            onClick={handleSubmit}
-            type="button"
-          >
-            {isUploading ? "Uploading..." : "Decrypt PDF"}
-          </button>
-        </section>
-
-        <JobProgress filename="decrypted.pdf" jobId={jobId} prefix={prefix} onComplete={() => setIsUploading(false)} />
-      </div>
-    </ToolLayout>
+        </PreviewStage>
+      )}
+      sections={sections}
+      showSelectionBar={false}
+      showSizeToggle={false}
+      title="Decrypt PDF"
+    />
   );
 }

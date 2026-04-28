@@ -1,3 +1,190 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --app-bg: #ffffff;
+    --panel-bg: #ffffff;
+    --panel-muted: #f9fafb;
+    --panel-hover: #f3f4f6;
+    --border: #e5e7eb;
+    --border-strong: #d1d5db;
+    --text: #111827;
+    --muted: #6b7280;
+    --muted-soft: #9ca3af;
+    --accent: #2563eb;
+    --accent-strong: #1d4ed8;
+    --accent-soft: #eff6ff;
+  }
+
+  .dark {
+    --app-bg: #0f172a;
+    --panel-bg: #111827;
+    --panel-muted: #1f2937;
+    --panel-hover: #273449;
+    --border: #374151;
+    --border-strong: #475569;
+    --text: #f9fafb;
+    --muted: #9ca3af;
+    --muted-soft: #94a3b8;
+    --accent: #60a5fa;
+    --accent-strong: #3b82f6;
+    --accent-soft: rgba(37, 99, 235, 0.16);
+  }
+
+  html {
+    background-color: var(--app-bg);
+    -webkit-font-smoothing: antialiased;
+    font-synthesis: none;
+  }
+
+  body {
+    background-color: var(--app-bg);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .tool-page {
+    @apply space-y-6;
+  }
+
+  .tool-panel {
+    @apply rounded-lg border p-6 shadow-sm shadow-slate-900/5;
+    background-color: var(--panel-bg);
+    border-color: var(--border);
+  }
+
+  .tool-panel-muted {
+    @apply rounded-lg border p-4;
+    background-color: var(--panel-muted);
+    border-color: var(--border);
+  }
+
+  .tool-eyebrow {
+    @apply text-sm font-medium;
+    color: var(--accent);
+  }
+
+  .tool-title {
+    @apply mt-2 text-2xl font-bold;
+    color: var(--text);
+  }
+
+  .tool-description {
+    @apply mt-2 max-w-2xl text-sm font-medium leading-6;
+    color: var(--muted);
+  }
+
+  .section-title {
+    @apply text-base font-bold;
+    color: var(--text);
+  }
+
+  .field-label {
+    @apply text-[13px] font-medium;
+    color: var(--muted);
+  }
+
+  .field-input {
+    @apply h-10 w-full rounded-lg border border-gray-300 px-3.5 text-sm font-medium outline-none transition focus:ring-2 focus:ring-blue-500;
+    background-color: var(--panel-bg);
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+
+  .field-input:focus {
+    border-color: var(--accent);
+  }
+
+  .field-textarea {
+    @apply w-full rounded-lg border border-gray-300 px-3.5 py-3 text-sm font-medium outline-none transition focus:ring-2 focus:ring-blue-500;
+    background-color: var(--panel-bg);
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+
+  .field-textarea:focus {
+    border-color: var(--accent);
+  }
+
+  .field-select {
+    @apply field-input appearance-none bg-[right_0.75rem_center] bg-no-repeat pr-10;
+  }
+
+  .field-checkbox {
+    @apply h-4 w-4 rounded;
+    border-color: var(--border-strong);
+    color: var(--accent);
+  }
+
+  .field-range {
+    @apply h-1.5 w-full cursor-pointer appearance-none rounded-full accent-[#2563EB];
+    background-color: color-mix(in srgb, var(--muted-soft) 35%, white);
+  }
+
+  .primary-button {
+    @apply inline-flex h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60;
+    background-color: var(--accent);
+  }
+
+  .primary-button:hover {
+    background-color: var(--accent-strong);
+  }
+
+  .secondary-button {
+    @apply inline-flex h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60;
+    background-color: var(--panel-bg);
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+
+  .secondary-button:hover {
+    background-color: var(--panel-muted);
+  }
+
+  .ghost-button {
+    @apply inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition;
+    color: var(--muted);
+  }
+
+  .ghost-button:hover {
+    background-color: var(--panel-muted);
+    color: var(--text);
+  }
+
+  .result-grid {
+    @apply grid gap-4 sm:grid-cols-2;
+  }
+
+  .result-item {
+    @apply rounded-lg border p-4;
+    background-color: var(--panel-muted);
+    border-color: var(--border);
+  }
+
+  .result-label {
+    @apply text-xs font-medium;
+    color: var(--muted);
+  }
+
+  .result-value {
+    @apply mt-1 text-base font-bold;
+    color: var(--text);
+  }
+}

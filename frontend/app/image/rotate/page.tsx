@@ -1,96 +1,218 @@
 "use client";
 
-import { useState } from "react";
+import { FlipHorizontal2, FlipVertical2, RotateCcw, RotateCw } from "lucide-react";
 
-import { ToolLayout } from "@/components/layout/ToolLayout";
-import { FileUpload } from "@/components/ui/FileUpload";
-import { JobProgress } from "@/components/ui/JobProgress";
-import { uploadFile } from "@/lib/api";
+import type { ControlSection } from "@/components/workspace/Controls";
+import { RotateCcwIcon, RotateCwIcon } from "@/components/icons/SiteIcons";
+import { SingleImageWorkspacePage, PreviewStage } from "@/components/workspace/WorkspacePageBuilders";
+import { slugifyBaseName } from "@/lib/format";
 
-const presetAngles = [90, 180, 270] as const;
-const panelClass =
-  "rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/85";
+type RotateSettings = {
+  angle: number;
+  background: "transparent" | "white" | "black" | "custom";
+  backgroundColor: string;
+  expandCanvas: boolean;
+  flipHorizontal: boolean;
+  flipVertical: boolean;
+  format: "same" | "png" | "jpeg";
+  quality: number;
+};
 
-export default function ImageRotatePage() {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [prefix] = useState<"pdf" | "image">("image");
-  const [isUploading, setIsUploading] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-  const [angle, setAngle] = useState("90");
-
-  const handleSubmit = async () => {
-    if (!files[0] || !angle) {
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", files[0]);
-      formData.append("angle", angle);
-
-      const response = await uploadFile("image/rotate", formData);
-      setJobId(response.job_id);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  return (
-    <ToolLayout>
-      <div className="space-y-6">
-        <section className={panelClass}>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-300">
-            Image Rotate
-          </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">Rotate by a preset angle or your own custom value</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-            Useful for straightening photos, assets, and exports that came out sideways.
-          </p>
-        </section>
-
-        <section className={`${panelClass} space-y-6`}>
-          <FileUpload accept="image/*" maxSizeMB={100} onFilesSelected={setFiles} />
-
-          <div className="flex flex-wrap gap-3">
-            {presetAngles.map((value) => (
+const sections: Array<ControlSection<RotateSettings>> = [
+  {
+    key: "quick-rotate",
+    label: "Quick Rotate",
+    render: (settings, update) => (
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          { icon: RotateCcw, label: "Rotate 90° CCW" },
+          { icon: RotateCw, label: "Rotate 90° CW" },
+          { icon: FlipHorizontal2, label: "Flip Horizontal" },
+          { icon: FlipVertical2, label: "Flip Vertical" },
+        ].map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              className="flex h-20 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+              key={item.label}
+              onClick={() => {
+                if (item.label === "Rotate 90° CCW") {
+                  update("angle", settings.angle - 90);
+                } else if (item.label === "Rotate 90° CW") {
+                  update("angle", settings.angle + 90);
+                } else if (item.label === "Flip Horizontal") {
+                  update("flipHorizontal", !settings.flipHorizontal);
+                } else {
+                  update("flipVertical", !settings.flipVertical);
+                }
+              }}
+              type="button"
+            >
+              <Icon className="h-8 w-8" />
+              <span className="text-[11px] font-medium">{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    ),
+  },
+  {
+    key: "rotation",
+    label: "Custom Angle",
+    render: (settings, update) => (
+      <div className="space-y-3">
+        <input
+          className="w-full accent-[#2563EB]"
+          max={360}
+          min={-360}
+          onChange={(event) => update("angle", Number(event.target.value))}
+          step={1}
+          type="range"
+          value={settings.angle}
+        />
+        <div className="space-y-1.5">
+          <label className="block text-[13px] text-slate-700">Angle</label>
+          <input
+            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+            max={360}
+            min={-360}
+            onChange={(event) => update("angle", Number(event.target.value))}
+            type="number"
+            value={settings.angle}
+          />
+        </div>
+      </div>
+    ),
+  },
+  {
+    key: "rotation-presets",
+    label: "Presets",
+    render: (settings, update) => (
+      <div className="grid grid-cols-3 gap-2">
+          {[
+            { delta: 90, label: "90 CW", icon: RotateCwIcon },
+            { delta: 180, label: "180", icon: RotateCwIcon },
+            { delta: -90, label: "90 CCW", icon: RotateCcwIcon },
+          ].map((option) => {
+            const Icon = option.icon;
+            return (
               <button
-                className={[
-                  "rounded-2xl border px-5 py-3 text-sm font-medium transition",
-                  angle === String(value)
-                    ? "border-sky-500 bg-sky-500/10 text-sky-700 dark:text-sky-300"
-                    : "border-slate-300 text-slate-700 hover:border-slate-400 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600",
-                ].join(" ")}
-                key={value}
-                onClick={() => setAngle(String(value))}
+                className="flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 text-[14px] text-slate-700"
+                key={option.label}
+                onClick={() => update("angle", settings.angle + option.delta)}
                 type="button"
               >
-                {value}°
+                <Icon className="h-4 w-4" />
+                {option.label}
               </button>
-            ))}
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-900 dark:text-white" htmlFor="custom-angle">
-              Custom angle
-            </label>
-            <input
-              className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-              id="custom-angle"
-              onChange={(event) => setAngle(event.target.value)}
-              type="number"
-              value={angle}
-            />
-          </div>
-
-          <button className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white" disabled={!files.length || !angle || isUploading} onClick={handleSubmit} type="button">
-            {isUploading ? "Uploading..." : "Rotate image"}
-          </button>
-        </section>
-
-        <JobProgress filename="rotated-image" jobId={jobId} prefix={prefix} onComplete={() => setIsUploading(false)} />
+            );
+          })}
       </div>
-    </ToolLayout>
+    ),
+  },
+  {
+    key: "flip",
+    label: "Flip",
+    fields: [
+      { key: "flipHorizontal", label: "Flip horizontal", type: "toggle" },
+      { key: "flipVertical", label: "Flip vertical", type: "toggle" },
+    ],
+  },
+  {
+    key: "background",
+    label: "Background",
+    fields: [
+      {
+        key: "background",
+        label: "Background color",
+        type: "select",
+        options: [
+          { label: "Transparent", value: "transparent" },
+          { label: "White", value: "white" },
+          { label: "Black", value: "black" },
+          { label: "Custom", value: "custom" },
+        ],
+      },
+      { key: "backgroundColor", label: "Custom color", type: "color", show: (settings) => settings.background === "custom" },
+      { key: "expandCanvas", label: "Expand canvas to fit", type: "toggle" },
+    ],
+  },
+  {
+    key: "output",
+    label: "Output",
+    fields: [
+      {
+        key: "format",
+        label: "Format",
+        type: "select",
+        options: [
+          { label: "Same as input", value: "same" },
+          { label: "PNG", value: "png" },
+          { label: "JPEG", value: "jpeg" },
+        ],
+      },
+      { key: "quality", label: "Quality", type: "slider", min: 1, max: 100, show: (settings) => settings.format === "jpeg" },
+    ],
+  },
+];
+
+export default function ImageRotatePage() {
+  return (
+    <SingleImageWorkspacePage<RotateSettings>
+      buildFormData={({ file, settings }) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("angle", String(settings.angle));
+        formData.append("flip_horizontal", String(settings.flipHorizontal));
+        formData.append("flip_vertical", String(settings.flipVertical));
+        formData.append("expand_canvas", String(settings.expandCanvas));
+        formData.append("output_format", settings.format === "same" ? "auto" : settings.format);
+        return formData;
+      }}
+      description="Rotate and flip images with a live preview, then export in the format that fits the output."
+      downloadFilename={(file, settings) => {
+        const base = slugifyBaseName(file.name);
+        const extension =
+          settings.format === "same" ? file.name.split(".").pop() ?? "png" : settings.format === "jpeg" ? "jpg" : settings.format;
+        return `${base}-rotated.${extension}`;
+      }}
+      emptyDescription="Upload an image to rotate it with a live workspace preview."
+      endpoint="image/rotate"
+      initialSettings={{
+        angle: 0,
+        background: "transparent",
+        backgroundColor: "#ffffff",
+        expandCanvas: true,
+        flipHorizontal: false,
+        flipVertical: false,
+        format: "same",
+        quality: 85,
+      }}
+      renderCenter={({ file, preview, settings, update }) => (
+        <PreviewStage className="mx-auto max-w-4xl">
+          <div className="p-4 sm:p-8">
+            <div className="flex min-h-[520px] items-center justify-center rounded-2xl bg-[#F9FAFB] p-4 sm:p-8">
+              {preview ? (
+                <div className="relative">
+                  <img
+                    alt={file.name}
+                    className="max-h-[420px] max-w-full rounded-xl border border-[#E5E7EB] bg-white object-contain transition"
+                    src={preview.dataUrl}
+                    style={{
+                      transform: `rotate(${settings.angle}deg) scaleX(${settings.flipHorizontal ? -1 : 1}) scaleY(${settings.flipVertical ? -1 : 1})`,
+                    }}
+                  />
+                  <div className="absolute bottom-4 left-4 rounded-full bg-slate-900/80 px-3 py-1 text-[12px] text-white">
+                    {settings.angle} deg
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </PreviewStage>
+      )}
+      sections={sections}
+      title="Rotate Image"
+    />
   );
 }

@@ -49,22 +49,15 @@ export function ToolCard({ tool }: { tool: ToolDefinition }) {
 
   return (
     <Link
-      className="group flex h-full flex-col border-2 border-slate-950 bg-white p-6 transition duration-200 hover:bg-slate-950 dark:border-slate-100 dark:bg-slate-950 dark:hover:bg-slate-100"
+      className="group flex h-full min-h-[124px] flex-col rounded-xl border border-[#E5E7EB] bg-white p-4 transition hover:border-[#60A5FA] hover:shadow-sm"
       href={tool.href}
     >
-      <div className="mb-5 flex h-12 w-12 items-center justify-center border-2 border-current text-[#2563EB] transition group-hover:border-white dark:group-hover:border-slate-950">
-        <Icon className="h-5 w-5" />
+      <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-[#EFF6FF] text-[#2563EB] transition duration-200 group-hover:scale-[1.04] group-hover:bg-[#DBEAFE]">
+        <Icon className="h-[18px] w-[18px]" />
       </div>
-      <div className="space-y-2">
-        <h3 className="text-lg font-semibold text-slate-950 transition group-hover:text-white dark:text-white dark:group-hover:text-slate-950">
-          {tool.name}
-        </h3>
-        <p className="text-sm leading-6 text-slate-700 transition group-hover:text-slate-300 dark:text-slate-300 dark:group-hover:text-slate-700">
-          {tool.description}
-        </p>
-      </div>
-      <div className="mt-6 text-sm font-semibold uppercase tracking-[0.14em] text-[#2563EB]">
-        Open tool
+      <div className="space-y-1">
+        <h3 className="text-[14px] font-semibold text-[#111827]">{tool.name}</h3>
+        <p className="truncate text-[12px] font-medium text-slate-500">{tool.description}</p>
       </div>
     </Link>
   );

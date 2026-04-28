@@ -1,81 +1,274 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
-import { ToolLayout } from "@/components/layout/ToolLayout";
-import { FileUpload } from "@/components/ui/FileUpload";
-import { JobProgress } from "@/components/ui/JobProgress";
-import { uploadFile } from "@/lib/api";
+import { DownloadPanel } from "@/components/ui/DownloadPanel";
+import { UploadProgress } from "@/components/ui/UploadProgress";
+import { ImageThumbnailGrid, ImageWorkspace, EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
+import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
+import type { WorkspaceThumbnailSize } from "@/components/workspace/PDFWorkspace";
+import { estimateProcessingTime, formatBytes } from "@/lib/format";
+import { useWorkspaceJob } from "@/lib/workspace-job";
+import { toImageGridItems, useImagePreviewItems, useObjectState } from "@/lib/workspace-data";
 
-const panelClass =
-  "rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/85";
+type BatchResizeSettings = {
+  addDimensionsSuffix: boolean;
+  customPrefix: string;
+  fit: "cover" | "contain" | "fill" | "inside" | "outside";
+  format: "same" | "jpeg" | "png" | "webp";
+  height: number;
+  namingPattern: "{original}" | "{original}-resized" | "{n}" | "custom";
+  overridePerImage: boolean;
+  quality: number;
+  width: number;
+};
+
+const sections: Array<ControlSection<BatchResizeSettings>> = [
+  {
+    key: "input-files",
+    label: "Input Files",
+    render: (_settings, _update) => null,
+  },
+  {
+    key: "output-dimensions",
+    label: "Output Dimensions",
+    render: (_settings, update) => (
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          [1920, 1080, "1920x1080"],
+          [1280, 720, "1280x720"],
+          [800, 600, "800x600"],
+          [1080, 1080, "Square"],
+          [1080, 1920, "Portrait"],
+          [3840, 2160, "4K"],
+        ].map(([width, height, label]) => (
+          <button
+            className="rounded-lg border border-slate-200 px-3 py-2 text-[13px] text-slate-700"
+            key={label}
+            onClick={() => {
+              update("width", Number(width));
+              update("height", Number(height));
+            }}
+            type="button"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    ),
+    fields: [
+      { key: "width", label: "Width", type: "number", min: 1 },
+      { key: "height", label: "Height", type: "number", min: 1 },
+      {
+        key: "fit",
+        label: "Resize mode",
+        type: "select",
+        options: [
+          { label: "Cover", value: "cover" },
+          { label: "Contain", value: "contain" },
+          { label: "Fill", value: "fill" },
+          { label: "Inside", value: "inside" },
+          { label: "Outside", value: "outside" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "per-image",
+    label: "Per-Image Settings",
+    fields: [{ key: "overridePerImage", label: "Override dimensions for specific images", type: "toggle" }],
+  },
+  {
+    key: "output-format",
+    label: "Output Format",
+    fields: [
+      {
+        key: "format",
+        label: "Convert all to",
+        type: "select",
+        options: [
+          { label: "Same as input", value: "same" },
+          { label: "JPEG", value: "jpeg" },
+          { label: "PNG", value: "png" },
+          { label: "WebP", value: "webp" },
+        ],
+      },
+      { key: "quality", label: "Quality", type: "slider", min: 1, max: 100 },
+    ],
+  },
+  {
+    key: "naming",
+    label: "Naming",
+    fields: [
+      {
+        key: "namingPattern",
+        label: "Pattern",
+        type: "select",
+        options: [
+          { label: "{original}", value: "{original}" },
+          { label: "{original}-resized", value: "{original}-resized" },
+          { label: "{n}", value: "{n}" },
+          { label: "Custom", value: "custom" },
+        ],
+      },
+      { key: "customPrefix", label: "Custom prefix", type: "text", show: (settings) => settings.namingPattern === "custom" },
+      { key: "addDimensionsSuffix", label: "Add dimensions suffix", type: "toggle" },
+    ],
+  },
+];
 
 export default function ImageBatchResizePage() {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [prefix] = useState<"pdf" | "image">("image");
-  const [isUploading, setIsUploading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
-  const [width, setWidth] = useState("");
-  const [height, setHeight] = useState("");
+  const [size, setSize] = useState<WorkspaceThumbnailSize>("medium");
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const previews = useImagePreviewItems(files);
+  const items = toImageGridItems(previews);
+  const totalBytes = useMemo(() => files.reduce((sum, file) => sum + file.size, 0), [files]);
+  const { state: settings, update } = useObjectState<BatchResizeSettings>({
+    addDimensionsSuffix: true,
+    customPrefix: "",
+    fit: "contain",
+    format: "same",
+    height: 1080,
+    namingPattern: "{original}-resized",
+    overridePerImage: false,
+    quality: 85,
+    width: 1920,
+  });
+  const job = useWorkspaceJob({
+    filename: "batch-resize.zip",
+    prefix: "image",
+  });
 
-  const handleSubmit = async () => {
-    if (!files[0] || !width || !height) {
+  const handleProcess = () => {
+    if (files.length === 0) {
       return;
     }
 
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", files[0]);
-      formData.append("width", width);
-      formData.append("height", height);
-
-      const response = await uploadFile("image/batch-resize", formData);
-      setJobId(response.job_id);
-    } finally {
-      setIsUploading(false);
-    }
+    const formData = new FormData();
+    files.forEach((file) => formData.append("files", file));
+    formData.append("width", String(settings.width));
+    formData.append("height", String(settings.height));
+    formData.append("fit", settings.fit);
+    formData.append("format", settings.format);
+    formData.append("quality", String(settings.quality));
+    formData.append("naming_pattern", settings.namingPattern);
+    formData.append("custom_prefix", settings.customPrefix);
+    formData.append("add_dimensions_suffix", String(settings.addDimensionsSuffix));
+    job.process("image/batch-resize", formData);
   };
 
   return (
-    <ToolLayout>
-      <div className="space-y-6">
-        <section className={panelClass}>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-300">
-            Batch Resize
-          </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">Resize a whole zip of images at once</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-            Upload a zip archive, choose the target dimensions, and download the resized images as a new zip.
-          </p>
-        </section>
-
-        <section className={`${panelClass} space-y-6`}>
-          <FileUpload accept=".zip,application/zip" maxSizeMB={100} onFilesSelected={setFiles} />
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-900 dark:text-white" htmlFor="width">
-                Width
-              </label>
-              <input className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white" id="width" min={1} onChange={(event) => setWidth(event.target.value)} type="number" value={width} />
+    <>
+      <input
+        accept="image/*"
+        className="hidden"
+        multiple
+        onChange={(event) => setFiles((current) => [...current, ...Array.from(event.target.files ?? [])])}
+        ref={inputRef}
+        type="file"
+      />
+      <ImageWorkspace
+        breadcrumbTitle="Batch Resize"
+        centerContent={
+          <ImageThumbnailGrid
+            items={items}
+            onRemove={(id) => setFiles(files.filter((_, index) => items[index]?.id !== id))}
+            onReorder={(nextItems) => {
+              const lookup = new Map(items.map((item, index) => [item.id, files[index]]));
+              setFiles(nextItems.map((item) => lookup.get(item.id)).filter(Boolean) as File[]);
+            }}
+            size={size}
+          />
+        }
+        countLabel={files.length > 0 ? `${files.length} images` : undefined}
+        description="Resize a full batch from one canvas, then download the processed set as a ZIP archive."
+        downloadPanel={
+          job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
+            <DownloadPanel
+              error={job.error}
+              estimatedTime={estimateProcessingTime(totalBytes, files.length)}
+              jobId={job.jobId}
+              onDownload={job.state === "success" ? job.download : undefined}
+              onProcessAnother={() => {
+                setFiles([]);
+                job.reset();
+              }}
+              onReedit={job.dismissPanel}
+              state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
+            />
+          ) : null
+        }
+        emptyState={
+          <EmptyWorkspaceState
+            accept="image/*"
+            description="Upload multiple images to resize the whole batch together."
+            multiple
+            onFilesSelected={(nextFiles) => {
+              setFiles(nextFiles);
+              job.reset();
+            }}
+          />
+        }
+        estimatedTime={estimateProcessingTime(totalBytes, files.length)}
+        fileInfo={files.length > 0 ? formatBytes(totalBytes) : undefined}
+        fileName={files.length > 0 ? `${files.length} images ready` : undefined}
+        hasContent={files.length > 0}
+        onDownload={job.state === "success" ? job.download : undefined}
+        onProcess={handleProcess}
+        onReset={() => {
+          setFiles([]);
+          job.reset();
+        }}
+        processButtonDisabled={files.length === 0}
+        processingLabel={job.processingLabel}
+        rightPanel={
+          <div className="space-y-6">
+            <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] leading-6 text-slate-500">
+              {job.state === "failure"
+                ? job.error ?? "Batch resize failed."
+                : "Use the workspace to reorder files before generating a resized ZIP bundle."}
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-900 dark:text-white" htmlFor="height">
-                Height
-              </label>
-              <input className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white" id="height" min={1} onChange={(event) => setHeight(event.target.value)} type="number" value={height} />
+
+            <div className="space-y-3">
+              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
+                Input Files
+              </p>
+              <div className="grid gap-2">
+                <button
+                  className="h-9 rounded-md border border-slate-200 px-3 text-[14px] text-slate-700"
+                  onClick={() => inputRef.current?.click()}
+                  type="button"
+                >
+                  Add more files
+                </button>
+                <button
+                  className="h-9 rounded-md border border-slate-200 px-3 text-[14px] text-slate-700"
+                  onClick={() => setFiles([])}
+                  type="button"
+                >
+                  Remove all
+                </button>
+              </div>
             </div>
+
+            <WorkspaceControls sections={sections} state={settings} update={update} />
           </div>
-
-          <button className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white" disabled={!files.length || !width || !height || isUploading} onClick={handleSubmit} type="button">
-            {isUploading ? "Uploading..." : "Batch resize"}
-          </button>
-        </section>
-
-        <JobProgress filename="resized-images.zip" jobId={jobId} prefix={prefix} onComplete={() => setIsUploading(false)} />
-      </div>
-    </ToolLayout>
+        }
+        setSize={setSize}
+        showSizeToggle
+        size={size}
+        uploadOverlay={
+          files[0] && job.state === "uploading" ? (
+            <UploadProgress
+              fileName={`${files.length} files`}
+              fileSize={totalBytes}
+              percent={job.uploadPercent}
+              speedKBs={job.uploadSpeedKBs}
+            />
+          ) : null
+        }
+      />
+    </>
   );
 }

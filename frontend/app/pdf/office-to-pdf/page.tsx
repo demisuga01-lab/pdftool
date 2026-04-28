@@ -2,70 +2,218 @@
 
 import { useState } from "react";
 
-import { ToolLayout } from "@/components/layout/ToolLayout";
-import { FileUpload } from "@/components/ui/FileUpload";
-import { JobProgress } from "@/components/ui/JobProgress";
-import { uploadFile } from "@/lib/api";
+import { DocumentIcon } from "@/components/icons/SiteIcons";
+import { DownloadPanel } from "@/components/ui/DownloadPanel";
+import { UploadProgress } from "@/components/ui/UploadProgress";
+import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
+import { PDFWorkspace } from "@/components/workspace/PDFWorkspace";
+import { estimateProcessingTime, formatBytes, slugifyBaseName } from "@/lib/format";
+import { useWorkspaceJob } from "@/lib/workspace-job";
+import { useObjectState } from "@/lib/workspace-data";
 
-const panelClass =
-  "rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/85";
+type OfficeSettings = {
+  exportBookmarks: boolean;
+  exportComments: boolean;
+  exportFormFields: boolean;
+  exportHiddenSlides: boolean;
+  firstSheetOnly: boolean;
+  imageCompression: "lossless" | "jpeg";
+  jpegQuality: number;
+  pdfA: boolean;
+  pdfVersion: "1.4" | "1.5" | "1.7";
+};
 
-export default function OfficeToPdfPage() {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [prefix] = useState<"pdf" | "image">("pdf");
-  const [isUploading, setIsUploading] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
+const sections: Array<ControlSection<OfficeSettings>> = [
+  {
+    key: "conversion-options",
+    label: "Conversion Options",
+    fields: [
+      { key: "pdfA", label: "PDF/A compliance", type: "toggle" },
+      {
+        key: "pdfVersion",
+        label: "PDF version",
+        type: "select",
+        options: [
+          { label: "PDF 1.4", value: "1.4" },
+          { label: "PDF 1.5", value: "1.5" },
+          { label: "PDF 1.7", value: "1.7" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "document-settings",
+    label: "Document Settings",
+    fields: [
+      { key: "exportBookmarks", label: "Export bookmarks", type: "toggle" },
+      { key: "exportComments", label: "Export comments", type: "toggle" },
+      { key: "exportFormFields", label: "Export form fields", type: "toggle" },
+      { key: "exportHiddenSlides", label: "Export hidden slides", type: "toggle" },
+      { key: "firstSheetOnly", label: "First sheet only", type: "toggle" },
+    ],
+  },
+  {
+    key: "image-settings",
+    label: "Image Settings",
+    fields: [
+      {
+        key: "imageCompression",
+        label: "Image compression",
+        type: "select",
+        options: [
+          { label: "Lossless", value: "lossless" },
+          { label: "JPEG", value: "jpeg" },
+        ],
+      },
+      { key: "jpegQuality", label: "JPEG quality", type: "slider", min: 1, max: 100 },
+    ],
+  },
+];
 
-  const handleSubmit = async () => {
-    if (!files[0]) {
+const supportedFormats = ["DOCX", "XLSX", "PPTX", "ODT", "ODS", "ODP", "RTF", "TXT"];
+
+export default function PdfOfficeToPdfPage() {
+  const [file, setFile] = useState<File | null>(null);
+  const { state: settings, update } = useObjectState<OfficeSettings>({
+    exportBookmarks: true,
+    exportComments: false,
+    exportFormFields: true,
+    exportHiddenSlides: false,
+    firstSheetOnly: false,
+    imageCompression: "lossless",
+    jpegQuality: 90,
+    pdfA: false,
+    pdfVersion: "1.4",
+  });
+  const job = useWorkspaceJob({
+    filename: file ? `${slugifyBaseName(file.name)}.pdf` : "document.pdf",
+    prefix: "pdf",
+  });
+
+  const handleProcess = () => {
+    if (!file) {
       return;
     }
 
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", files[0]);
-
-      const response = await uploadFile("pdf/office-to-pdf", formData);
-      setJobId(response.job_id);
-    } finally {
-      setIsUploading(false);
-    }
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("pdf_a", String(settings.pdfA));
+    formData.append("pdf_version", settings.pdfVersion);
+    formData.append("export_bookmarks", String(settings.exportBookmarks));
+    formData.append("export_comments", String(settings.exportComments));
+    formData.append("export_form_fields", String(settings.exportFormFields));
+    formData.append("export_hidden_slides", String(settings.exportHiddenSlides));
+    formData.append("first_sheet_only", String(settings.firstSheetOnly));
+    formData.append("image_compression", settings.imageCompression);
+    formData.append("jpeg_quality", String(settings.jpegQuality));
+    job.process("pdf/office-to-pdf", formData);
   };
 
   return (
-    <ToolLayout>
-      <div className="space-y-6">
-        <section className={panelClass}>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
-            Office to PDF
-          </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">Convert office documents with one click</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-            Upload Word, Excel, PowerPoint, or OpenDocument files and get a PDF back.
-          </p>
-        </section>
-
-        <section className={`${panelClass} space-y-6`}>
-          <FileUpload
-            accept=".docx,.xlsx,.pptx,.odt,.odp,.ods"
-            maxSizeMB={100}
-            onFilesSelected={setFiles}
+    <PDFWorkspace
+      breadcrumbTitle="Office to PDF"
+      description="Convert Office documents to PDF with document and image export options from a single workspace."
+      downloadPanel={
+        file && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
+          <DownloadPanel
+            error={job.error}
+            estimatedTime={estimateProcessingTime(file.size, 1)}
+            jobId={job.jobId}
+            onDownload={job.state === "success" ? job.download : undefined}
+            onProcessAnother={() => {
+              setFile(null);
+              job.reset();
+            }}
+            onReedit={job.dismissPanel}
+            state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
           />
-
-          <button
-            className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
-            disabled={!files.length || isUploading}
-            onClick={handleSubmit}
-            type="button"
-          >
-            {isUploading ? "Uploading..." : "Convert to PDF"}
-          </button>
-        </section>
-
-        <JobProgress filename="document.pdf" jobId={jobId} prefix={prefix} onComplete={() => setIsUploading(false)} />
-      </div>
-    </ToolLayout>
+        ) : null
+      }
+      emptyState={
+        <label className="flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
+          <input
+            accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf,.txt"
+            className="hidden"
+            onChange={(event) => {
+              setFile(event.target.files?.[0] ?? null);
+              job.reset();
+            }}
+            type="file"
+          />
+          <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#2563EB]">
+            <DocumentIcon className="h-7 w-7" />
+          </span>
+          <h2 className="text-[18px] text-slate-900">Upload a document</h2>
+          <p className="mt-2 max-w-xl text-[14px] leading-7 text-slate-500">
+            DOCX, XLSX, PPTX, ODT, ODS, ODP, RTF, and TXT are supported.
+          </p>
+          <span className="mt-5 inline-flex h-9 items-center rounded-lg border border-slate-200 px-3 text-[14px] text-slate-700">
+            Browse files
+          </span>
+        </label>
+      }
+      estimatedTime={file ? estimateProcessingTime(file.size, 1) : undefined}
+      fileInfo={file ? formatBytes(file.size) : undefined}
+      fileName={file?.name}
+      hasContent={Boolean(file)}
+      onDownload={job.state === "success" ? job.download : undefined}
+      onProcess={handleProcess}
+      onReset={() => {
+        setFile(null);
+        job.reset();
+      }}
+      processButtonDisabled={!file}
+      processingLabel={job.processingLabel}
+      renderCenter={
+        file ? (
+          <div className="mx-auto grid max-w-4xl gap-6 lg:grid-cols-[1fr_240px]">
+            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-8">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#2563EB]">
+                <DocumentIcon className="h-6 w-6" />
+              </div>
+              <h2 className="mt-4 text-[24px] text-slate-900">{file.name}</h2>
+              <p className="mt-2 text-[14px] leading-6 text-slate-500">{formatBytes(file.size)}</p>
+            </div>
+            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4">
+              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
+                Supported Formats
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {supportedFormats.map((format) => (
+                  <span
+                    className="rounded-md border border-slate-200 bg-[#F9FAFB] px-2.5 py-1 text-[13px] text-slate-600"
+                    key={format}
+                  >
+                    {format}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null
+      }
+      rightPanel={
+        <div className="space-y-6">
+          <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] leading-6 text-slate-500">
+            {job.state === "failure"
+              ? job.error ?? "Conversion failed."
+              : "Choose archival and export options before converting the document."}
+          </div>
+          <WorkspaceControls sections={sections} state={settings} update={update} />
+        </div>
+      }
+      showSelectionBar={false}
+      showSizeToggle={false}
+      uploadOverlay={
+        file && job.state === "uploading" ? (
+          <UploadProgress
+            fileName={file.name}
+            fileSize={file.size}
+            percent={job.uploadPercent}
+            speedKBs={job.uploadSpeedKBs}
+          />
+        ) : null
+      }
+    />
   );
 }

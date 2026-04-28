@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import image, pdf
+from app.api.routes import files, image, ocr, pdf
 from app.core.config import get_settings
 
 APP_VERSION = "0.1.0"
@@ -16,7 +16,7 @@ APP_VERSION = "0.1.0"
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
-    for directory in (settings.UPLOAD_DIR, settings.OUTPUT_DIR, settings.TEMP_DIR):
+    for directory in (settings.DATA_DIR, settings.UPLOAD_DIR, settings.OUTPUT_DIR, settings.TEMP_DIR):
         Path(directory).mkdir(parents=True, exist_ok=True)
 
     yield
@@ -38,8 +38,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    app.include_router(pdf.router)
-    app.include_router(image.router)
+    app.include_router(pdf.router, prefix="/api/pdf", tags=["pdf"])
+    app.include_router(image.router, prefix="/api/image", tags=["image"])
+    app.include_router(files.router, prefix="/api/files", tags=["files"])
+    app.include_router(ocr.router, prefix="/api/ocr", tags=["ocr"])
 
     @app.get("/api/health", tags=["health"])
     async def health_check() -> dict[str, Any]:

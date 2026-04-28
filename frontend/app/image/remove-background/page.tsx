@@ -1,62 +1,147 @@
 "use client";
 
-import { useState } from "react";
+import type { ControlSection } from "@/components/workspace/Controls";
+import { SingleImageWorkspacePage, PreviewStage } from "@/components/workspace/WorkspacePageBuilders";
+import { slugifyBaseName } from "@/lib/format";
 
-import { ToolLayout } from "@/components/layout/ToolLayout";
-import { FileUpload } from "@/components/ui/FileUpload";
-import { JobProgress } from "@/components/ui/JobProgress";
-import { uploadFile } from "@/lib/api";
+type RemoveBackgroundSettings = {
+  backgroundMode: "transparent" | "solid" | "blur";
+  blurAmount: number;
+  edgeSmoothing: number;
+  feather: number;
+  format: "png" | "webp";
+  maskAdjust: number;
+  outputBackground: "white" | "custom";
+  outputBackgroundColor: string;
+  processingMode: "auto" | "precise" | "aggressive";
+  solidColor: string;
+};
 
-const panelClass =
-  "rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/85";
+const sections: Array<ControlSection<RemoveBackgroundSettings>> = [
+  {
+    key: "processing-mode",
+    label: "Processing Mode",
+    fields: [
+      {
+        key: "processingMode",
+        label: "Mode",
+        type: "radioCards",
+        options: [
+          { label: "Auto", description: "AI-based GrabCut algorithm", value: "auto" },
+          { label: "Precise edges", description: "Better for hair and fine details", value: "precise" },
+          { label: "Aggressive", description: "Removes more background", value: "aggressive" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "background-replacement",
+    label: "Background Replacement",
+    fields: [
+      {
+        key: "backgroundMode",
+        label: "Background",
+        type: "buttonGroup",
+        options: [
+          { label: "Transparent", value: "transparent" },
+          { label: "Solid", value: "solid" },
+          { label: "Blur", value: "blur" },
+        ],
+      },
+      { key: "solidColor", label: "Solid color", type: "color", show: (settings) => settings.backgroundMode === "solid" },
+      { key: "blurAmount", label: "Blur amount", type: "slider", min: 0, max: 30, show: (settings) => settings.backgroundMode === "blur" },
+    ],
+  },
+  {
+    key: "edge-refinement",
+    label: "Edge Refinement",
+    fields: [
+      { key: "edgeSmoothing", label: "Edge smoothing", type: "slider", min: 0, max: 10 },
+      { key: "feather", label: "Feather edges", type: "slider", min: 0, max: 10 },
+      { key: "maskAdjust", label: "Expand or contract mask", type: "slider", min: -20, max: 20 },
+    ],
+  },
+  {
+    key: "output",
+    label: "Output",
+    fields: [
+      {
+        key: "format",
+        label: "Format",
+        type: "buttonGroup",
+        options: [
+          { label: "PNG", value: "png" },
+          { label: "WebP", value: "webp" },
+        ],
+      },
+      {
+        key: "outputBackground",
+        label: "Background color",
+        type: "select",
+        options: [
+          { label: "White", value: "white" },
+          { label: "Custom", value: "custom" },
+        ],
+      },
+      { key: "outputBackgroundColor", label: "Custom color", type: "color", show: (settings) => settings.outputBackground === "custom" },
+    ],
+  },
+];
 
 export default function ImageRemoveBackgroundPage() {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [prefix] = useState<"pdf" | "image">("image");
-  const [isUploading, setIsUploading] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-
-  const handleSubmit = async () => {
-    if (!files[0]) {
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", files[0]);
-
-      const response = await uploadFile("image/remove-background", formData);
-      setJobId(response.job_id);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   return (
-    <ToolLayout>
-      <div className="space-y-6">
-        <section className={panelClass}>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-fuchsia-700 dark:text-fuchsia-300">
-            Remove Background
-          </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">Cut the background and keep a transparent PNG</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-            A fast one-click cleanup step for product shots, avatars, and compositing.
-          </p>
-        </section>
-
-        <section className={`${panelClass} space-y-6`}>
-          <FileUpload accept=".jpg,.jpeg,.png,image/jpeg,image/png" maxSizeMB={100} onFilesSelected={setFiles} />
-
-          <button className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white" disabled={!files.length || isUploading} onClick={handleSubmit} type="button">
-            {isUploading ? "Uploading..." : "Remove background"}
-          </button>
-        </section>
-
-        <JobProgress filename="background-removed.png" jobId={jobId} prefix={prefix} onComplete={() => setIsUploading(false)} />
-      </div>
-    </ToolLayout>
+    <SingleImageWorkspacePage<RemoveBackgroundSettings>
+      buildFormData={({ file, settings }) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("processing_mode", settings.processingMode);
+        formData.append("background_mode", settings.backgroundMode);
+        formData.append("solid_color", settings.solidColor);
+        formData.append("blur_amount", String(settings.blurAmount));
+        formData.append("edge_smoothing", String(settings.edgeSmoothing));
+        formData.append("feather", String(settings.feather));
+        formData.append("mask_adjust", String(settings.maskAdjust));
+        formData.append("format", settings.format);
+        return formData;
+      }}
+      description="Preview the before-and-after comparison while you tune mask and background settings."
+      downloadFilename={(file, settings) => `${slugifyBaseName(file.name)}-cutout.${settings.format}`}
+      emptyDescription="Upload an image to remove its background and preview the result."
+      endpoint="image/remove-background"
+      initialSettings={{
+        backgroundMode: "transparent",
+        blurAmount: 8,
+        edgeSmoothing: 4,
+        feather: 2,
+        format: "png",
+        maskAdjust: 0,
+        outputBackground: "white",
+        outputBackgroundColor: "#ffffff",
+        processingMode: "auto",
+        solidColor: "#ffffff",
+      }}
+      renderCenter={({ file, preview }) => (
+        <PreviewStage className="mx-auto max-w-5xl">
+          <div className="grid gap-4 p-6 lg:grid-cols-2">
+            {["Original", "Background removed"].map((label, index) => (
+              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4" key={label}>
+                <p className="mb-3 text-[13px] text-slate-500">{label}</p>
+                <div className={["flex min-h-[360px] items-center justify-center rounded-xl border border-[#E5E7EB] p-4", index === 1 ? "bg-[linear-gradient(45deg,#F3F4F6_25%,transparent_25%,transparent_75%,#F3F4F6_75%,#F3F4F6),linear-gradient(45deg,#F3F4F6_25%,transparent_25%,transparent_75%,#F3F4F6_75%,#F3F4F6)] bg-[length:20px_20px] bg-[position:0_0,10px_10px]" : "bg-[#F9FAFB]"].join(" ")}>
+                  {preview ? (
+                    <img
+                      alt={file.name}
+                      className="max-h-[320px] max-w-full rounded-xl object-contain"
+                      src={preview.dataUrl}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </PreviewStage>
+      )}
+      sections={sections}
+      title="Remove Background"
+    />
   );
 }

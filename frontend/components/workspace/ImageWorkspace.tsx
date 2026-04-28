@@ -1,0 +1,342 @@
+"use client";
+
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  rectSortingStrategy,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Settings2 } from "lucide-react";
+import type { ReactNode } from "react";
+
+import {
+  DragHandleIcon,
+  GridDenseIcon,
+  GridIcon,
+  ImageIcon,
+  UploadIcon,
+} from "@/components/icons/SiteIcons";
+import { WorkspaceHeader } from "@/components/workspace/WorkspaceHeader";
+
+import type { WorkspaceThumbnailSize } from "./PDFWorkspace";
+
+const sizeGridClass: Record<WorkspaceThumbnailSize, string> = {
+  small: "xl:grid-cols-5 lg:grid-cols-4 md:grid-cols-3 sm:grid-cols-2",
+  medium: "xl:grid-cols-4 lg:grid-cols-3 md:grid-cols-2",
+  large: "lg:grid-cols-2 grid-cols-1",
+};
+
+export type ImageGridItem = {
+  dimensionsLabel?: string;
+  fileName: string;
+  id: string;
+  preview: string;
+  sizeLabel?: string;
+};
+
+function SortableImageCard({
+  hoverActions,
+  id,
+  meta,
+  preview,
+  title,
+}: {
+  hoverActions?: ReactNode;
+  id: string;
+  meta?: string;
+  preview: string;
+  title: string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+    >
+      <div className="group overflow-hidden rounded-xl border border-[#E5E7EB] bg-white transition hover:shadow-sm">
+        <div className="relative">
+          <button
+            className="absolute right-3 top-3 z-20 rounded-md bg-white/90 p-1.5 text-slate-400 opacity-0 transition group-hover:opacity-100"
+            type="button"
+            {...attributes}
+            {...listeners}
+          >
+            <DragHandleIcon className="h-4 w-4" />
+          </button>
+          {hoverActions ? (
+            <div className="pointer-events-none absolute inset-0 z-10 opacity-0 transition group-hover:opacity-100">
+              <div className="pointer-events-auto absolute inset-x-3 bottom-3">{hoverActions}</div>
+            </div>
+          ) : null}
+          <div className="aspect-[4/3] bg-[#F8FAFC] p-3">
+            <img alt={title} className="h-full w-full rounded-lg border border-[#E5E7EB] object-contain" src={preview} />
+          </div>
+        </div>
+        <div className="space-y-1 border-t border-[#E5E7EB] px-3 py-2">
+          <p className="truncate font-mono text-[13px] text-slate-700">{title}</p>
+          {meta ? <p className="text-[12px] text-slate-500">{meta}</p> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ImageThumbnailGrid({
+  items,
+  onRemove,
+  onReorder,
+  size = "medium",
+}: {
+  items: ImageGridItem[];
+  onRemove?: (id: string) => void;
+  onReorder: (items: ImageGridItem[]) => void;
+  size?: WorkspaceThumbnailSize;
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = items.findIndex((item) => item.id === active.id);
+    const newIndex = items.findIndex((item) => item.id === over.id);
+    onReorder(arrayMove(items, oldIndex, newIndex));
+  };
+
+  return (
+    <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd} sensors={sensors}>
+      <SortableContext items={items.map((item) => item.id)} strategy={rectSortingStrategy}>
+        <div className={["grid gap-4", sizeGridClass[size]].join(" ")}>
+          {items.map((item) => (
+            <SortableImageCard
+              hoverActions={
+                onRemove ? (
+                  <button
+                    className="rounded-lg border border-white/80 bg-white/90 px-3 py-2 text-sm text-slate-700"
+                    onClick={() => onRemove(item.id)}
+                    type="button"
+                  >
+                    Remove
+                  </button>
+                ) : undefined
+              }
+              id={item.id}
+              key={item.id}
+              meta={[item.dimensionsLabel, item.sizeLabel].filter(Boolean).join(" / ")}
+              preview={item.preview}
+              title={item.fileName}
+            />
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+export function ImageWorkspace({
+  breadcrumbTitle,
+  centerContent,
+  countLabel,
+  description,
+  downloadPanel,
+  emptyState,
+  estimatedTime,
+  fileInfo,
+  fileName,
+  hasContent,
+  onDownload,
+  onProcess,
+  onReset,
+  processButtonDisabled,
+  processingLabel,
+  rightPanel,
+  showSizeToggle = false,
+  size = "medium",
+  setSize,
+  uploadOverlay,
+}: {
+  breadcrumbTitle: string;
+  centerContent: ReactNode;
+  countLabel?: string;
+  description: string;
+  downloadPanel?: ReactNode;
+  emptyState: ReactNode;
+  estimatedTime?: string;
+  fileInfo?: string;
+  fileName?: string;
+  hasContent: boolean;
+  onDownload?: () => void;
+  onProcess?: () => void;
+  onReset?: () => void;
+  processButtonDisabled?: boolean;
+  processingLabel?: string | null;
+  rightPanel: ReactNode;
+  showSizeToggle?: boolean;
+  size?: WorkspaceThumbnailSize;
+  setSize?: (size: WorkspaceThumbnailSize) => void;
+  uploadOverlay?: ReactNode;
+}) {
+  return (
+    <main className="flex min-h-[calc(100vh-60px)] flex-col bg-white xl:h-[calc(100vh-60px)]">
+      <WorkspaceHeader
+        countLabel={countLabel}
+        fileInfo={fileInfo}
+        fileName={fileName}
+        onDownload={onDownload}
+        onReset={onReset}
+        processingLabel={processingLabel}
+        title={breadcrumbTitle}
+      />
+
+      <div className="relative flex min-h-0 flex-1 flex-col xl:flex-row">
+        <div className="flex min-w-0 flex-1 flex-col bg-[#F3F4F6]">
+          {hasContent ? (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-4 py-3 sm:px-6">
+                <p className="text-sm font-medium text-slate-600">{countLabel}</p>
+                <div className="flex items-center gap-2">
+                  {showSizeToggle && setSize ? (
+                    <>
+                      {([
+                        { key: "small", icon: GridDenseIcon },
+                        { key: "medium", icon: GridIcon },
+                        { key: "large", icon: GridIcon },
+                      ] as const).map((option) => {
+                        const Icon = option.icon;
+                        return (
+                          <button
+                            className={[
+                              "inline-flex h-9 w-9 items-center justify-center rounded-lg border",
+                              size === option.key
+                                ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
+                                : "border-slate-200 bg-white text-slate-500",
+                            ].join(" ")}
+                            key={option.key}
+                            onClick={() => setSize(option.key)}
+                            type="button"
+                          >
+                            <Icon className="h-4 w-4" />
+                          </button>
+                        );
+                      })}
+                    </>
+                  ) : null}
+                  <div className="inline-flex items-center gap-2 rounded-lg bg-[#EFF6FF] px-3 py-2 text-sm font-semibold text-[#2563EB] xl:hidden">
+                    <Settings2 className="h-4 w-4" />
+                    Controls below
+                  </div>
+                  <p className="hidden text-sm font-medium text-slate-500 xl:block">PDFTools / {breadcrumbTitle}</p>
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-28 sm:px-6 sm:py-6 xl:pb-6">
+                <div className="space-y-5">
+                  {centerContent}
+                  <section className="rounded-2xl border border-[#E5E7EB] bg-white p-4 xl:hidden">
+                    <div className="space-y-1.5 pb-5">
+                      <h1 className="text-[22px] font-bold leading-none text-slate-900">{breadcrumbTitle}</h1>
+                      <p className="text-[14px] font-medium leading-6 text-slate-500">{description}</p>
+                    </div>
+                    <div className="max-h-[45vh] overflow-y-auto pr-1">{rightPanel}</div>
+                  </section>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex min-h-0 flex-1 items-center justify-center p-6">{emptyState}</div>
+          )}
+        </div>
+
+        <aside className="hidden w-full shrink-0 flex-col border-t border-[#E5E7EB] bg-white xl:flex xl:w-[340px] xl:border-l xl:border-t-0">
+          <div className="min-h-0 flex-1 overflow-y-auto p-5">
+            <div className="space-y-1.5 pb-6">
+              <h1 className="text-[24px] font-bold leading-none text-slate-900">{breadcrumbTitle}</h1>
+              <p className="text-[14px] font-medium leading-6 text-slate-500">{description}</p>
+            </div>
+            {rightPanel}
+          </div>
+
+          <div className="sticky bottom-0 border-t border-[#E5E7EB] bg-white p-5">
+            <button
+              className="primary-button h-11 w-full text-[15px]"
+              disabled={processButtonDisabled}
+              onClick={onProcess}
+              type="button"
+            >
+              Process
+            </button>
+            <div className="mt-3 space-y-1 text-center text-xs text-slate-500">
+              <p>{estimatedTime ?? "Estimated processing time updates after upload"}</p>
+              <p>Files deleted after 24 hours</p>
+            </div>
+          </div>
+        </aside>
+
+        {hasContent ? (
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E5E7EB] bg-white/95 p-4 backdrop-blur xl:hidden">
+            <button className="primary-button h-12 w-full" disabled={processButtonDisabled} onClick={onProcess} type="button">
+              Process
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {uploadOverlay ? <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4">{uploadOverlay}</div> : null}
+      {downloadPanel ? <div className="fixed inset-x-4 bottom-24 z-40 xl:inset-x-auto xl:bottom-6 xl:right-6 xl:w-[360px]">{downloadPanel}</div> : null}
+    </main>
+  );
+}
+
+export function EmptyWorkspaceState({
+  accept,
+  description,
+  multiple = false,
+  onFilesSelected,
+}: {
+  accept: string;
+  description: string;
+  multiple?: boolean;
+  onFilesSelected: (files: File[]) => void;
+}) {
+  return (
+    <label className="flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
+      <input
+        accept={accept}
+        className="hidden"
+        multiple={multiple}
+        onChange={(event) => onFilesSelected(Array.from(event.target.files ?? []))}
+        type="file"
+      />
+      <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#2563EB]">
+        <ImageIcon className="h-7 w-7" />
+      </span>
+      <h2 className="text-[18px] text-slate-900">{multiple ? "Upload files" : "Upload a file"}</h2>
+      <p className="mt-2 max-w-xl text-[14px] leading-7 text-slate-500">{description}</p>
+      <span className="mt-5 inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-[14px] text-slate-700">
+        <UploadIcon className="h-4 w-4" />
+        Browse files
+      </span>
+    </label>
+  );
+}
