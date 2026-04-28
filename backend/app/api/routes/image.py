@@ -62,8 +62,12 @@ def _safe_suffix(filename: str | None, fallback: str = ".jpg") -> str:
     return suffix if suffix else fallback
 
 
-def _output_path(settings: Settings, suffix: str = ".jpg") -> Path:
+def _output_path(settings: Settings, suffix: str = ".jpg", requested_name: str | None = None, fallback_stem: str = "output") -> Path:
     settings.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    if requested_name and requested_name.strip():
+        candidate = Path(requested_name.strip()).name
+        stem = Path(candidate).stem or fallback_stem
+        return settings.OUTPUT_DIR / f"{stem}{suffix}"
     return settings.OUTPUT_DIR / f"{uuid4().hex}{suffix}"
 
 
@@ -197,8 +201,8 @@ def _safe_output_path(path: str, settings: Settings) -> Path:
     return candidate
 
 
-async def _zip_outputs(job_id: str, output_paths: list[str], settings: Settings) -> Path:
-    zip_path = settings.OUTPUT_DIR / f"{job_id}.zip"
+async def _zip_outputs(job_id: str, output_paths: list[str], settings: Settings, filename: str | None = None) -> Path:
+    zip_path = settings.OUTPUT_DIR / (Path(filename).name if filename else f"{job_id}.zip")
     files = [_safe_output_path(path, settings) for path in output_paths]
 
     def write_zip() -> None:
@@ -294,10 +298,13 @@ async def resize_image(
     kernel: Annotated[str, Form()] = "lanczos3",
     without_enlargement: Annotated[bool, Form()] = False,
     quality: Annotated[int, Form()] = 85,
+    output_format: Annotated[str | None, Form()] = None,
+    output_filename: Annotated[str, Form()] = "",
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
     original_name = file.filename if file is not None else input_path.name
-    output_path = _output_path(settings, _safe_suffix(original_name))
+    suffix = _extension_from_format(output_format or "auto", fallback=_safe_suffix(original_name))
+    output_path = _output_path(settings, suffix, output_filename, Path(original_name).stem)
     task = resize_image_task.apply_async(
         args=[
             str(input_path),
@@ -379,13 +386,17 @@ async def rotate_image(
     flip_horizontal: Annotated[bool, Form()] = False,
     flip_vertical: Annotated[bool, Form()] = False,
     output_format: Annotated[str | None, Form()] = None,
+    expand_canvas: Annotated[bool, Form()] = True,
+    background: Annotated[str, Form()] = "#00000000",
+    auto_crop: Annotated[bool, Form()] = False,
+    output_filename: Annotated[str, Form()] = "",
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
     original_name = file.filename if file is not None else input_path.name
     suffix = _extension_from_format(output_format or "auto", fallback=_safe_suffix(original_name))
-    output_path = _output_path(settings, suffix)
+    output_path = _output_path(settings, suffix, output_filename, Path(original_name).stem)
     task = rotate_image_task.apply_async(
-        args=[str(input_path), str(output_path), angle, flip_horizontal, flip_vertical, output_format],
+        args=[str(input_path), str(output_path), angle, flip_horizontal, flip_vertical, output_format, expand_canvas, background, auto_crop],
         queue="fast",
     )
     return _queued_response(str(task.id), "Image rotation queued")
@@ -555,11 +566,13 @@ async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
 
     output_path = result.get("output_path")
     output_paths = result.get("output_paths")
+    output_filename = str(result.get("output_filename") or "").strip() or None
+    media_type = str(result.get("media_type") or "").strip() or None
 
     if output_path:
         file_path = _safe_output_path(str(output_path), settings)
     elif isinstance(output_paths, list) and output_paths:
-        file_path = await _zip_outputs(job_id, [str(path) for path in output_paths], settings)
+        file_path = await _zip_outputs(job_id, [str(path) for path in output_paths], settings, output_filename)
     else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -568,7 +581,7 @@ async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
 
     return FileResponse(
         path=file_path,
-        media_type=mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",
-        filename=file_path.name,
+        media_type=media_type or mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",
+        filename=output_filename or file_path.name,
         headers={"Cache-Control": "no-store"},
     )

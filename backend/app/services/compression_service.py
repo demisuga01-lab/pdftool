@@ -9,7 +9,6 @@ import tempfile
 import zipfile
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 from fastapi import HTTPException, status
 
@@ -214,10 +213,21 @@ class CompressionService:
             command.extend([str(input_file), "-o", str(output)])
             if await self._try_command(command):
                 candidates.append({"path": output, "method": "cwebp", "message": "Compressed successfully"})
+            else:
+                cmd = ["magick", str(input_file)]
+                if strip:
+                    cmd.append("-strip")
+                cmd.extend(["-quality", str(quality), str(output)])
+                if await self._try_command(cmd):
+                    candidates.append({"path": output, "method": "imagemagick-webp", "message": "Compressed successfully"})
 
         elif target_suffix == ".avif":
             if await self._try_command(["avifenc", "-q", str(quality), str(input_file), str(output)]):
                 candidates.append({"path": output, "method": "avifenc", "message": "Compressed successfully"})
+            else:
+                cmd = ["magick", str(input_file), str(output)]
+                if await self._try_command(cmd):
+                    candidates.append({"path": output, "method": "imagemagick-avif", "message": "Compressed successfully"})
 
         elif target_suffix == ".gif":
             if await self._try_command(["gifsicle", "-O3", "-o", str(output), str(input_file)]):
@@ -233,8 +243,22 @@ class CompressionService:
             if await self._try_command(cmd):
                 candidates.append({"path": output, "method": "imagemagick", "message": "Compressed successfully"})
 
-        if not candidates:
-            return await self._package_fallback(input_file, temp_dir, settings, "This image format cannot be compressed meaningfully with the available tools. ZIP/7z packaging is available instead.")
+        if target_suffix == ".png" and candidates:
+            for candidate in candidates:
+                candidate_path = Path(candidate["path"])
+                if await self._try_command(["oxipng", "-o", "4", "--strip", "safe", str(candidate_path)]):
+                    if await self._try_command(["optipng", "-o7", str(candidate_path)]):
+                        candidate["method"] = "pngquant+oxipng" if candidate["method"] == "pngquant" else "oxipng+optipng"
+                    else:
+                        candidate["method"] = "pngquant+oxipng" if candidate["method"] == "pngquant" else "oxipng"
+
+        if not candidates and (self._bool(settings.get("package_as_zip"), False) or self._bool(settings.get("package_as_7z"), False)):
+            return await self._package_fallback(
+                input_file,
+                temp_dir,
+                settings,
+                "This image format could not be compressed with the available tools. ZIP/7z packaging was used because packaging was selected.",
+            )
         return [candidate for candidate in candidates if self._valid_nonempty(Path(candidate["path"]))]
 
     async def _compress_office(self, input_file: Path, temp_dir: Path, settings: dict[str, Any]) -> list[dict[str, Any]]:
@@ -346,8 +370,14 @@ class CompressionService:
         saved_bytes = max(original_size - output_size, 0)
         saved_percent = round((saved_bytes / original_size) * 100, 2) if original_size else 0.0
 
+        media_type = mimetypes.guess_type(final_path.name)[0] or "application/octet-stream"
+
         return {
             "output_path": str(final_path),
+            "output_filename": final_path.name,
+            "media_type": media_type,
+            "original_name": input_file.name,
+            "extension": final_path.suffix.lstrip("."),
             "original_size": original_size,
             "output_size": output_size,
             "saved_bytes": saved_bytes,
@@ -367,7 +397,7 @@ class CompressionService:
         else:
             safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "-", input_file.stem).strip(".-") or "compressed"
             safe_name = f"{safe_stem}{settings.get('output_suffix', '-compressed')}{suffix}"
-        return output_dir / f"{uuid4().hex}-{safe_name}"
+        return output_dir / safe_name
 
     async def _recompress_zip_container(self, input_file: Path, extract_dir: Path, output: Path, settings: dict[str, Any]) -> Path | None:
         self._safe_extract_zip(input_file, extract_dir)

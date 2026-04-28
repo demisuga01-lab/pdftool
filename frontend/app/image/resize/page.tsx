@@ -6,20 +6,20 @@ import { formatDimensions, slugifyBaseName } from "@/lib/format";
 
 type ResizeSettings = {
   allowUpscale: boolean;
-  aspectRatio: "original" | "1:1" | "4:3" | "3:4" | "16:9" | "9:16" | "3:2" | "2:3" | "a4-portrait" | "a4-landscape" | "custom";
+  aspectRatio: "original" | "1:1" | "4:3" | "3:4" | "16:9" | "9:16" | "3:2" | "2:3" | "5:4" | "4:5" | "21:9" | "custom";
   background: "white" | "transparent" | "custom";
   backgroundColor: string;
   customRatioHeight: number;
   customRatioWidth: number;
-  fit: "cover" | "contain" | "fill" | "stretch";
+  fit: "cover" | "contain" | "fill" | "stretch" | "inside";
   height: number;
   kernel: "lanczos3" | "lanczos2" | "cubic" | "linear" | "nearest";
   lockAspect: boolean;
   outputFormat: "same" | "jpeg" | "png" | "webp";
   percentage: number;
-  presetSize: "instagram-post" | "instagram-story" | "youtube-thumbnail" | "x-post" | "facebook-cover" | "linkedin-cover" | "a4-300" | "custom";
+  presetSize: "640x480" | "800x600" | "1024x768" | "1280x720" | "1280x1024" | "1366x768" | "1600x900" | "1920x1080" | "2560x1440" | "3840x2160" | "instagram-post" | "instagram-story" | "youtube-thumbnail" | "x-post" | "facebook-cover" | "linkedin-cover" | "a4-300" | "a4-150" | "a3-300" | "letter-300" | "custom";
   quality: number;
-  resizeMode: "pixels" | "percentage" | "preset" | "aspect-ratio" | "fit-box";
+  resizeMode: "pixels" | "percentage" | "preset" | "aspect-ratio" | "fit-box" | "custom";
   unit: "px" | "%";
   width: number;
   withoutEnlargement: boolean;
@@ -40,6 +40,7 @@ const sections: Array<ControlSection<ResizeSettings>> = [
           { label: "By preset size", description: "Use a social or print preset", value: "preset" },
           { label: "By aspect ratio", description: "Calculate dimensions from a ratio", value: "aspect-ratio" },
           { label: "Fit inside box", description: "Constrain inside a target box", value: "fit-box" },
+          { label: "Custom", description: "Enter any explicit width and height", value: "custom" },
         ],
       },
     ],
@@ -138,8 +139,9 @@ const sections: Array<ControlSection<ResizeSettings>> = [
             ["9:16", "9:16"],
             ["3:2", "3:2"],
             ["2:3", "2:3"],
-            ["a4-portrait", "A4 portrait"],
-            ["a4-landscape", "A4 landscape"],
+            ["5:4", "5:4"],
+            ["4:5", "4:5"],
+            ["21:9", "21:9"],
             ["custom", "Custom"],
           ].map(([value, label]) => (
             <button
@@ -187,7 +189,17 @@ const sections: Array<ControlSection<ResizeSettings>> = [
     label: "Preset Sizes",
     render: (_settings, update) => (
       <div className="grid grid-cols-2 gap-2">
-        {[
+        {[ 
+          [640, 480, "640 x 480", "640x480"],
+          [800, 600, "800 x 600", "800x600"],
+          [1024, 768, "1024 x 768", "1024x768"],
+          [1280, 720, "1280 x 720", "1280x720"],
+          [1280, 1024, "1280 x 1024", "1280x1024"],
+          [1366, 768, "1366 x 768", "1366x768"],
+          [1600, 900, "1600 x 900", "1600x900"],
+          [1920, 1080, "1920 x 1080", "1920x1080"],
+          [2560, 1440, "2560 x 1440", "2560x1440"],
+          [3840, 2160, "3840 x 2160", "3840x2160"],
           [1080, 1080, "Instagram Post", "instagram-post"],
           [1080, 1920, "Instagram Story", "instagram-story"],
           [1280, 720, "YouTube Thumb", "youtube-thumbnail"],
@@ -195,6 +207,9 @@ const sections: Array<ControlSection<ResizeSettings>> = [
           [1640, 924, "Facebook Cover", "facebook-cover"],
           [1584, 396, "LinkedIn Cover", "linkedin-cover"],
           [2480, 3508, "A4 300 DPI", "a4-300"],
+          [1240, 1754, "A4 150 DPI", "a4-150"],
+          [3508, 4961, "A3 300 DPI", "a3-300"],
+          [2550, 3300, "Letter 300 DPI", "letter-300"],
         ].map(([width, height, label, preset]) => (
           <button
             className="rounded-lg border border-slate-200 px-3 py-2 text-[13px] text-slate-700"
@@ -222,6 +237,7 @@ const sections: Array<ControlSection<ResizeSettings>> = [
         type: "radioCards",
         options: [
           { label: "Contain", description: "Fit inside the box", value: "contain" },
+          { label: "Fit inside box", description: "Resize without cropping", value: "inside" },
           { label: "Cover", description: "Fill and crop excess", value: "cover" },
           { label: "Fill", description: "Pad to exact dimensions", value: "fill" },
           { label: "Stretch", description: "Ignore aspect ratio", value: "stretch" },
@@ -282,9 +298,9 @@ export default function ImageResizePage() {
         formData.append("file", file);
         formData.append("width", String(settings.width));
         formData.append("height", String(settings.height));
-        formData.append("mode", settings.resizeMode === "fit-box" ? "pixels" : settings.resizeMode);
+        formData.append("mode", settings.resizeMode === "fit-box" || settings.resizeMode === "custom" ? "pixels" : settings.resizeMode);
         formData.append("percentage", String(settings.percentage));
-        formData.append("fit", settings.fit);
+        formData.append("fit", settings.resizeMode === "fit-box" ? "inside" : settings.fit);
         formData.append("kernel", settings.kernel === "linear" ? "cubic" : settings.kernel);
         formData.append("without_enlargement", String(settings.withoutEnlargement));
         formData.append("allow_upscale", String(settings.allowUpscale && !settings.withoutEnlargement));
@@ -328,6 +344,7 @@ export default function ImageResizePage() {
       }}
       presets={[
         { label: "1920x1080", values: { width: 1920, height: 1080 } },
+        { label: "Fit 1280", values: { width: 1280, height: 720, fit: "inside", resizeMode: "fit-box" } },
         { label: "Square", values: { width: 1080, height: 1080, fit: "cover" } },
         { label: "Twitter Header", values: { width: 1500, height: 500, fit: "cover" } },
         { label: "A4 300 DPI", values: { width: 2480, height: 3508, fit: "contain" } },

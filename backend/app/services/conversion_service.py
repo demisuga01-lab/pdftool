@@ -1,6 +1,8 @@
 import asyncio
 import csv
 import html
+import mimetypes
+import re
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -30,6 +32,11 @@ SVG_FORMATS = {"svg"}
 
 
 class ConversionService:
+    def _safe_filename(self, value: str | None, fallback_stem: str, extension: str) -> str:
+        requested = Path(str(value or "").strip()).name
+        safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(requested).stem if requested else fallback_stem).strip(".-") or fallback_stem
+        return f"{safe_stem}.{extension.lstrip('.')}"
+
     def _normalize_format(self, value: str | None, *, fallback: str | None = None) -> str:
         normalized = (value or fallback or "").lower().strip().lstrip(".")
         if normalized == "jpeg":
@@ -65,6 +72,25 @@ class ConversionService:
     def _safe_output_path(self, output_dir: Path, filename: str) -> Path:
         output_dir.mkdir(parents=True, exist_ok=True)
         return output_dir / filename
+
+    def _single_result(self, output_path: Path, *, original_name: str | None = None) -> dict[str, Any]:
+        media_type = mimetypes.guess_type(output_path.name)[0] or "application/octet-stream"
+        return {
+            "output_path": str(output_path),
+            "output_filename": output_path.name,
+            "media_type": media_type,
+            "original_name": original_name,
+            "extension": output_path.suffix.lstrip("."),
+        }
+
+    def _multi_result(self, output_paths: list[Path], *, output_filename: str, original_name: str | None = None) -> dict[str, Any]:
+        return {
+            "output_paths": [str(path) for path in output_paths],
+            "output_filename": output_filename,
+            "media_type": "application/zip",
+            "original_name": original_name,
+            "extension": "zip",
+        }
 
     async def _csv_to_xlsx(self, input_path: Path, output_path: Path) -> str:
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -150,33 +176,73 @@ class ConversionService:
         options = settings or {}
         input_format = self.detect_input_format(source, from_format, mime_type)
         target_format = self._normalize_format(to_format)
+        requested_name = str(options.get("output_filename") or "").strip()
+        original_name = source.name
 
         if input_format in PDF_FORMATS:
             if target_format == "docx":
-                output_path = self._safe_output_path(destination_root, f"{source.stem}.docx")
-                return {"output_path": await PDFService().pdf_to_docx(source, output_path)}
+                output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "docx"))
+                await PDFService().pdf_to_docx(source, output_path)
+                return self._single_result(output_path, original_name=original_name)
             if target_format == "xlsx":
-                output_path = self._safe_output_path(destination_root, f"{source.stem}.xlsx")
-                return {"output_path": await PDFService().pdf_to_excel(source, output_path)}
+                output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "xlsx"))
+                await PDFService().pdf_to_excel(source, output_path)
+                return self._single_result(output_path, original_name=original_name)
             if target_format == "txt":
-                output_path = self._safe_output_path(destination_root, f"{source.stem}.txt")
-                return {"output_path": await PDFService().extract_text(source, output_path, layout=True, output_format="txt")}
+                output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "txt"))
+                await PDFService().extract_text(source, output_path, layout=True, output_format="txt")
+                return self._single_result(output_path, original_name=original_name)
             if target_format == "html":
-                output_path = self._safe_output_path(destination_root, f"{source.stem}.html")
-                return {"output_path": await PDFService().pdf_to_html(source, output_path)}
+                output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "html"))
+                await PDFService().pdf_to_html(source, output_path)
+                return self._single_result(output_path, original_name=original_name)
             if target_format in {"png", "jpg", "webp"}:
                 dpi = int(options.get("dpi", 180))
                 jpeg_quality = int(options.get("quality", 85))
-                outputs = await PDFService().pdf_to_images(
-                    source,
-                    destination_root,
-                    dpi=dpi,
-                    format="jpeg" if target_format == "jpg" else target_format,
-                    jpeg_quality=jpeg_quality,
-                    transparent=bool(options.get("transparent", False)),
-                )
-                return {"output_paths": outputs}
+                page_base = re.sub(r"[^A-Za-z0-9._-]+", "-", (requested_name or source.stem)).strip(".-") or source.stem
+                if target_format in {"png", "jpg"}:
+                    outputs = [
+                        Path(path)
+                        for path in await PDFService().pdf_to_images(
+                            source,
+                            destination_root,
+                            dpi=dpi,
+                            format="jpeg" if target_format == "jpg" else target_format,
+                            jpeg_quality=jpeg_quality,
+                            transparent=bool(options.get("transparent", False)),
+                        )
+                    ]
+                    zip_name = self._safe_filename(page_base, source.stem, "zip")
+                    return self._multi_result(outputs, output_filename=zip_name, original_name=original_name)
+
+                rendered_dir = destination_root / "rendered-png"
+                rendered = [
+                    Path(path)
+                    for path in await PDFService().pdf_to_images(
+                        source,
+                        rendered_dir,
+                        dpi=dpi,
+                        format="png",
+                        jpeg_quality=jpeg_quality,
+                        transparent=bool(options.get("transparent", False)),
+                    )
+                ]
+                converted: list[Path] = []
+                for index, image_path in enumerate(rendered, start=1):
+                    output_path = self._safe_output_path(destination_root, f"{page_base}-{index:04d}.webp")
+                    await ImageService().convert_image(
+                        image_path,
+                        output_path,
+                        "webp",
+                        jpeg_quality,
+                        bool(options.get("preserve_metadata", False)),
+                        str(options.get("color_space", "srgb")),
+                    )
+                    converted.append(output_path)
+                zip_name = self._safe_filename(page_base, source.stem, "zip")
+                return self._multi_result(converted, output_filename=zip_name, original_name=original_name)
             if target_format in {"searchable_pdf", "pdf"}:
+                output_name = self._safe_filename(requested_name, source.stem, "pdf")
                 output_path = await OCRService().ocr(
                     source,
                     destination_root,
@@ -184,38 +250,59 @@ class ConversionService:
                     "pdf",
                     int(options.get("dpi", 300)),
                 )
-                return {"output_path": output_path}
+                final_path = Path(output_path)
+                if final_path.name != output_name:
+                    renamed = destination_root / output_name
+                    final_path.replace(renamed)
+                    final_path = renamed
+                return self._single_result(final_path, original_name=original_name)
 
         if input_format in OFFICE_FORMATS or input_format in {"txt", "html", "rtf"}:
             if target_format == "pdf":
-                return {"output_path": await PDFService().office_to_pdf(source, destination_root)}
+                output_path = Path(await PDFService().office_to_pdf(source, destination_root))
+                desired = destination_root / self._safe_filename(requested_name, source.stem, "pdf")
+                if output_path.name != desired.name:
+                    output_path.replace(desired)
+                    output_path = desired
+                return self._single_result(output_path, original_name=original_name)
             if input_format == "xlsx" and target_format == "csv":
-                output_path = self._safe_output_path(destination_root, f"{source.stem}.csv")
-                return {"output_path": await self._xlsx_to_csv(source, output_path)}
+                output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "csv"))
+                await self._xlsx_to_csv(source, output_path)
+                return self._single_result(output_path, original_name=original_name)
             if input_format in {"txt", "html"} and target_format == "zip":
-                output_path = self._safe_output_path(destination_root, f"{source.stem}.zip")
-                return {"output_path": await self._zip_single(source, output_path)}
+                output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "zip"))
+                await self._zip_single(source, output_path)
+                return self._single_result(output_path, original_name=original_name)
             if input_format == "txt" and target_format == "html":
-                output_path = self._safe_output_path(destination_root, f"{source.stem}.html")
-                return {"output_path": await self._text_to_html(source, output_path)}
+                output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "html"))
+                await self._text_to_html(source, output_path)
+                return self._single_result(output_path, original_name=original_name)
             if input_format == "html" and target_format == "txt":
-                output_path = self._safe_output_path(destination_root, f"{source.stem}.txt")
-                return {"output_path": await self._html_to_txt(source, output_path)}
+                output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "txt"))
+                await self._html_to_txt(source, output_path)
+                return self._single_result(output_path, original_name=original_name)
 
         if input_format == "csv":
             if target_format == "pdf":
-                return {"output_path": await PDFService().office_to_pdf(source, destination_root)}
+                output_path = Path(await PDFService().office_to_pdf(source, destination_root))
+                desired = destination_root / self._safe_filename(requested_name, source.stem, "pdf")
+                if output_path.name != desired.name:
+                    output_path.replace(desired)
+                    output_path = desired
+                return self._single_result(output_path, original_name=original_name)
             if target_format == "xlsx":
-                output_path = self._safe_output_path(destination_root, f"{source.stem}.xlsx")
-                return {"output_path": await self._csv_to_xlsx(source, output_path)}
+                output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "xlsx"))
+                await self._csv_to_xlsx(source, output_path)
+                return self._single_result(output_path, original_name=original_name)
             if target_format == "zip":
-                output_path = self._safe_output_path(destination_root, f"{source.stem}.zip")
-                return {"output_path": await self._zip_single(source, output_path)}
+                output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "zip"))
+                await self._zip_single(source, output_path)
+                return self._single_result(output_path, original_name=original_name)
 
         if input_format in SVG_FORMATS:
             if target_format in {"png", "pdf", "eps"}:
-                output_path = self._safe_output_path(destination_root, f"{source.stem}.{target_format}")
-                converted = await ImageService().convert_image(
+                output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, target_format))
+                await ImageService().convert_image(
                     source,
                     output_path,
                     target_format,
@@ -223,11 +310,11 @@ class ConversionService:
                     bool(options.get("preserve_metadata", False)),
                     str(options.get("color_space", "srgb")),
                 )
-                return {"output_path": converted}
+                return self._single_result(output_path, original_name=original_name)
 
         if input_format in IMAGE_FORMATS:
             if target_format in {"jpg", "png", "webp", "avif", "tiff", "bmp"}:
-                output_path = self._safe_output_path(destination_root, f"{source.stem}.{target_format}")
+                output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, target_format))
                 converted = await ImageService().convert_image(
                     source,
                     output_path,
@@ -238,10 +325,11 @@ class ConversionService:
                 )
                 if isinstance(converted, dict):
                     return converted
-                return {"output_path": converted}
+                return self._single_result(Path(converted), original_name=original_name)
             if target_format == "pdf":
-                output_path = self._safe_output_path(destination_root, f"{source.stem}.pdf")
-                return {"output_path": await PDFService().images_to_pdf([source], output_path)}
+                output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "pdf"))
+                await PDFService().images_to_pdf([source], output_path)
+                return self._single_result(output_path, original_name=original_name)
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

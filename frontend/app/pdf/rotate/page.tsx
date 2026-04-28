@@ -101,6 +101,7 @@ export default function PdfRotatePage() {
       pages = items.filter((item) => item.pageNumber % 2 === 1).map((item) => item.pageNumber).join(",");
     }
     formData.append("pages", pages);
+    formData.append("output_filename", file ? `${slugifyBaseName(file.name)}-rotated` : "rotated");
 
     job.process("pdf/rotate", formData);
   };

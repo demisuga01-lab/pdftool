@@ -11,7 +11,7 @@ import { UploadedImagePreview, UploadedPdfPreview } from "@/components/workspace
 import { getFileMetadata, type UploadedFileMetadata, type UploadProgressHandler, uploadFileToWorkspace } from "@/lib/files";
 import { estimateProcessingTime, slugifyBaseName } from "@/lib/format";
 import { useWorkspaceJob } from "@/lib/workspace-job";
-import { imageSummary, uploadedFileSummary, useObjectState, useUploadedPdfPageItems } from "@/lib/workspace-data";
+import { imageSummary, uploadedFileDetails, uploadedFileSummary, useObjectState, useUploadedPdfPageItems } from "@/lib/workspace-data";
 
 type ConvertKind = "pdf" | "office" | "spreadsheet" | "text" | "csv" | "image" | "svg" | "unknown";
 
@@ -188,6 +188,22 @@ export default function ConvertPage() {
     filename: outputFilename,
     prefix: "convert",
   });
+  const infoContent = useMemo(() => {
+    const details = uploadedFileDetails(fileMeta);
+    if (details.length === 0) {
+      return null;
+    }
+    return (
+      <div className="space-y-3">
+        {details.map((detail) => (
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0" key={detail.label}>
+            <span className="text-slate-500">{detail.label}</span>
+            <span className="max-w-[60%] text-right font-medium text-slate-900">{detail.value}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }, [fileMeta]);
 
   const syncQuery = useCallback(
     (updates: Record<string, string | null>) => {
@@ -325,10 +341,12 @@ export default function ConvertPage() {
     formData.append("file_id", fileMeta.file_id);
     formData.append("from_format", inputFormat);
     formData.append("to_format", selectedOutput);
+    formData.append("output_filename", settings.outputFilename.trim());
     formData.append(
       "settings",
       JSON.stringify({
         dpi: settings.dpi,
+        output_filename: settings.outputFilename.trim(),
         preserve_metadata: settings.preserveMetadata,
         quality: settings.quality,
         transparent: settings.transparent,
@@ -507,6 +525,7 @@ export default function ConvertPage() {
       fileInfo={uploadedFileSummary(fileMeta)}
       fileName={fileMeta?.original_name}
       hasContent={Boolean(fileMeta)}
+      infoContent={infoContent}
       onDownload={job.state === "success" ? job.download : undefined}
       onProcess={handleProcess}
       onReset={() => {

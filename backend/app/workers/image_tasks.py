@@ -206,6 +206,9 @@ def rotate_image_task(
     flip_horizontal: bool = False,
     flip_vertical: bool = False,
     output_format: str | None = None,
+    expand_canvas: bool = True,
+    background: str = "#00000000",
+    auto_crop: bool = False,
 ) -> dict[str, Any]:
     try:
         output = _run_service(
@@ -216,6 +219,9 @@ def rotate_image_task(
                 flip_horizontal,
                 flip_vertical,
                 output_format,
+                expand_canvas,
+                background,
+                auto_crop,
             )
         )
         return _success(self, output_path=str(output))
@@ -298,10 +304,18 @@ def ocr_image_task(
     enhance_contrast: bool = False,
     dpi: int = 300,
     password: str | None = None,
+    output_filename: str | None = None,
 ) -> dict[str, Any]:
     try:
-        output = _run_service(OCRService().ocr(input_path, output_dir, language, output_format, dpi, password=password))
-        return _success(self, output_path=str(output))
+        output = Path(_run_service(OCRService().ocr(input_path, output_dir, language, output_format, dpi, password=password)))
+        if output_filename and output_filename.strip():
+            safe_name = Path(output_filename.strip()).name
+            if not Path(safe_name).suffix:
+                safe_name = f"{Path(safe_name).stem}{output.suffix}"
+            renamed = output.parent / safe_name
+            output.replace(renamed)
+            output = renamed
+        return _success(self, output_path=str(output), output_filename=output.name)
     except Exception as exc:
         return _failure(self, exc)
 

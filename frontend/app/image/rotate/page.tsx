@@ -9,12 +9,14 @@ import { slugifyBaseName } from "@/lib/format";
 
 type RotateSettings = {
   angle: number;
+  autoCrop: boolean;
   background: "transparent" | "white" | "black" | "custom";
   backgroundColor: string;
   expandCanvas: boolean;
   flipHorizontal: boolean;
   flipVertical: boolean;
   format: "same" | "png" | "jpeg";
+  outputFilename: string;
   quality: number;
 };
 
@@ -135,6 +137,7 @@ const sections: Array<ControlSection<RotateSettings>> = [
       },
       { key: "backgroundColor", label: "Custom color", type: "color", show: (settings) => settings.background === "custom" },
       { key: "expandCanvas", label: "Expand canvas to fit", type: "toggle" },
+      { key: "autoCrop", label: "Auto-crop empty corners", type: "toggle" },
     ],
   },
   {
@@ -152,6 +155,7 @@ const sections: Array<ControlSection<RotateSettings>> = [
         ],
       },
       { key: "quality", label: "Quality", type: "slider", min: 1, max: 100, show: (settings) => settings.format === "jpeg" },
+      { key: "outputFilename", label: "Output filename", type: "text", placeholder: "image-rotated" },
     ],
   },
 ];
@@ -166,12 +170,15 @@ export default function ImageRotatePage() {
         formData.append("flip_horizontal", String(settings.flipHorizontal));
         formData.append("flip_vertical", String(settings.flipVertical));
         formData.append("expand_canvas", String(settings.expandCanvas));
+        formData.append("background", settings.background === "custom" ? settings.backgroundColor : settings.background === "white" ? "#ffffff" : settings.background === "black" ? "#000000" : "#00000000");
+        formData.append("auto_crop", String(settings.autoCrop));
         formData.append("output_format", settings.format === "same" ? "auto" : settings.format);
+        formData.append("output_filename", settings.outputFilename.trim());
         return formData;
       }}
       description="Rotate and flip images with a live preview, then export in the format that fits the output."
       downloadFilename={(file, settings) => {
-        const base = slugifyBaseName(file.name);
+        const base = settings.outputFilename.trim() || slugifyBaseName(file.name);
         const extension =
           settings.format === "same" ? file.name.split(".").pop() ?? "png" : settings.format === "jpeg" ? "jpg" : settings.format;
         return `${base}-rotated.${extension}`;
@@ -180,20 +187,38 @@ export default function ImageRotatePage() {
       endpoint="image/rotate"
       initialSettings={{
         angle: 0,
+        autoCrop: false,
         background: "transparent",
         backgroundColor: "#ffffff",
         expandCanvas: true,
         flipHorizontal: false,
         flipVertical: false,
         format: "same",
+        outputFilename: "",
         quality: 85,
       }}
       renderCenter={({ file, preview, settings, update }) => (
-        <PreviewStage className="mx-auto max-w-4xl">
-          <div className="p-4 sm:p-8">
+        <PreviewStage className="mx-auto max-w-[760px]">
+          <div className="p-4 sm:p-6">
             <div className="flex min-h-[520px] items-center justify-center rounded-2xl bg-[#F9FAFB] p-4 sm:p-8">
               {preview ? (
                 <div className="relative">
+                  <div className="absolute inset-x-0 top-0 z-10 flex justify-center">
+                    <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/90 px-2 py-2 shadow-sm backdrop-blur">
+                      <button className="rounded-full p-2 text-slate-700 hover:bg-slate-100" onClick={() => update("angle", settings.angle - 90)} type="button">
+                        <RotateCcw className="h-4 w-4" />
+                      </button>
+                      <button className="rounded-full p-2 text-slate-700 hover:bg-slate-100" onClick={() => update("angle", settings.angle + 90)} type="button">
+                        <RotateCw className="h-4 w-4" />
+                      </button>
+                      <button className="rounded-full p-2 text-slate-700 hover:bg-slate-100" onClick={() => update("flipHorizontal", !settings.flipHorizontal)} type="button">
+                        <FlipHorizontal2 className="h-4 w-4" />
+                      </button>
+                      <button className="rounded-full p-2 text-slate-700 hover:bg-slate-100" onClick={() => update("flipVertical", !settings.flipVertical)} type="button">
+                        <FlipVertical2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
                   <img
                     alt={file.name}
                     className="max-h-[420px] max-w-full rounded-xl border border-[#E5E7EB] bg-white object-contain transition"

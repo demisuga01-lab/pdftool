@@ -166,6 +166,7 @@ export function ImageWorkspace({
   fileInfo,
   fileName,
   hasContent,
+  infoContent,
   onDownload,
   onProcess,
   onReset,
@@ -188,6 +189,7 @@ export function ImageWorkspace({
   fileInfo?: string;
   fileName?: string;
   hasContent: boolean;
+  infoContent?: ReactNode;
   onDownload?: () => void;
   onProcess?: () => void;
   onReset?: () => void;
@@ -206,6 +208,7 @@ export function ImageWorkspace({
         countLabel={countLabel}
         fileInfo={fileInfo}
         fileName={fileName}
+        infoContent={infoContent}
         onDownload={onDownload}
         onReset={onReset}
         processingLabel={processingLabel}

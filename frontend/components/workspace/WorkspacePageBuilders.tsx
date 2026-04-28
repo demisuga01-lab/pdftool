@@ -26,6 +26,7 @@ import {
 import { useWorkspaceJob } from "@/lib/workspace-job";
 import {
   imageSummary,
+  uploadedFileDetails,
   selectedPagesLabel,
   uploadedFileSummary,
   useImagePreviewItems,
@@ -391,6 +392,24 @@ function workspaceSettingsKey(endpoint: string, fileId: string): string {
   return `workspace-settings:${endpoint}:${fileId}`;
 }
 
+function fileInfoContent(fileMeta: UploadedFileMetadata | null) {
+  const details = uploadedFileDetails(fileMeta);
+  if (details.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-3">
+      {details.map((detail) => (
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0" key={detail.label}>
+          <span className="text-slate-500">{detail.label}</span>
+          <span className="max-w-[60%] text-right font-medium text-slate-900">{detail.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
   buildFormData,
   description,
@@ -599,6 +618,7 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
       fileInfo={uploadedFileSummary(fileMeta, previewError ?? undefined)}
       fileName={fileMeta?.original_name ?? file?.name}
       hasContent={Boolean(fileMeta)}
+      infoContent={fileInfoContent(fileMeta)}
       onDeselectAll={deselectAll}
       onDownload={job.state === "success" ? job.download : undefined}
       onProcess={handleProcess}
@@ -914,6 +934,7 @@ export function SingleImageWorkspacePage<T extends Record<string, unknown>>({
       fileInfo={uploadedFileSummary(fileMeta) ?? imageSummary(preview)}
       fileName={fileMeta?.original_name ?? file?.name}
       hasContent={Boolean(fileMeta)}
+      infoContent={fileInfoContent(fileMeta)}
       onDownload={job.state === "success" ? job.download : undefined}
       onProcess={handleProcess}
       onReset={() => {

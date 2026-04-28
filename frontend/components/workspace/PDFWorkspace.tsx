@@ -44,6 +44,7 @@ type WorkspaceShellProps = {
   fileInfo?: string;
   fileName?: string;
   hasContent: boolean;
+  infoContent?: ReactNode;
   onDeselectAll?: () => void;
   onDownload?: () => void;
   onProcess?: () => void;
@@ -291,6 +292,7 @@ export function PDFWorkspace({
   fileInfo,
   fileName,
   hasContent,
+  infoContent,
   onDeselectAll,
   onDownload,
   onProcess,
@@ -315,6 +317,7 @@ export function PDFWorkspace({
         countLabel={countLabel}
         fileInfo={fileInfo}
         fileName={fileName}
+        infoContent={infoContent}
         onDownload={onDownload}
         onReset={onReset}
         processingLabel={processingLabel}

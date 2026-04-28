@@ -179,6 +179,23 @@ class ImageService:
             return str(output)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported output format: {target_format}")
 
+    def _hex_background(self, value: str) -> list[float] | float:
+        normalized = (value or "").strip()
+        if normalized.startswith("#") and len(normalized) == 9:
+            return [
+                int(normalized[1:3], 16),
+                int(normalized[3:5], 16),
+                int(normalized[5:7], 16),
+                int(normalized[7:9], 16),
+            ]
+        if normalized.startswith("#") and len(normalized) == 7:
+            return [
+                int(normalized[1:3], 16),
+                int(normalized[3:5], 16),
+                int(normalized[5:7], 16),
+            ]
+        return 255
+
     def _parse_tsv_content(self, tsv_content: str) -> dict[str, object]:
         reader = csv.DictReader(tsv_content.splitlines(), delimiter="\t")
         words: list[dict[str, object]] = []
@@ -344,14 +361,7 @@ class ImageService:
             else:
                 resized = image.thumbnail_image(target_width, height=target_height, size="both", kernel=kernel)
                 if resized.width != target_width or resized.height != target_height:
-                    if background.startswith("#") and len(background) == 7:
-                        background_value: list[float] | float = [
-                            int(background[1:3], 16),
-                            int(background[3:5], 16),
-                            int(background[5:7], 16),
-                        ]
-                    else:
-                        background_value = 255
+                    background_value = self._hex_background(background)
                     left = max(0, (target_width - resized.width) // 2)
                     top = max(0, (target_height - resized.height) // 2)
                     resized = resized.embed(left, top, target_width, target_height, background=background_value)
@@ -490,35 +500,50 @@ class ImageService:
         flip_horizontal: bool = False,
         flip_vertical: bool = False,
         output_format: str | None = None,
+        expand_canvas: bool = True,
+        background: str = "#00000000",
+        auto_crop: bool = False,
     ) -> str:
         logger.info("Starting rotate_image for file %s", input_path)
+        target_format = self._normalize_format(output_format or Path(output_path).suffix, input_path=input_path)
+        output = self._ensure_parent(Path(output_path).with_suffix(f".{target_format}"))
+        normalized = angle % 360
 
-        def rotate() -> str:
-            image = self._load_image(input_path)
-            normalized = angle % 360
-            if normalized == 0:
-                rotated = image
-            elif normalized == 90:
-                rotated = image.rot("d90")
-            elif normalized == 180:
-                rotated = image.rot("d180")
-            elif normalized == 270:
-                rotated = image.rot("d270")
-            else:
-                rotated = image.similarity(angle=angle)
-            if flip_horizontal:
-                rotated = rotated.fliphor()
-            if flip_vertical:
-                rotated = rotated.flipver()
+        if normalized in {0, 90, 180, 270} and expand_canvas and not auto_crop:
+            def rotate_right_angle() -> str:
+                image = self._load_image(input_path)
+                if normalized == 0:
+                    rotated = image
+                elif normalized == 90:
+                    rotated = image.rot("d90")
+                elif normalized == 180:
+                    rotated = image.rot("d180")
+                else:
+                    rotated = image.rot("d270")
+                if flip_horizontal:
+                    rotated = rotated.fliphor()
+                if flip_vertical:
+                    rotated = rotated.flipver()
+                return self._save_vips_format(rotated, output, target_format, quality=85, strip_metadata=False)
 
-            target_format = self._normalize_format(output_format or Path(output_path).suffix, input_path=input_path)
-            output = Path(output_path).with_suffix(f".{target_format}")
-            save_options: dict[str, Any] = {}
-            if target_format in {"jpg", "webp", "avif"}:
-                save_options["Q"] = 85
-            return self._save_image(rotated, output, **save_options)
+            return await self._run_blocking(rotate_right_angle, failure_message="Failed to rotate image")
 
-        return await self._run_blocking(rotate, failure_message="Failed to rotate image")
+        command = ["magick", str(input_path)]
+        if flip_horizontal:
+            command.append("-flop")
+        if flip_vertical:
+            command.append("-flip")
+        command.extend(["-background", background or "#00000000"])
+        if not expand_canvas:
+            command.append("+repage")
+        command.extend(["-rotate", str(angle)])
+        if auto_crop:
+            command.extend(["-trim", "+repage"])
+        if target_format in {"jpg", "webp"}:
+            command.extend(["-quality", "85"])
+        command.append(str(output))
+        await self._run_command(command)
+        return str(output)
 
     async def watermark_image(
         self,

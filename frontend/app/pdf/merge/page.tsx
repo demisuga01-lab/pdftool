@@ -20,7 +20,7 @@ import {
   type UploadProgressHandler,
 } from "@/lib/files";
 import { useWorkspaceJob } from "@/lib/workspace-job";
-import { useObjectState } from "@/lib/workspace-data";
+import { uploadedFileDetails, useObjectState } from "@/lib/workspace-data";
 
 type MergeSettings = {
   addBlankPage: boolean;
@@ -132,6 +132,24 @@ export default function PdfMergePage() {
     filename: settings.outputFilename || "merged.pdf",
     prefix: "pdf",
   });
+  const infoContent = useMemo(() => {
+    const firstFile = fileMetas[0] ?? null;
+    const details = uploadedFileDetails(firstFile);
+    if (details.length === 0) {
+      return null;
+    }
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-slate-500">Showing metadata for the first file in the current merge order.</p>
+        {details.map((detail) => (
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0" key={detail.label}>
+            <span className="text-slate-500">{detail.label}</span>
+            <span className="max-w-[60%] text-right font-medium text-slate-900">{detail.value}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }, [fileMetas]);
 
   const syncFileQuery = useCallback(
     (ids: string[]) => {
@@ -287,6 +305,7 @@ export default function PdfMergePage() {
       fileInfo={fileMetas.length > 0 ? formatBytes(totalBytes) : undefined}
       fileName={fileMetas.length > 0 ? `${fileMetas.length} files ready` : undefined}
       hasContent={fileMetas.length > 0}
+      infoContent={infoContent}
       onDownload={job.state === "success" ? job.download : undefined}
       onProcess={handleProcess}
       onReset={() => {
@@ -339,19 +358,53 @@ export default function PdfMergePage() {
                   <span className="truncate text-slate-700">
                     {index + 1}. {file.original_name}
                   </span>
-                  <button
-                    className="text-slate-400 transition hover:text-rose-500"
-                    onClick={() =>
-                      setFileMetas((current) => {
-                        const next = current.filter((_, fileIndex) => fileIndex !== index);
-                        syncFileQuery(next.map((item) => item.file_id));
-                        return next;
-                      })
-                    }
-                    type="button"
-                  >
-                    Remove
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40"
+                      disabled={index === 0}
+                      onClick={() =>
+                        setFileMetas((current) => {
+                          if (index === 0) return current;
+                          const next = [...current];
+                          [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                          syncFileQuery(next.map((item) => item.file_id));
+                          return next;
+                        })
+                      }
+                      type="button"
+                    >
+                      Up
+                    </button>
+                    <button
+                      className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40"
+                      disabled={index === fileMetas.length - 1}
+                      onClick={() =>
+                        setFileMetas((current) => {
+                          if (index >= current.length - 1) return current;
+                          const next = [...current];
+                          [next[index], next[index + 1]] = [next[index + 1], next[index]];
+                          syncFileQuery(next.map((item) => item.file_id));
+                          return next;
+                        })
+                      }
+                      type="button"
+                    >
+                      Down
+                    </button>
+                    <button
+                      className="text-slate-400 transition hover:text-rose-500"
+                      onClick={() =>
+                        setFileMetas((current) => {
+                          const next = current.filter((_, fileIndex) => fileIndex !== index);
+                          syncFileQuery(next.map((item) => item.file_id));
+                          return next;
+                        })
+                      }
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -192,6 +192,38 @@ export function uploadedFileSummary(file: UploadedFileMetadata | null, extra?: s
   ]);
 }
 
+export function uploadedFileDetails(file: UploadedFileMetadata | null): Array<{ label: string; value: string }> {
+  if (!file) {
+    return [];
+  }
+
+  const metadata = file.metadata ?? {};
+  const details: Array<{ label: string; value: string }> = [
+    { label: "Original name", value: file.original_name },
+    { label: "File ID", value: file.file_id },
+    { label: "Type", value: formatFileType(String(metadata.format ?? file.extension), file.extension) },
+    { label: "MIME type", value: file.mime_type || "application/octet-stream" },
+    { label: "Size", value: formatBytes(file.size_bytes) },
+  ];
+
+  if (typeof metadata.page_count === "number") {
+    details.push({ label: "Pages", value: String(metadata.page_count) });
+  }
+  if (typeof metadata.width === "number" && typeof metadata.height === "number") {
+    details.push({ label: "Dimensions", value: formatDimensions(metadata.width, metadata.height) });
+  }
+  if (typeof metadata.bands === "number") {
+    details.push({ label: "Bands", value: String(metadata.bands) });
+  }
+  if (typeof metadata.encrypted === "boolean") {
+    details.push({ label: "Encrypted", value: metadata.encrypted ? "Yes" : "No" });
+  }
+  if (typeof metadata.needs_password === "boolean") {
+    details.push({ label: "Needs password", value: metadata.needs_password ? "Yes" : "No" });
+  }
+  return details;
+}
+
 export function usePdfFileCards(files: File[]) {
   const [cards, setCards] = useState<PdfFileCard[]>([]);
 

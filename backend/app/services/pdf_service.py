@@ -381,15 +381,40 @@ class PDFService:
         angle: int,
         pages: str = "all",
     ) -> str:
-        if angle not in {0, 90, 180, 270}:
+        normalized_angle = angle % 360
+        if normalized_angle not in {0, 90, 180, 270}:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="angle must be one of: 0, 90, 180, 270",
             )
 
         output = self._ensure_parent(output_path)
-        command = ["qpdf", str(input_path), f"--rotate={angle}:{pages}", str(output)]
-        await self._run_command(command)
+        selected_pages: set[int] = set()
+        if str(pages).strip().lower() != "all":
+            selected_pages = {int(value) for value in self._expand_page_tokens(self._split_page_tokens(pages))}
+
+        def write_rotated() -> None:
+            from pypdf import PdfReader, PdfWriter
+
+            reader = PdfReader(str(input_path))
+            writer = PdfWriter()
+            total_pages = len(reader.pages)
+
+            if selected_pages and any(page < 1 or page > total_pages for page in selected_pages):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Selected pages must be between 1 and {total_pages}",
+                )
+
+            for page_number, page in enumerate(reader.pages, start=1):
+                if not selected_pages or page_number in selected_pages:
+                    page.rotate(normalized_angle)
+                writer.add_page(page)
+
+            with output.open("wb") as target:
+                writer.write(target)
+
+        await asyncio.to_thread(write_rotated)
         return str(output)
 
     async def extract_text(
@@ -489,20 +514,61 @@ class PDFService:
 
         output_directory = Path(output_dir)
         output_directory.mkdir(parents=True, exist_ok=True)
-        output_pattern = output_directory / f"page-%03d.{format}"
-        command = ["mutool", "draw", "-r", str(dpi), "-F", format, "-o", str(output_pattern)]
+        mutool_format = "png" if format == "webp" else "jpg" if format in {"jpg", "jpeg"} else format
+        output_pattern = output_directory / f"page-%03d.{mutool_format}"
+        command = ["mutool", "draw", "-r", str(dpi), "-F", mutool_format, "-o", str(output_pattern)]
         if transparent and format == "png":
             command.extend(["-c", "rgba"])
         command.append(str(input_path))
-        await self._run_command(command)
-        outputs = sorted(output_directory.glob(f"page-*.{format}"))
+        logger.info("Running command: %s", " ".join(command))
 
-        if format == "jpeg":
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await process.communicate()
+        except FileNotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Required command not found: mutool",
+            ) from exc
+
+        outputs = sorted(output_directory.glob(f"page-*.{mutool_format}"))
+        stderr_text = stderr.decode("utf-8", errors="replace").strip()
+        stdout_text = stdout.decode("utf-8", errors="replace").strip()
+        meaningful_error = "\n".join(
+            line for line in stderr_text.splitlines() if "icc support is not available" not in line.lower()
+        ).strip()
+
+        if process.returncode != 0 and not any(path.exists() and path.stat().st_size > 0 for path in outputs):
+            detail = meaningful_error or stdout_text or f"mutool exited with code {process.returncode}"
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail)
+
+        if format == "webp":
+            from app.services.image_service import ImageService
+
+            converted_outputs: list[Path] = []
+            for path in outputs:
+                target = path.with_suffix(".webp")
+                await ImageService().convert_image(path, target, "webp", jpeg_quality, False, "srgb")
+                path.unlink(missing_ok=True)
+                converted_outputs.append(target)
+            outputs = converted_outputs
+
+        if format in {"jpg", "jpeg"}:
             import pyvips
 
+            normalized_outputs: list[Path] = []
             for path in outputs:
+                target = path.with_suffix(".jpg")
                 image = pyvips.Image.new_from_file(str(path), access="sequential")
-                image.write_to_file(str(path), Q=jpeg_quality)
+                image.jpegsave(str(target), Q=jpeg_quality, optimize_coding=True)
+                if path != target and path.exists():
+                    path.unlink(missing_ok=True)
+                normalized_outputs.append(target)
+            outputs = normalized_outputs
 
         return [str(path) for path in outputs]
 

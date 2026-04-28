@@ -127,8 +127,8 @@ def _safe_output_path(path: str, settings: Settings) -> Path:
     return candidate
 
 
-async def _zip_outputs(job_id: str, output_paths: list[str], settings: Settings) -> Path:
-    zip_path = settings.OUTPUT_DIR / f"{job_id}.zip"
+async def _zip_outputs(job_id: str, output_paths: list[str], settings: Settings, filename: str | None = None) -> Path:
+    zip_path = settings.OUTPUT_DIR / (Path(filename).name if filename else f"{job_id}.zip")
     files = [_safe_output_path(path, settings) for path in output_paths]
 
     def write_zip() -> None:
@@ -220,16 +220,18 @@ async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
 
     output_path = result.get("output_path")
     output_paths = result.get("output_paths")
+    output_filename = str(result.get("output_filename") or "").strip() or None
+    media_type = str(result.get("media_type") or "").strip() or None
     if output_path:
         file_path = _safe_output_path(str(output_path), settings)
     elif isinstance(output_paths, list) and output_paths:
-        file_path = await _zip_outputs(job_id, [str(path) for path in output_paths], settings)
+        file_path = await _zip_outputs(job_id, [str(path) for path in output_paths], settings, output_filename)
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Output file not found. The job may have failed or expired.")
 
     return FileResponse(
         path=file_path,
-        media_type=mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",
-        filename=file_path.name,
+        media_type=media_type or mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",
+        filename=output_filename or file_path.name,
         headers={"Cache-Control": "no-store"},
     )

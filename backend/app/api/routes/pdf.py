@@ -63,8 +63,12 @@ def _queued_response(job_id: str, message: str) -> dict[str, str]:
     return {"job_id": job_id, "status": "queued", "message": message}
 
 
-def _output_path(settings: Settings, suffix: str) -> Path:
+def _output_path(settings: Settings, suffix: str, requested_name: str | None = None, fallback_stem: str = "output") -> Path:
     settings.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    if requested_name and requested_name.strip():
+        candidate = Path(requested_name.strip()).name
+        stem = Path(candidate).stem or fallback_stem
+        return settings.OUTPUT_DIR / f"{stem}{suffix}"
     return settings.OUTPUT_DIR / f"{uuid4().hex}{suffix}"
 
 
@@ -241,8 +245,8 @@ def _safe_output_path(path: str, settings: Settings) -> Path:
     return candidate
 
 
-async def _zip_outputs(job_id: str, output_paths: list[str], settings: Settings) -> Path:
-    zip_path = settings.OUTPUT_DIR / f"{job_id}.zip"
+async def _zip_outputs(job_id: str, output_paths: list[str], settings: Settings, filename: str | None = None) -> Path:
+    zip_path = settings.OUTPUT_DIR / (Path(filename).name if filename else f"{job_id}.zip")
     files = [_safe_output_path(path, settings) for path in output_paths]
 
     def write_zip() -> None:
@@ -293,6 +297,7 @@ async def merge_pdfs(
     file_ids: Annotated[list[str] | None, Form()] = None,
     add_bookmarks: Annotated[bool, Form()] = True,
     metadata_title: Annotated[str, Form()] = "",
+    output_filename: Annotated[str, Form()] = "",
 ) -> dict[str, str]:
     input_paths = await _input_paths_from_files_or_ids(settings, files=files, file_ids=file_ids)
     if len(input_paths) < 2:
@@ -301,7 +306,7 @@ async def merge_pdfs(
             detail="At least two PDFs are required to merge",
         )
 
-    output_path = _output_path(settings, ".pdf")
+    output_path = _output_path(settings, ".pdf", output_filename, "merged")
     task = merge_pdfs_task.apply_async(
         args=[[str(path) for path in input_paths], str(output_path), add_bookmarks, metadata_title],
         queue="fast",
@@ -334,9 +339,10 @@ async def rotate_pdf(
     file: Annotated[UploadFile | None, File()] = None,
     file_id: Annotated[str | None, Form()] = None,
     pages: Annotated[str, Form()] = "all",
+    output_filename: Annotated[str, Form()] = "",
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
-    output_path = _output_path(settings, ".pdf")
+    output_path = _output_path(settings, ".pdf", output_filename, "rotated")
     task = rotate_pdf_task.apply_async(
         args=[str(input_path), str(output_path), angle, pages],
         queue="fast",
@@ -419,9 +425,10 @@ async def images_to_pdf(
     settings: AppSettings,
     files: Annotated[list[UploadFile] | None, File()] = None,
     file_ids: Annotated[list[str] | None, Form()] = None,
+    output_filename: Annotated[str, Form()] = "",
 ) -> dict[str, str]:
     input_paths = await _input_paths_from_files_or_ids(settings, files=files, file_ids=file_ids)
-    output_path = _output_path(settings, ".pdf")
+    output_path = _output_path(settings, ".pdf", output_filename, "images")
     task = images_to_pdf_task.apply_async(
         args=[[str(path) for path in input_paths], str(output_path)],
         queue="fast",
@@ -607,11 +614,13 @@ async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
 
     output_path = result.get("output_path")
     output_paths = result.get("output_paths")
+    output_filename = str(result.get("output_filename") or "").strip() or None
+    media_type = str(result.get("media_type") or "").strip() or None
 
     if output_path:
         file_path = _safe_output_path(str(output_path), settings)
     elif isinstance(output_paths, list) and output_paths:
-        file_path = await _zip_outputs(job_id, [str(path) for path in output_paths], settings)
+        file_path = await _zip_outputs(job_id, [str(path) for path in output_paths], settings, output_filename)
     else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -620,7 +629,7 @@ async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
 
     return FileResponse(
         path=file_path,
-        media_type=mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",
-        filename=file_path.name,
+        media_type=media_type or mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",
+        filename=output_filename or file_path.name,
         headers={"Cache-Control": "no-store"},
     )

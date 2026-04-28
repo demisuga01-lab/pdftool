@@ -18,6 +18,7 @@ import {
 import { estimateProcessingTime, slugifyBaseName } from "@/lib/format";
 import {
   imageSummary,
+  uploadedFileDetails,
   uploadedFileSummary,
   useObjectState,
   useSingleImagePreview,
@@ -100,6 +101,22 @@ export default function OcrPage() {
   const outputName = currentFile
     ? `${settings.outputFilename.trim() || slugifyBaseName(currentFile.name)}.${outputExtension(settings.outputFormat)}`
     : `ocr-output.${outputExtension(settings.outputFormat)}`;
+  const infoContent = useMemo(() => {
+    const details = uploadedFileDetails(fileMeta);
+    if (details.length === 0) {
+      return null;
+    }
+    return (
+      <div className="space-y-3">
+        {details.map((detail) => (
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0" key={detail.label}>
+            <span className="text-slate-500">{detail.label}</span>
+            <span className="max-w-[60%] text-right font-medium text-slate-900">{detail.value}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }, [fileMeta]);
 
   const syncQuery = useCallback(
     (updates: Record<string, string | null>) => {
@@ -390,6 +407,7 @@ export default function OcrPage() {
       fileInfo={isPdf ? uploadedFileSummary(fileMeta) : uploadedFileSummary(fileMeta) ?? imageSummary(preview)}
       fileName={fileMeta?.original_name}
       hasContent={Boolean(fileMeta)}
+      infoContent={infoContent}
       onDownload={jobState === "success" && jobId ? () => downloadFile("image", jobId, outputName) : undefined}
       onProcess={handleProcess}
       onReset={() => {

@@ -55,11 +55,12 @@ async def ocr(
     output_format: Annotated[str, Form()] = "txt",
     dpi: Annotated[int, Form()] = 300,
     password: Annotated[str, Form()] = "",
+    output_filename: Annotated[str, Form()] = "",
 ) -> dict[str, str]:
     input_path = await _input_path(settings, file, file_id)
     output_dir = _output_dir(settings)
     task = ocr_image_task.apply_async(
-        args=[str(input_path), str(output_dir), language, output_format, "auto", "all", False, False, False, dpi, password or None],
+        args=[str(input_path), str(output_dir), language, output_format, "auto", "all", False, False, False, dpi, password or None, output_filename or None],
         queue="heavy",
     )
     return {"job_id": str(task.id), "status": "queued", "message": "OCR queued"}
