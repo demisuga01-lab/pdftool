@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import json
 import mimetypes
 import re
@@ -374,7 +374,7 @@ async def thumbnail_path(file_id: str, settings: Settings) -> Path:
             await asyncio.to_thread(render)
             return output
         except Exception:
-                await _run_command([get_imagemagick_command(), str(file_path), "-thumbnail", "480x480", str(output)])
+            await _run_command([get_imagemagick_command(), str(file_path), "-thumbnail", "480x480", str(output)])
             return output
 
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Thumbnail is not available for this file type")
@@ -397,7 +397,8 @@ async def browser_safe_preview_path(file_id: str, settings: Settings) -> tuple[P
             try:
                 await asyncio.to_thread(render)
             except Exception:
-                    await _run_command([get_imagemagick_command(), str(file_path), str(output)])
+                await _run_command([get_imagemagick_command(), str(file_path), str(output)])
         return output, "image/png"
 
     return file_path, mimetypes.guess_type(file_path.name)[0]
+
