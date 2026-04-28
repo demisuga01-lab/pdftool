@@ -12,16 +12,31 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
+from app.services.image_service import normalize_image_output_format
+
 logger = logging.getLogger(__name__)
 
 PDF_EXTENSIONS = {".pdf"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif", ".tif", ".tiff", ".bmp", ".svg"}
 OFFICE_EXTENSIONS = {".docx", ".xlsx", ".pptx", ".odt", ".ods", ".odp"}
 TEXT_EXTENSIONS = {".txt", ".csv", ".json", ".html", ".htm", ".css", ".js", ".xml", ".svg"}
-ARCHIVE_EXTENSIONS = {".zip"}
+ARCHIVE_EXTENSIONS = {".zip", ".7z", ".rar", ".tar", ".gz", ".bz2", ".xz"}
 
 ALREADY_OPTIMIZED_MESSAGE = "Already optimized — original kept because recompression would increase size."
+ORIGINAL_BELOW_TARGET_MESSAGE = "Original file is already below the target size."
+TARGET_NOT_REACHED_MESSAGE = "Could not reach the exact target size safely. This is the smallest valid output produced."
 UNSUPPORTED_MESSAGE = "This format cannot be compressed meaningfully. Use ZIP or 7z packaging instead."
+UNSUPPORTED_ARCHIVE_MESSAGE = "This archive type is not safely supported for extraction yet. You can package it as ZIP/7z instead."
+MAX_ARCHIVE_MEMBERS = 10_000
+MAX_ARCHIVE_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024
+
+def get_imagemagick_command() -> str:
+    import shutil
+    if shutil.which("magick"):
+        return "magick"
+    if shutil.which("convert"):
+        return "convert"
+    raise RuntimeError("ImageMagick is not installed. Expected either 'magick' or 'convert'.")
 
 
 class CompressionService:
@@ -64,6 +79,16 @@ class CompressionService:
         data["pdf_quality"] = str(data.get("pdf_quality") or self._mode_pdf_quality(mode))
         data["image_dpi"] = self._int(data.get("image_dpi"), self._mode_dpi(mode), 72, 600)
         data["archive_level"] = self._int(data.get("archive_level"), 9 if mode == "maximum" else 7, 1, 9)
+        data["target_size_bytes"] = self._optional_positive_int(data.get("target_size_bytes"))
+        strategy = str(data.get("target_size_strategy") or "best_effort").lower()
+        data["target_size_strategy"] = strategy if strategy in {"best_effort", "strict_if_possible"} else "best_effort"
+        archive_mode = str(data.get("archive_output_mode") or "").lower()
+        if archive_mode in {"7z", "maximum"}:
+            data["recompress_as_7z"] = True
+            data["recompress_as_zip"] = False
+        elif archive_mode in {"keep_zip", "best_zip"}:
+            data["recompress_as_zip"] = True
+            data["recompress_as_7z"] = False
         return data
 
     def _detect_category(self, input_file: Path, settings: dict[str, Any]) -> str:
@@ -86,33 +111,40 @@ class CompressionService:
         return "unsupported"
 
     async def _compress_pdf(self, input_file: Path, temp_dir: Path, settings: dict[str, Any]) -> list[dict[str, Any]]:
+        temp_dir.mkdir(parents=True, exist_ok=True)
         candidates: list[dict[str, Any]] = []
-        quality = self._pdf_quality(settings)
-        dpi = self._int(settings.get("image_dpi"), 150, 72, 600)
+        requested_quality = self._pdf_quality(settings)
+        requested_dpi = self._int(settings.get("image_dpi"), 150, 72, 600)
         grayscale = self._bool(settings.get("grayscale") or settings.get("convert_to_grayscale"), False)
+        target_size = settings.get("target_size_bytes")
 
-        gs_output = temp_dir / "ghostscript.pdf"
-        command = [
-            "gs",
-            "-dBATCH",
-            "-dNOPAUSE",
-            "-sDEVICE=pdfwrite",
-            f"-dPDFSETTINGS=/{quality}",
-            "-dCompatibilityLevel=1.4",
-            "-dDetectDuplicateImages=true",
-            "-dCompressFonts=true",
-            "-dSubsetFonts=true",
-            "-dColorImageDownsampleType=/Bicubic",
-            f"-dColorImageResolution={dpi}",
-            "-dGrayImageDownsampleType=/Bicubic",
-            f"-dGrayImageResolution={dpi}",
-            f"-dMonoImageResolution={max(300, dpi)}",
-        ]
-        if grayscale:
-            command.extend(["-sColorConversionStrategy=Gray", "-sProcessColorModel=DeviceGray"])
-        command.extend([f"-sOutputFile={gs_output}", str(input_file)])
-        if await self._try_command(command) and await self._valid_pdf(gs_output):
-            candidates.append({"path": gs_output, "method": "ghostscript", "message": "Compressed successfully"})
+        if target_size:
+            reached = False
+            for preset in ["screen", "ebook", "printer"]:
+                if reached:
+                    break
+                for dpi in [300, 200, 150, 120, 96, 72]:
+                    if reached:
+                        break
+                    for jpeg_quality in [90, 85, 75, 65, 55, 45, 35, 25]:
+                        gs_output = temp_dir / f"ghostscript-{preset}-{dpi}-{jpeg_quality}.pdf"
+                        command = self._ghostscript_command(input_file, gs_output, preset, dpi, grayscale, jpeg_quality)
+                        if await self._try_command(command) and await self._valid_pdf(gs_output):
+                            candidates.append(
+                                {
+                                    "path": gs_output,
+                                    "method": f"ghostscript-{preset}-{dpi}dpi-q{jpeg_quality}",
+                                    "message": "Compressed successfully",
+                                }
+                            )
+                            if gs_output.stat().st_size <= int(target_size):
+                                reached = True
+                                break
+        else:
+            gs_output = temp_dir / "ghostscript.pdf"
+            command = self._ghostscript_command(input_file, gs_output, requested_quality, requested_dpi, grayscale, settings["quality"])
+            if await self._try_command(command) and await self._valid_pdf(gs_output):
+                candidates.append({"path": gs_output, "method": "ghostscript", "message": "Compressed successfully"})
 
         base_for_optional = self._smallest_path(candidates) or input_file
 
@@ -154,13 +186,14 @@ class CompressionService:
         return candidates
 
     async def _compress_image(self, input_file: Path, temp_dir: Path, settings: dict[str, Any]) -> list[dict[str, Any]]:
+        temp_dir.mkdir(parents=True, exist_ok=True)
         suffix = input_file.suffix.lower()
-        requested_format = str(settings.get("output_format") or "keep").lower()
-        if requested_format in {"keep original", "keep_original", "auto", "keep", ""}:
+        raw_format = str(settings.get("output_format") or "keep").lower()
+        requested_format = "auto" if raw_format in {"keep", "keep original", "keep_original"} else normalize_image_output_format(raw_format)
+        if requested_format in {"auto", ""}:
             target_suffix = ".jpg" if suffix == ".jpeg" else suffix
         else:
-            aliases = {"jpeg": "jpg", "tif": "tiff"}
-            target_suffix = f".{aliases.get(requested_format.lstrip('.'), requested_format.lstrip('.'))}"
+            target_suffix = f".{requested_format.lstrip('.')}"
 
         if suffix == ".svg" and target_suffix == ".svg":
             return await self._compress_text(input_file, temp_dir, {**settings, "preserve_original_extension": True})
@@ -168,28 +201,43 @@ class CompressionService:
         quality = self._int(settings.get("quality"), 82, 1, 100)
         strip = self._bool(settings.get("strip_metadata"), False) and not self._bool(settings.get("preserve_metadata"), False)
         lossless = self._bool(settings.get("lossless"), False) or settings["mode"] == "lossless"
-        output = temp_dir / f"image{target_suffix}"
+        target_size = settings.get("target_size_bytes")
         candidates: list[dict[str, Any]] = []
 
+        def stepped_qualities() -> list[int]:
+            if target_size:
+                return [95, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20]
+            return [quality]
+
+        def target_reached(path: Path) -> bool:
+            return bool(target_size and self._valid_nonempty(path) and path.stat().st_size <= int(target_size))
+
         if target_suffix in {".jpg", ".jpeg"}:
-            if suffix in {".jpg", ".jpeg"}:
-                shutil.copy2(input_file, output)
-                command = ["jpegoptim", "--quiet", f"--max={quality}"]
-                if strip:
-                    command.append("--strip-all")
-                command.append(str(output))
-                if await self._try_command(command):
-                    candidates.append({"path": output, "method": "jpegoptim", "message": "Compressed successfully"})
-            if not candidates:
-                cmd = ["magick", str(input_file)]
+            for current_quality in stepped_qualities():
+                output = temp_dir / f"image-q{current_quality}.jpg"
+                if suffix in {".jpg", ".jpeg"}:
+                    shutil.copy2(input_file, output)
+                    command = ["jpegoptim", "--quiet", f"--max={current_quality}"]
+                    if strip:
+                        command.append("--strip-all")
+                    command.append(str(output))
+                    if await self._try_command(command):
+                        candidates.append({"path": output, "method": "jpegoptim", "message": "Compressed successfully"})
+                        if target_reached(output):
+                            break
+                        continue
+                cmd = [get_imagemagick_command(), str(input_file)]
                 if strip:
                     cmd.append("-strip")
-                cmd.extend(["-quality", str(quality), str(output)])
+                cmd.extend(["-quality", str(current_quality), str(output)])
                 if await self._try_command(cmd):
-                    candidates.append({"path": output, "method": "imagemagick", "message": "Compressed successfully"})
+                    candidates.append({"path": output, "method": "imagemagick-jpeg", "message": "Compressed successfully"})
+                    if target_reached(output):
+                        break
 
         elif target_suffix == ".png":
-            if lossless:
+            if lossless or not target_size:
+                output = temp_dir / "image-lossless.png"
                 shutil.copy2(input_file, output)
                 ran = False
                 if await self._try_command(["oxipng", "-o", "4", "--strip", "safe", str(output)]):
@@ -198,43 +246,66 @@ class CompressionService:
                     ran = True
                 if ran:
                     candidates.append({"path": output, "method": "oxipng+optipng", "message": "Compressed successfully"})
-            else:
-                min_quality = max(1, min(quality - 15, quality))
-                if await self._try_command(["pngquant", "--quality", f"{min_quality}-{quality}", "--force", "--output", str(output), str(input_file)]):
-                    candidates.append({"path": output, "method": "pngquant", "message": "Compressed successfully"})
-                else:
+            if not lossless or target_size:
+                ranges = (
+                    [(90, 100), (80, 95), (70, 90), (60, 85), (50, 80), (40, 70), (30, 60)]
+                    if target_size
+                    else [(max(1, min(quality - 15, quality)), quality)]
+                )
+                for minimum, maximum in ranges:
+                    output = temp_dir / f"image-pngquant-{minimum}-{maximum}.png"
+                    if await self._try_command(["pngquant", "--quality", f"{minimum}-{maximum}", "--force", "--output", str(output), str(input_file)]):
+                        candidates.append({"path": output, "method": "pngquant", "message": "Compressed successfully"})
+                        if target_reached(output):
+                            break
+                if not candidates:
+                    output = temp_dir / "image-oxipng.png"
                     shutil.copy2(input_file, output)
                     if await self._try_command(["oxipng", "-o", "4", "--strip", "safe", str(output)]):
                         candidates.append({"path": output, "method": "oxipng", "message": "Compressed successfully"})
 
         elif target_suffix == ".webp":
-            command = ["cwebp", "-quiet"]
-            command.extend(["-lossless"] if lossless else ["-q", str(quality)])
-            command.extend([str(input_file), "-o", str(output)])
-            if await self._try_command(command):
-                candidates.append({"path": output, "method": "cwebp", "message": "Compressed successfully"})
-            else:
-                cmd = ["magick", str(input_file)]
-                if strip:
-                    cmd.append("-strip")
-                cmd.extend(["-quality", str(quality), str(output)])
-                if await self._try_command(cmd):
-                    candidates.append({"path": output, "method": "imagemagick-webp", "message": "Compressed successfully"})
+            for current_quality in stepped_qualities():
+                output = temp_dir / f"image-q{current_quality}.webp"
+                command = ["cwebp", "-quiet"]
+                command.extend(["-lossless"] if lossless and not target_size else ["-q", str(current_quality)])
+                command.extend([str(input_file), "-o", str(output)])
+                if await self._try_command(command):
+                    candidates.append({"path": output, "method": "cwebp", "message": "Compressed successfully"})
+                    if target_reached(output):
+                        break
+                else:
+                    cmd = [get_imagemagick_command(), str(input_file)]
+                    if strip:
+                        cmd.append("-strip")
+                    cmd.extend(["-quality", str(current_quality), str(output)])
+                    if await self._try_command(cmd):
+                        candidates.append({"path": output, "method": "imagemagick-webp", "message": "Compressed successfully"})
+                        if target_reached(output):
+                            break
 
         elif target_suffix == ".avif":
-            if await self._try_command(["avifenc", "-q", str(quality), str(input_file), str(output)]):
-                candidates.append({"path": output, "method": "avifenc", "message": "Compressed successfully"})
-            else:
-                cmd = ["magick", str(input_file), str(output)]
-                if await self._try_command(cmd):
-                    candidates.append({"path": output, "method": "imagemagick-avif", "message": "Compressed successfully"})
+            for current_quality in stepped_qualities():
+                output = temp_dir / f"image-q{current_quality}.avif"
+                if await self._try_command(["avifenc", "-q", str(current_quality), str(input_file), str(output)]):
+                    candidates.append({"path": output, "method": "avifenc", "message": "Compressed successfully"})
+                    if target_reached(output):
+                        break
+                else:
+                    cmd = [get_imagemagick_command(), str(input_file), "-quality", str(current_quality), str(output)]
+                    if await self._try_command(cmd):
+                        candidates.append({"path": output, "method": "imagemagick-avif", "message": "Compressed successfully"})
+                        if target_reached(output):
+                            break
 
         elif target_suffix == ".gif":
+            output = temp_dir / "image.gif"
             if await self._try_command(["gifsicle", "-O3", "-o", str(output), str(input_file)]):
                 candidates.append({"path": output, "method": "gifsicle", "message": "Compressed successfully"})
 
         elif target_suffix in {".tif", ".tiff", ".bmp"}:
-            cmd = ["magick", str(input_file)]
+            output = temp_dir / f"image{target_suffix}"
+            cmd = [get_imagemagick_command(), str(input_file)]
             if strip:
                 cmd.append("-strip")
             if target_suffix in {".tif", ".tiff"}:
@@ -320,7 +391,7 @@ class CompressionService:
 
     async def _compress_archive(self, input_file: Path, temp_dir: Path, settings: dict[str, Any]) -> list[dict[str, Any]]:
         if input_file.suffix.lower() != ".zip" or not zipfile.is_zipfile(input_file):
-            return await self._package_fallback(input_file, temp_dir, settings, "Unsupported archive format. ZIP files can be safely recompressed; other archives can be packaged as ZIP/7z.")
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=UNSUPPORTED_ARCHIVE_MESSAGE)
 
         output_suffix = ".7z" if self._bool(settings.get("recompress_as_7z"), False) else ".zip"
         output = temp_dir / f"{input_file.stem}{output_suffix}"
@@ -331,7 +402,8 @@ class CompressionService:
             return [packaged] if packaged else []
         recompressed = await self._zip_dir(extract_dir, output, settings, "archive-zip")
         if shutil.which("advzip"):
-            await self._try_command(["advzip", "-z", "-4", str(recompressed["path"])])
+            if await self._try_command(["advzip", "-z", "-4", str(recompressed["path"])]):
+                recompressed["method"] = "archive-zip+advzip"
         return [recompressed]
 
     async def _package_fallback(self, input_file: Path, temp_dir: Path, settings: dict[str, Any], message: str) -> list[dict[str, Any]]:
@@ -354,22 +426,91 @@ class CompressionService:
         if not valid_candidates:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=UNSUPPORTED_MESSAGE)
 
-        best = min(valid_candidates, key=lambda item: Path(item["path"]).stat().st_size)
-        best_path = Path(best["path"])
-        best_size = best_path.stat().st_size
+        target_size = settings.get("target_size_bytes")
         force = self._bool(settings.get("force_recompress"), False)
         keep_original = self._bool(settings.get("keep_original_if_smaller"), True)
+
+        if target_size and original_size <= int(target_size) and not force:
+            return self._copy_result(
+                input_file,
+                input_file,
+                output_dir,
+                settings,
+                method="original-kept",
+                message=ORIGINAL_BELOW_TARGET_MESSAGE,
+                optimized=False,
+                target_size_bytes=int(target_size),
+                reached_target=True,
+            )
+
+        if target_size:
+            under_target = [
+                candidate
+                for candidate in valid_candidates
+                if Path(candidate["path"]).stat().st_size <= int(target_size)
+            ]
+            best = (
+                max(under_target, key=lambda item: Path(item["path"]).stat().st_size)
+                if under_target
+                else min(valid_candidates, key=lambda item: Path(item["path"]).stat().st_size)
+            )
+        else:
+            best = min(valid_candidates, key=lambda item: Path(item["path"]).stat().st_size)
+
+        best_path = Path(best["path"])
+        best_size = best_path.stat().st_size
         keep_uploaded = keep_original and best_size >= original_size and not force
         final_source = input_file if keep_uploaded else best_path
-        optimized = not keep_uploaded and best_size < original_size
-        message = ALREADY_OPTIMIZED_MESSAGE if keep_uploaded else str(best.get("message") or "Compressed successfully")
+        optimized = not keep_uploaded and final_source.stat().st_size < original_size
+        reached_target = bool(target_size and final_source.stat().st_size <= int(target_size))
+        if keep_uploaded:
+            message = ALREADY_OPTIMIZED_MESSAGE
+        elif target_size and not reached_target:
+            message = TARGET_NOT_REACHED_MESSAGE
+        else:
+            message = str(best.get("message") or "Compressed successfully")
 
+        return self._copy_result(
+            final_source,
+            input_file,
+            output_dir,
+            settings,
+            method="original-kept" if keep_uploaded else str(best.get("method") or "compression"),
+            message=message,
+            optimized=optimized,
+            target_size_bytes=int(target_size) if target_size else None,
+            reached_target=reached_target if target_size else None,
+        )
+
+    def _final_output_path(self, final_source: Path, input_file: Path, output_dir: Path, settings: dict[str, Any]) -> Path:
+        suffix = final_source.suffix or input_file.suffix or ".bin"
+        requested = str(settings.get("output_filename") or "").strip()
+        if requested:
+            safe_name = f"{self._safe_filename(Path(requested).stem, input_file.stem)}{suffix}"
+        else:
+            safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "-", input_file.stem).strip(".-") or "compressed"
+            safe_name = f"{safe_stem}{settings.get('output_suffix', '-compressed')}{suffix}"
+        return output_dir / safe_name
+
+    def _copy_result(
+        self,
+        final_source: Path,
+        input_file: Path,
+        output_dir: Path,
+        settings: dict[str, Any],
+        *,
+        method: str,
+        message: str,
+        optimized: bool,
+        target_size_bytes: int | None,
+        reached_target: bool | None,
+    ) -> dict[str, Any]:
+        original_size = input_file.stat().st_size
         final_path = self._final_output_path(final_source, input_file, output_dir, settings)
         shutil.copy2(final_source, final_path)
         output_size = final_path.stat().st_size
         saved_bytes = max(original_size - output_size, 0)
         saved_percent = round((saved_bytes / original_size) * 100, 2) if original_size else 0.0
-
         media_type = mimetypes.guess_type(final_path.name)[0] or "application/octet-stream"
 
         return {
@@ -380,24 +521,14 @@ class CompressionService:
             "extension": final_path.suffix.lstrip("."),
             "original_size": original_size,
             "output_size": output_size,
+            "target_size_bytes": target_size_bytes,
+            "reached_target": reached_target,
             "saved_bytes": saved_bytes,
             "saved_percent": saved_percent,
             "optimized": optimized,
-            "method": "original-kept" if keep_uploaded else str(best.get("method") or "compression"),
+            "method": method,
             "message": message,
         }
-
-    def _final_output_path(self, final_source: Path, input_file: Path, output_dir: Path, settings: dict[str, Any]) -> Path:
-        suffix = final_source.suffix or input_file.suffix or ".bin"
-        requested = str(settings.get("output_filename") or "").strip()
-        if requested:
-            safe_name = Path(requested).name
-            if not Path(safe_name).suffix:
-                safe_name = f"{safe_name}{suffix}"
-        else:
-            safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "-", input_file.stem).strip(".-") or "compressed"
-            safe_name = f"{safe_stem}{settings.get('output_suffix', '-compressed')}{suffix}"
-        return output_dir / safe_name
 
     async def _recompress_zip_container(self, input_file: Path, extract_dir: Path, output: Path, settings: dict[str, Any]) -> Path | None:
         self._safe_extract_zip(input_file, extract_dir)
@@ -406,6 +537,37 @@ class CompressionService:
                 return output
         candidate = await self._zip_dir(extract_dir, output, settings, "office-zip-repack")
         return Path(candidate["path"])
+
+    def _ghostscript_command(
+        self,
+        input_file: Path,
+        output: Path,
+        preset: str,
+        dpi: int,
+        grayscale: bool,
+        jpeg_quality: int,
+    ) -> list[str]:
+        command = [
+            "gs",
+            "-dBATCH",
+            "-dNOPAUSE",
+            "-sDEVICE=pdfwrite",
+            f"-dPDFSETTINGS=/{preset}",
+            "-dCompatibilityLevel=1.4",
+            "-dDetectDuplicateImages=true",
+            "-dCompressFonts=true",
+            "-dSubsetFonts=true",
+            "-dColorImageDownsampleType=/Bicubic",
+            f"-dColorImageResolution={dpi}",
+            "-dGrayImageDownsampleType=/Bicubic",
+            f"-dGrayImageResolution={dpi}",
+            f"-dMonoImageResolution={max(300, dpi)}",
+            f"-dJPEGQ={self._int(jpeg_quality, 82, 1, 100)}",
+        ]
+        if grayscale:
+            command.extend(["-sColorConversionStrategy=Gray", "-sProcessColorModel=DeviceGray"])
+        command.extend([f"-sOutputFile={output}", str(input_file)])
+        return command
 
     async def _zip_single(self, input_file: Path, output: Path, settings: dict[str, Any], message: str) -> dict[str, Any]:
         level = self._int(settings.get("archive_level"), 9, 1, 9)
@@ -432,14 +594,14 @@ class CompressionService:
     async def _seven_zip_single(self, input_file: Path, output: Path, settings: dict[str, Any], message: str = "Compressed successfully") -> dict[str, Any] | None:
         if not shutil.which("7z"):
             return None
-        if await self._try_command(["7z", "a", "-t7z", f"-mx={settings['archive_level']}", str(output), str(input_file)]):
+        if await self._try_command(["7z", "a", "-t7z", f"-mx={settings['archive_level']}", "-m0=lzma2", str(output), str(input_file)]):
             return {"path": output, "method": "7z", "message": message}
         return None
 
     async def _seven_zip_dir(self, input_dir: Path, output: Path, settings: dict[str, Any], method: str) -> dict[str, Any] | None:
         if not shutil.which("7z"):
             return None
-        if await self._try_command(["7z", "a", "-t7z", f"-mx={settings['archive_level']}", str(output), f"{input_dir}{self._path_glob_suffix()}"]):
+        if await self._try_command(["7z", "a", "-t7z", f"-mx={settings['archive_level']}", "-m0=lzma2", str(output), f"{input_dir}{self._path_glob_suffix()}"]):
             return {"path": output, "method": method, "message": "Compressed successfully"}
         return None
 
@@ -447,7 +609,13 @@ class CompressionService:
         extract_dir.mkdir(parents=True, exist_ok=True)
         root = extract_dir.resolve(strict=False)
         with zipfile.ZipFile(zip_path) as archive:
-            for member in archive.infolist():
+            members = archive.infolist()
+            if len(members) > MAX_ARCHIVE_MEMBERS:
+                raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Zip contains too many files to extract safely")
+            total_size = sum(max(member.file_size, 0) for member in members)
+            if total_size > MAX_ARCHIVE_UNCOMPRESSED_BYTES:
+                raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Zip is too large to extract safely")
+            for member in members:
                 member_path = Path(member.filename)
                 if member_path.is_absolute() or ".." in member_path.parts:
                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Zip contains an unsafe path")
@@ -545,6 +713,21 @@ class CompressionService:
 
     def _mode_dpi(self, mode: str) -> int:
         return {"lossless": 300, "balanced": 150, "maximum": 96, "custom": 150}.get(mode, 150)
+
+    def _safe_filename(self, value: str, fallback: str) -> str:
+        safe = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(value).name).strip(".-")
+        return safe or re.sub(r"[^A-Za-z0-9._-]+", "-", fallback).strip(".-") or "output"
+
+    def _optional_positive_int(self, value: Any) -> int | None:
+        if value is None:
+            return None
+        if isinstance(value, str) and value.strip().lower() in {"", "null", "none"}:
+            return None
+        try:
+            parsed = int(float(value))
+        except (TypeError, ValueError):
+            return None
+        return parsed if parsed > 0 else None
 
     def _int(self, value: Any, default: int, minimum: int, maximum: int) -> int:
         try:

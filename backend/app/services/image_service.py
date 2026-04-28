@@ -13,6 +13,39 @@ logger = logging.getLogger(__name__)
 
 ImageFormat = Literal["auto", "jpg", "jpeg", "png", "webp", "tiff", "tif", "avif", "bmp", "pdf", "eps"]
 ResizeFit = Literal["cover", "contain", "fill", "inside", "outside", "stretch"]
+IMAGE_OUTPUT_FORMAT_ERROR = "Output format is invalid. Please choose Same as input, JPG, PNG, WebP, TIFF, AVIF, or BMP."
+
+
+def get_imagemagick_command() -> str:
+    import shutil
+    if shutil.which("magick"):
+        return "magick"
+    if shutil.which("convert"):
+        return "convert"
+    raise RuntimeError("ImageMagick is not installed. Expected either 'magick' or 'convert'.")
+
+def normalize_image_output_format(value: str | None) -> str:
+    if value is None:
+        return "auto"
+    normalized = str(value).strip().lower().lstrip(".")
+    aliases = {
+        "",
+        "same",
+        "same as input",
+        "same_as_input",
+        "original",
+        "keep_original",
+        "keep original",
+        "source",
+        "input",
+    }
+    if normalized in aliases:
+        return "auto"
+    if normalized == "jpeg":
+        return "jpg"
+    if normalized == "tif":
+        return "tiff"
+    return normalized
 
 
 class ImageService:
@@ -80,7 +113,7 @@ class ImageService:
         input_path: str | Path | None = None,
         allow_document: bool = False,
     ) -> str:
-        normalized = (format or "").lower().lstrip(".")
+        normalized = normalize_image_output_format(format)
         if normalized in {"", "auto"}:
             if not input_path:
                 raise HTTPException(
@@ -98,7 +131,11 @@ class ImageService:
         if normalized not in allowed_formats:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="format must be one of: auto, jpg, jpeg, png, webp, tiff, tif, avif, bmp, pdf, eps",
+                detail=(
+                    "Output format is invalid. Please choose Same as input, JPG, PNG, WebP, TIFF, AVIF, BMP, PDF, or EPS."
+                    if allow_document
+                    else IMAGE_OUTPUT_FORMAT_ERROR
+                ),
             )
         return normalized
 
@@ -289,7 +326,7 @@ class ImageService:
         except HTTPException as exc:
             if target_format != "bmp" or "BMP output" not in str(exc.detail):
                 raise
-            await self._run_command(["magick", str(input_path), str(output)])
+            await self._run_command([get_imagemagick_command(), str(input_path), str(output)])
             return str(output)
 
     async def resize_image(
@@ -425,10 +462,10 @@ class ImageService:
             saved = await self._run_blocking(compress, failure_message="Failed to compress image")
         except HTTPException as exc:
             if target_format == "bmp" and "BMP output" in str(exc.detail):
-                await self._run_command(["magick", str(input_path), str(output)])
+                await self._run_command([get_imagemagick_command(), str(input_path), str(output)])
                 saved = str(output)
             elif target_format == "png":
-                command = ["magick", str(input_path)]
+                command = [get_imagemagick_command(), str(input_path)]
                 if strip_metadata:
                     command.append("-strip")
                 command.extend(
@@ -528,7 +565,7 @@ class ImageService:
 
             return await self._run_blocking(rotate_right_angle, failure_message="Failed to rotate image")
 
-        command = ["magick", str(input_path)]
+        command = [get_imagemagick_command(), str(input_path)]
         if flip_horizontal:
             command.append("-flop")
         if flip_vertical:

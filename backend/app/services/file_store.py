@@ -17,6 +17,14 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff", ".avif", 
 BROWSER_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".svg", ".avif"}
 
 
+def get_imagemagick_command() -> str:
+    import shutil
+    if shutil.which("magick"):
+        return "magick"
+    if shutil.which("convert"):
+        return "convert"
+    raise RuntimeError("ImageMagick is not installed. Expected either 'magick' or 'convert'.")
+
 def _safe_original_name(filename: str | None) -> str:
     name = Path(filename or "upload").name.strip()
     return name or "upload"
@@ -366,7 +374,7 @@ async def thumbnail_path(file_id: str, settings: Settings) -> Path:
             await asyncio.to_thread(render)
             return output
         except Exception:
-            await _run_command(["magick", str(file_path), "-thumbnail", "480x480", str(output)])
+                await _run_command([get_imagemagick_command(), str(file_path), "-thumbnail", "480x480", str(output)])
             return output
 
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Thumbnail is not available for this file type")
@@ -389,7 +397,7 @@ async def browser_safe_preview_path(file_id: str, settings: Settings) -> tuple[P
             try:
                 await asyncio.to_thread(render)
             except Exception:
-                await _run_command(["magick", str(file_path), str(output)])
+                    await _run_command([get_imagemagick_command(), str(file_path), str(output)])
         return output, "image/png"
 
     return file_path, mimetypes.guess_type(file_path.name)[0]
