@@ -297,9 +297,10 @@ def ocr_image_task(
     denoise: bool = False,
     enhance_contrast: bool = False,
     dpi: int = 300,
+    password: str | None = None,
 ) -> dict[str, Any]:
     try:
-        output = _run_service(OCRService().ocr(input_path, output_dir, language, output_format, dpi))
+        output = _run_service(OCRService().ocr(input_path, output_dir, language, output_format, dpi, password=password))
         return _success(self, output_path=str(output))
     except Exception as exc:
         return _failure(self, exc)

@@ -2,6 +2,7 @@ import asyncio
 import csv
 import json
 import logging
+import shutil
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -51,6 +52,33 @@ class OCRService:
         output.parent.mkdir(parents=True, exist_ok=True)
         return output
 
+    def _password_error_message(self) -> str:
+        return "This PDF is password-protected. Please enter the password before running OCR."
+
+    async def _pdf_is_encrypted(self, input_path: Path) -> bool:
+        def read() -> bool:
+            from pypdf import PdfReader
+
+            return bool(PdfReader(str(input_path)).is_encrypted)
+
+        try:
+            return await asyncio.to_thread(read)
+        except Exception:
+            return False
+
+    def _looks_like_password_error(self, text: str) -> bool:
+        normalized = text.lower()
+        return any(
+            phrase in normalized
+            for phrase in [
+                "cannot authenticate password",
+                "invalid password",
+                "password required",
+                "needs a password",
+                "encrypted",
+            ]
+        )
+
     def _normalize_output_format(self, output_format: str) -> str:
         normalized = output_format.lower().strip()
         aliases = {"text": "txt", "searchable_pdf": "pdf", "searchable-pdf": "pdf"}
@@ -92,23 +120,45 @@ class OCRService:
             "words": words,
         }
 
-    async def _render_pdf_pages(self, input_path: Path, output_dir: Path, dpi: int) -> list[Path]:
+    async def _render_pdf_pages(self, input_path: Path, output_dir: Path, dpi: int, password: str | None = None) -> list[Path]:
         safe_dpi = max(72, min(int(dpi or 300), 600))
         page_pattern = output_dir / "page-%04d.png"
-        await self._run_command(
-            [
-                "mutool",
-                "draw",
-                "-r",
-                str(safe_dpi),
-                "-F",
-                "png",
-                "-o",
-                str(page_pattern),
-                str(input_path),
-            ]
-        )
+        if await self._pdf_is_encrypted(input_path) and not password:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=self._password_error_message())
+
+        render_source = input_path
+        if password and await self._pdf_is_encrypted(input_path) and shutil.which("qpdf"):
+            decrypted = output_dir / "decrypted-input.pdf"
+            try:
+                await self._run_command(["qpdf", f"--password={password}", "--decrypt", str(input_path), str(decrypted)])
+                if decrypted.exists() and decrypted.stat().st_size > 0:
+                    render_source = decrypted
+            except HTTPException:
+                render_source = input_path
+
+        command = ["mutool", "draw"]
+        if password and render_source == input_path:
+            command.extend(["-p", password])
+        command.extend(["-r", str(safe_dpi), "-F", "png", "-o", str(page_pattern), str(render_source)])
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await process.communicate()
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Required command not found: mutool") from exc
+
         pages = sorted(output_dir.glob("page-*.png"))
+        stderr_text = stderr.decode("utf-8", errors="replace").strip()
+        stdout_text = stdout.decode("utf-8", errors="replace").strip()
+        if process.returncode != 0 and not pages:
+            detail = stderr_text or stdout_text or "Failed to render PDF pages before OCR"
+            if self._looks_like_password_error(detail):
+                detail = self._password_error_message()
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
         if not pages:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -184,6 +234,7 @@ class OCRService:
         language: str = "eng",
         output_format: str = "txt",
         dpi: int = 300,
+        password: str | None = None,
     ) -> str:
         input_file = Path(input_path)
         output_directory = Path(output_dir)
@@ -191,7 +242,7 @@ class OCRService:
         normalized_output = self._normalize_output_format(output_format)
 
         if input_file.suffix.lower() == ".pdf":
-            page_images = await self._render_pdf_pages(input_file, output_directory, dpi)
+            page_images = await self._render_pdf_pages(input_file, output_directory, dpi, password=password)
         else:
             page_images = [input_file]
 

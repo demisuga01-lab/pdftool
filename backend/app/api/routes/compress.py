@@ -1,4 +1,5 @@
 import json
+import mimetypes
 import zipfile
 from pathlib import Path
 from typing import Annotated, Any
@@ -226,4 +227,9 @@ async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Output file not found. The job may have failed or expired.")
 
-    return FileResponse(path=file_path, filename=file_path.name)
+    return FileResponse(
+        path=file_path,
+        media_type=mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",
+        filename=file_path.name,
+        headers={"Cache-Control": "no-store"},
+    )

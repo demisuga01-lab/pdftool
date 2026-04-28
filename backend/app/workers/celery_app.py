@@ -9,7 +9,20 @@ celery_app = Celery(
     "pdftool",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["app.workers.pdf_tasks", "app.workers.image_tasks", "app.workers.compress_tasks"],
+    include=[
+        "app.workers.pdf_tasks",
+        "app.workers.image_tasks",
+        "app.workers.convert_tasks",
+        "app.workers.compress_tasks",
+    ],
+)
+celery_app.autodiscover_tasks(
+    [
+        "app.workers.pdf_tasks",
+        "app.workers.image_tasks",
+        "app.workers.convert_tasks",
+        "app.workers.compress_tasks",
+    ]
 )
 
 fast_exchange = Exchange("fast", type="direct")
@@ -31,14 +44,17 @@ celery_app.conf.update(
     ),
     task_routes={
         "app.workers.pdf_tasks.compress_pdf_task": {"queue": "heavy"},
+        "app.workers.convert_tasks.convert_file_task": {"queue": "heavy"},
         "app.workers.compress_tasks.compress_file_task": {"queue": "heavy"},
         "app.workers.pdf_tasks.office_to_pdf_task": {"queue": "heavy"},
         "app.workers.image_tasks.batch_resize_task": {"queue": "heavy"},
         "app.workers.pdf_tasks.*": {"queue": "fast"},
         "app.workers.image_tasks.*": {"queue": "fast"},
+        "app.workers.convert_tasks.*": {"queue": "fast"},
     },
     task_annotations={
         "app.workers.pdf_tasks.compress_pdf_task": {"time_limit": 300, "soft_time_limit": 290},
+        "app.workers.convert_tasks.convert_file_task": {"time_limit": 300, "soft_time_limit": 290},
         "app.workers.compress_tasks.compress_file_task": {"time_limit": 600, "soft_time_limit": 590},
         "app.workers.pdf_tasks.office_to_pdf_task": {"time_limit": 300, "soft_time_limit": 290},
         "app.workers.image_tasks.batch_resize_task": {"time_limit": 300, "soft_time_limit": 290},
@@ -49,3 +65,8 @@ celery_app.conf.update(
     task_soft_time_limit=55,
     result_backend=settings.REDIS_URL,
 )
+
+import app.workers.compress_tasks  # noqa: E402,F401
+import app.workers.convert_tasks  # noqa: E402,F401
+import app.workers.image_tasks  # noqa: E402,F401
+import app.workers.pdf_tasks  # noqa: E402,F401

@@ -1,5 +1,6 @@
 import asyncio
 import json
+import mimetypes
 import zipfile
 from pathlib import Path
 from typing import Annotated, Any
@@ -139,6 +140,9 @@ async def convert_file(
     from_format: Annotated[str | None, Form()] = None,
     settings_json: Annotated[str | None, Form(alias="settings")] = None,
 ) -> dict[str, str]:
+    if not to_format.strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="to_format is required")
+
     input_path, metadata = await _input_path_from_file_or_id(settings, file, file_id)
     parsed_settings: dict[str, Any] = {}
     if settings_json:
@@ -236,4 +240,9 @@ async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
             detail="Output file not found. The job may have failed or expired.",
         )
 
-    return FileResponse(path=file_path, filename=file_path.name)
+    return FileResponse(
+        path=file_path,
+        media_type=mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",
+        filename=file_path.name,
+        headers={"Cache-Control": "no-store"},
+    )

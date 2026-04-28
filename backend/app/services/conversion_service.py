@@ -1,5 +1,7 @@
 import asyncio
 import csv
+import html
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -83,6 +85,56 @@ class ConversionService:
         await asyncio.to_thread(write)
         return str(output_path)
 
+    async def _xlsx_to_csv(self, input_path: Path, output_path: Path) -> str:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        def write() -> None:
+            from openpyxl import load_workbook
+
+            workbook = load_workbook(input_path, read_only=True, data_only=True)
+            worksheet = workbook.active
+            with output_path.open("w", encoding="utf-8", newline="") as target:
+                writer = csv.writer(target)
+                for row in worksheet.iter_rows(values_only=True):
+                    writer.writerow(["" if value is None else value for value in row])
+            workbook.close()
+
+        await asyncio.to_thread(write)
+        return str(output_path)
+
+    async def _text_to_html(self, input_path: Path, output_path: Path) -> str:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        text = await asyncio.to_thread(input_path.read_text, "utf-8", "ignore")
+        body = html.escape(text)
+        await asyncio.to_thread(
+            output_path.write_text,
+            f"<!doctype html><meta charset=\"utf-8\"><pre>{body}</pre>",
+            "utf-8",
+        )
+        return str(output_path)
+
+    async def _html_to_txt(self, input_path: Path, output_path: Path) -> str:
+        import re
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        content = await asyncio.to_thread(input_path.read_text, "utf-8", "ignore")
+        content = re.sub(r"<script\b[^>]*>.*?</script>", "", content, flags=re.IGNORECASE | re.DOTALL)
+        content = re.sub(r"<style\b[^>]*>.*?</style>", "", content, flags=re.IGNORECASE | re.DOTALL)
+        content = re.sub(r"<[^>]+>", " ", content)
+        content = html.unescape(re.sub(r"\s+", " ", content)).strip()
+        await asyncio.to_thread(output_path.write_text, content + "\n", "utf-8")
+        return str(output_path)
+
+    async def _zip_single(self, input_path: Path, output_path: Path) -> str:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        def write() -> None:
+            with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+                archive.write(input_path, arcname=input_path.name)
+
+        await asyncio.to_thread(write)
+        return str(output_path)
+
     async def convert(
         self,
         input_path: str | Path,
@@ -137,6 +189,18 @@ class ConversionService:
         if input_format in OFFICE_FORMATS or input_format in {"txt", "html", "rtf"}:
             if target_format == "pdf":
                 return {"output_path": await PDFService().office_to_pdf(source, destination_root)}
+            if input_format == "xlsx" and target_format == "csv":
+                output_path = self._safe_output_path(destination_root, f"{source.stem}.csv")
+                return {"output_path": await self._xlsx_to_csv(source, output_path)}
+            if input_format in {"txt", "html"} and target_format == "zip":
+                output_path = self._safe_output_path(destination_root, f"{source.stem}.zip")
+                return {"output_path": await self._zip_single(source, output_path)}
+            if input_format == "txt" and target_format == "html":
+                output_path = self._safe_output_path(destination_root, f"{source.stem}.html")
+                return {"output_path": await self._text_to_html(source, output_path)}
+            if input_format == "html" and target_format == "txt":
+                output_path = self._safe_output_path(destination_root, f"{source.stem}.txt")
+                return {"output_path": await self._html_to_txt(source, output_path)}
 
         if input_format == "csv":
             if target_format == "pdf":
@@ -144,6 +208,9 @@ class ConversionService:
             if target_format == "xlsx":
                 output_path = self._safe_output_path(destination_root, f"{source.stem}.xlsx")
                 return {"output_path": await self._csv_to_xlsx(source, output_path)}
+            if target_format == "zip":
+                output_path = self._safe_output_path(destination_root, f"{source.stem}.zip")
+                return {"output_path": await self._zip_single(source, output_path)}
 
         if input_format in SVG_FORMATS:
             if target_format in {"png", "pdf", "eps"}:

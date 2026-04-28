@@ -96,6 +96,23 @@ async def _pdf_page_count(file_path: Path) -> int:
         ) from exc
 
 
+async def _pdf_encryption_metadata(file_path: Path) -> dict[str, Any]:
+    def read() -> dict[str, Any]:
+        from pypdf import PdfReader
+
+        reader = PdfReader(str(file_path))
+        encrypted = bool(reader.is_encrypted)
+        return {
+            "encrypted": encrypted,
+            "needs_password": encrypted,
+        }
+
+    try:
+        return await asyncio.to_thread(read)
+    except Exception:
+        return {"encrypted": False, "needs_password": False}
+
+
 async def _image_metadata(file_path: Path) -> dict[str, Any]:
     if file_path.suffix.lower() == ".svg":
         return {}
@@ -158,8 +175,9 @@ async def save_upload_file(file: UploadFile, settings: Settings) -> dict[str, An
     extra: dict[str, Any] = {}
 
     if suffix == ".pdf":
+        extra.update(await _pdf_encryption_metadata(destination))
         try:
-            extra["page_count"] = await _pdf_page_count(destination)
+            extra["page_count"] = 0 if extra.get("encrypted") else await _pdf_page_count(destination)
         except HTTPException:
             extra["page_count"] = 0
     elif suffix in IMAGE_EXTENSIONS:
@@ -251,8 +269,13 @@ async def pdf_info(file_id: str, settings: Settings) -> dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="file_id does not reference a PDF")
     metadata = read_upload_metadata(file_id, settings)
     page_count = int(metadata.get("metadata", {}).get("page_count") or 0)
+    encryption_info = metadata.get("metadata", {})
+    if "encrypted" not in encryption_info:
+        encryption_info = {**encryption_info, **(await _pdf_encryption_metadata(file_path))}
+    encrypted = bool(encryption_info.get("encrypted", False))
+    needs_password = bool(encryption_info.get("needs_password", encrypted))
     if page_count <= 0:
-        page_count = await _pdf_page_count(file_path)
+        page_count = 0 if encrypted else await _pdf_page_count(file_path)
     return {
         "file_id": file_id,
         "page_count": page_count,
@@ -260,6 +283,8 @@ async def pdf_info(file_id: str, settings: Settings) -> dict[str, Any]:
         "size_bytes": file_path.stat().st_size,
         "original_name": metadata.get("original_name"),
         "extension": "pdf",
+        "encrypted": encrypted,
+        "needs_password": needs_password,
     }
 
 

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import type { SVGProps } from "react";
 
 type LogoProps = {
@@ -50,7 +51,14 @@ export function Logo({
   const content = (
     <span className={["inline-flex items-center gap-3", className].filter(Boolean).join(" ")}>
       <span className="flex h-8 w-8 items-center justify-center rounded-md bg-white text-[#2563EB]">
-        <LogoMark className={iconClassName ?? "h-8 w-8"} />
+        <Image
+          alt=""
+          aria-hidden="true"
+          className={iconClassName ?? "h-8 w-8"}
+          height={40}
+          src="/logo.png"
+          width={40}
+        />
       </span>
       {!compact ? (
         <span className="flex items-baseline gap-2">

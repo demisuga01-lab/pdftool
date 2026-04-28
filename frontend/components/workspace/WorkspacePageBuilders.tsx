@@ -147,7 +147,7 @@ function PreviewZoomControls({
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomReset: () => void;
-  zoom: number;
+  zoom: number | "fit";
 }) {
   return (
     <div className="flex items-center gap-2">
@@ -159,7 +159,7 @@ function PreviewZoomControls({
       >
         <Minus className="h-4 w-4" />
       </button>
-      <span className="min-w-[72px] text-center text-sm font-semibold text-slate-600">{zoom}%</span>
+      <span className="min-w-[72px] text-center text-sm font-semibold text-slate-600">{zoom === "fit" ? "Fit" : `${zoom}%`}</span>
       <button
         aria-label="Zoom in"
         className="secondary-button h-9 w-9 p-0"
@@ -193,7 +193,7 @@ export function UploadedPdfPreview({
   pageCount: number;
 }) {
   const [page, setPage] = useState(1);
-  const [zoom, setZoom] = useState(100);
+  const [zoom, setZoom] = useState<number | "fit">("fit");
   const [failed, setFailed] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const safePage = Math.min(Math.max(page, 1), Math.max(pageCount, 1));
@@ -232,25 +232,25 @@ export function UploadedPdfPreview({
 
           <PreviewZoomControls
             onFit={() => {
-              setZoom(100);
+              setZoom("fit");
               scrollRef.current?.scrollTo({ left: 0, top: 0 });
             }}
-            onZoomIn={() => setZoom((current) => clampPreviewZoom(current + ZOOM_STEP))}
-            onZoomOut={() => setZoom((current) => clampPreviewZoom(current - ZOOM_STEP))}
+            onZoomIn={() => setZoom((current) => clampPreviewZoom((current === "fit" ? 100 : current) + ZOOM_STEP))}
+            onZoomOut={() => setZoom((current) => clampPreviewZoom((current === "fit" ? 100 : current) - ZOOM_STEP))}
             onZoomReset={() => setZoom(100)}
             zoom={zoom}
           />
         </div>
 
         <div
-          className="min-h-[520px] overflow-auto bg-[#F3F4F6] p-4 sm:p-8"
+          className="h-[min(70vh,640px)] overflow-auto bg-[#F3F4F6] p-4 sm:p-6"
           onWheel={(event) => {
             event.preventDefault();
-            setZoom((current) => nextWheelZoom(current, event.deltaY));
+            setZoom((current) => nextWheelZoom(current === "fit" ? 100 : current, event.deltaY));
           }}
           ref={scrollRef}
         >
-          <div className="flex min-h-[488px] items-center justify-center">
+          <div className="flex min-h-full items-center justify-center">
           {failed ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
               Preview failed, but processing may still work.
@@ -260,8 +260,12 @@ export function UploadedPdfPreview({
               alt={`Page ${safePage}`}
               className="max-h-[72vh] max-w-full rounded-lg bg-white object-contain shadow-sm"
               onError={() => setFailed(true)}
-              src={getPdfPagePreviewUrl(fileId, safePage, zoom)}
-              style={{ maxWidth: "none", width: `${zoom}%` }}
+              src={getPdfPagePreviewUrl(fileId, safePage, zoom === "fit" ? 100 : zoom)}
+              style={
+                zoom === "fit"
+                  ? { maxHeight: "100%", maxWidth: "100%" }
+                  : { maxWidth: "none", width: `${zoom}%` }
+              }
             />
           )}
           </div>
@@ -297,33 +301,33 @@ export function UploadedImagePreview({
   alt: string;
   src: string;
 }) {
-  const [zoom, setZoom] = useState(100);
+  const [zoom, setZoom] = useState<number | "fit">("fit");
   const [failed, setFailed] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   return (
-    <PreviewStage className="mx-auto max-w-4xl">
+    <PreviewStage className="mx-auto max-w-[760px]">
       <div className="flex flex-wrap items-center justify-end gap-3 border-b border-[#E5E7EB] px-4 py-3">
         <PreviewZoomControls
           onFit={() => {
-            setZoom(100);
+            setZoom("fit");
             scrollRef.current?.scrollTo({ left: 0, top: 0 });
           }}
-          onZoomIn={() => setZoom((current) => clampPreviewZoom(current + ZOOM_STEP))}
-          onZoomOut={() => setZoom((current) => clampPreviewZoom(current - ZOOM_STEP))}
+          onZoomIn={() => setZoom((current) => clampPreviewZoom((current === "fit" ? 100 : current) + ZOOM_STEP))}
+          onZoomOut={() => setZoom((current) => clampPreviewZoom((current === "fit" ? 100 : current) - ZOOM_STEP))}
           onZoomReset={() => setZoom(100)}
           zoom={zoom}
         />
       </div>
       <div
-        className="min-h-[520px] overflow-auto bg-[linear-gradient(45deg,#E5E7EB_25%,transparent_25%),linear-gradient(-45deg,#E5E7EB_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#E5E7EB_75%),linear-gradient(-45deg,transparent_75%,#E5E7EB_75%)] bg-[length:24px_24px] bg-[position:0_0,0_12px,12px_-12px,-12px_0] p-8"
+        className="h-[min(70vh,620px)] overflow-auto bg-[#F8FAFC] p-4 sm:p-6"
         onWheel={(event) => {
           event.preventDefault();
-          setZoom((current) => nextWheelZoom(current, event.deltaY));
+          setZoom((current) => nextWheelZoom(current === "fit" ? 100 : current, event.deltaY));
         }}
         ref={scrollRef}
       >
-        <div className="flex min-h-[456px] items-center justify-center">
+        <div className="flex min-h-full items-center justify-center">
           {failed ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
               Preview failed, but processing may still work.
@@ -334,7 +338,11 @@ export function UploadedImagePreview({
               className="rounded-xl border border-[#E5E7EB] bg-white object-contain shadow-sm"
               onError={() => setFailed(true)}
               src={src}
-              style={{ maxWidth: "none", width: `${zoom}%` }}
+              style={
+                zoom === "fit"
+                  ? { maxHeight: "100%", maxWidth: "100%" }
+                  : { maxWidth: "none", width: `${zoom}%` }
+              }
             />
           )}
         </div>

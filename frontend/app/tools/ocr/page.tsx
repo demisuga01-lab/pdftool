@@ -29,53 +29,10 @@ type OcrSettings = {
   language: "eng";
   outputFilename: string;
   outputFormat: "txt" | "json" | "searchable_pdf" | "docx" | "hocr";
+  pdfPassword: string;
 };
 
 type ProcessState = "idle" | "queued" | "processing" | "success" | "failure";
-
-const sections: Array<ControlSection<OcrSettings>> = [
-  {
-    key: "language",
-    label: "Language",
-    fields: [
-      {
-        key: "language",
-        label: "OCR language",
-        type: "select",
-        options: [{ label: "English", value: "eng" }],
-      },
-      {
-        key: "dpi",
-        label: "PDF rasterization DPI",
-        type: "select",
-        options: [
-          { label: "200 DPI", value: 200 },
-          { label: "300 DPI", value: 300 },
-          { label: "400 DPI", value: 400 },
-        ],
-      },
-    ],
-  },
-  {
-    key: "output",
-    label: "Output",
-    fields: [
-      {
-        key: "outputFormat",
-        label: "Output format",
-        type: "radioCards",
-        options: [
-          { label: "TXT", description: "Plain extracted text", value: "txt" },
-          { label: "JSON", description: "Text and word boxes", value: "json" },
-          { label: "Searchable PDF", description: "PDF with invisible text layer", value: "searchable_pdf" },
-          { label: "DOCX", description: "Word document with page headings", value: "docx" },
-          { label: "HOCR", description: "HTML OCR output", value: "hocr" },
-        ],
-      },
-      { key: "outputFilename", label: "Output filename", type: "text", placeholder: "ocr-output" },
-    ],
-  },
-];
 
 function outputExtension(format: OcrSettings["outputFormat"]) {
   if (format === "searchable_pdf") {
@@ -117,10 +74,12 @@ export default function OcrPage() {
     language: "eng",
     outputFilename: "",
     outputFormat: "txt",
+    pdfPassword: "",
   });
 
   const currentFile = file ?? (fileMeta ? fileFromMetadata(fileMeta) : null);
   const isPdf = fileMeta?.extension.toLowerCase() === "pdf";
+  const pdfNeedsPassword = Boolean(fileMeta?.metadata?.needs_password || fileMeta?.metadata?.encrypted);
   const imagePreview = useSingleImagePreview(file && !isPdf ? file : null);
   const preview = imagePreview ?? (
     fileMeta && currentFile && !isPdf
@@ -234,6 +193,7 @@ export default function OcrPage() {
     formData.append("output_format", settings.outputFormat);
     formData.append("dpi", String(settings.dpi));
     formData.append("output_filename", settings.outputFilename.trim());
+    formData.append("password", settings.pdfPassword);
     const controller = new AbortController();
     processAbortRef.current?.abort();
     processAbortRef.current = controller;
@@ -325,6 +285,60 @@ export default function OcrPage() {
     return null;
   }, [jobError, jobState, uploadError, uploadState]);
 
+  const sections: Array<ControlSection<OcrSettings>> = useMemo(
+    () => [
+      {
+        key: "language",
+        label: "Language",
+        fields: [
+          {
+            key: "language",
+            label: "OCR language",
+            type: "select",
+            options: [{ label: "English", value: "eng" }],
+          },
+          {
+            key: "dpi",
+            label: "PDF rasterization DPI",
+            type: "select",
+            options: [
+              { label: "200 DPI", value: 200 },
+              { label: "300 DPI", value: 300 },
+              { label: "400 DPI", value: 400 },
+            ],
+          },
+          {
+            key: "pdfPassword",
+            label: "PDF password",
+            type: "password",
+            placeholder: "Required for protected PDFs",
+            show: () => Boolean(isPdf),
+          },
+        ],
+      },
+      {
+        key: "output",
+        label: "Output",
+        fields: [
+          {
+            key: "outputFormat",
+            label: "Output format",
+            type: "radioCards",
+            options: [
+              { label: "TXT", description: "Plain extracted text", value: "txt" },
+              { label: "JSON", description: "Text and word boxes", value: "json" },
+              { label: "Searchable PDF", description: "PDF with invisible text layer", value: "searchable_pdf" },
+              { label: "DOCX", description: "Word document with page headings", value: "docx" },
+              { label: "HOCR", description: "HTML OCR output", value: "hocr" },
+            ],
+          },
+          { key: "outputFilename", label: "Output filename", type: "text", placeholder: "ocr-output" },
+        ],
+      },
+    ],
+    [isPdf],
+  );
+
   return (
     <ImageWorkspace
       breadcrumbTitle="OCR"
@@ -392,7 +406,9 @@ export default function OcrPage() {
       rightPanel={
         <div className="space-y-6">
           <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] font-medium leading-6 text-slate-500">
-            {uploadState === "failure"
+            {pdfNeedsPassword && !settings.pdfPassword
+              ? "This PDF is password-protected. Enter the password before running OCR."
+              : uploadState === "failure"
               ? uploadError ?? "Upload failed."
               : jobState === "failure"
                 ? jobError ?? "OCR failed."

@@ -13,7 +13,7 @@ import { estimateProcessingTime, slugifyBaseName } from "@/lib/format";
 import { useWorkspaceJob } from "@/lib/workspace-job";
 import { imageSummary, uploadedFileSummary, useObjectState, useUploadedPdfPageItems } from "@/lib/workspace-data";
 
-type ConvertKind = "pdf" | "office" | "text" | "csv" | "image" | "svg" | "unknown";
+type ConvertKind = "pdf" | "office" | "spreadsheet" | "text" | "csv" | "image" | "svg" | "unknown";
 
 type ConvertSettings = {
   dpi: number;
@@ -49,6 +49,12 @@ function normalizeFormat(value: string | null | undefined) {
 }
 
 function detectKind(format: string): ConvertKind {
+  if (format === "image") {
+    return "image";
+  }
+  if (format === "office") {
+    return "office";
+  }
   if (pdfFormats.has(format)) {
     return "pdf";
   }
@@ -60,6 +66,9 @@ function detectKind(format: string): ConvertKind {
   }
   if (format === "csv") {
     return "csv";
+  }
+  if (["xls", "xlsx", "ods"].includes(format)) {
+    return "spreadsheet";
   }
   if (officeFormats.has(format)) {
     return "office";
@@ -85,13 +94,23 @@ function optionsForKind(kind: ConvertKind): ConvertOption[] {
       ];
     case "office":
       return [{ label: "PDF", value: "pdf", description: "Office document to PDF" }];
+    case "spreadsheet":
+      return [
+        { label: "PDF", value: "pdf", description: "Spreadsheet to PDF" },
+        { label: "CSV", value: "csv", description: "Spreadsheet to CSV" },
+      ];
     case "csv":
       return [
         { label: "PDF", value: "pdf", description: "CSV to PDF" },
         { label: "XLSX", value: "xlsx", description: "CSV to Excel workbook" },
       ];
     case "text":
-      return [{ label: "PDF", value: "pdf", description: "Document to PDF" }];
+      return [
+        { label: "PDF", value: "pdf", description: "Document to PDF" },
+        { label: "TXT", value: "txt", description: "Plain text output" },
+        { label: "HTML", value: "html", description: "HTML output where meaningful" },
+        { label: "ZIP", value: "zip", description: "Package as ZIP fallback" },
+      ];
     case "svg":
       return [
         { label: "PNG", value: "png", description: "SVG to raster image" },
@@ -139,13 +158,14 @@ export default function ConvertPage() {
     outputFilename: "",
     preserveMetadata: false,
     quality: 85,
-    toFormat: normalizeFormat(searchParams.get("to")) || "pdf",
+    toFormat: "",
     transparent: false,
   });
+  const [selectedOutput, setSelectedOutput] = useState("");
   const inputFormat = normalizeFormat(fileMeta?.extension || searchParams.get("from"));
   const inputKind = detectKind(inputFormat);
   const outputOptions = useMemo(() => optionsForKind(inputKind), [inputKind]);
-  const outputFormat = settings.toFormat;
+  const outputFormat = selectedOutput;
   const { items, pageCount } = useUploadedPdfPageItems(
     inputKind === "pdf" && fileMeta ? fileMeta.file_id : null,
     Number(fileMeta?.metadata?.page_count ?? fileMeta?.pages ?? 0),
@@ -195,17 +215,39 @@ export default function ConvertPage() {
     if (outputOptions.length === 0) {
       return;
     }
-    if (!outputOptions.some((option) => option.value === settings.toFormat)) {
-      update("toFormat", outputOptions[0].value);
+    const requestedOutput = normalizeFormat(searchParams.get("to"));
+    const nextOutput =
+      requestedOutput && outputOptions.some((option) => option.value === requestedOutput)
+        ? requestedOutput
+        : selectedOutput && outputOptions.some((option) => option.value === selectedOutput)
+          ? selectedOutput
+          : outputOptions[0].value;
+    if (nextOutput !== selectedOutput) {
+      setSelectedOutput(nextOutput);
+      update("toFormat", nextOutput);
     }
-  }, [outputOptions, settings.toFormat]);
+  }, [outputOptions, searchParams, selectedOutput, update]);
 
   useEffect(() => {
     const requestedOutput = normalizeFormat(searchParams.get("to"));
-    if (requestedOutput && requestedOutput !== settings.toFormat) {
+    if (
+      requestedOutput &&
+      requestedOutput !== selectedOutput &&
+      (outputOptions.length === 0 || outputOptions.some((option) => option.value === requestedOutput))
+    ) {
+      setSelectedOutput(requestedOutput);
       update("toFormat", requestedOutput);
     }
-  }, [searchParams, settings.toFormat]);
+  }, [outputOptions, searchParams, selectedOutput, update]);
+
+  const selectOutput = useCallback(
+    (value: string) => {
+      setSelectedOutput(value);
+      update("toFormat", value);
+      syncQuery({ file_id: fileMeta?.file_id ?? searchParams.get("file_id"), from: inputFormat || searchParams.get("from"), to: value });
+    },
+    [fileMeta?.file_id, inputFormat, searchParams, syncQuery, update],
+  );
 
   const handleFilesSelected = useCallback(
     async (files: File[]) => {
@@ -232,7 +274,7 @@ export default function ConvertPage() {
         const metadata = await uploadFileToWorkspace(nextFile, handleUploadProgress, controller.signal);
         setFileMeta(metadata);
         setUploadState("idle");
-        syncQuery({ file_id: metadata.file_id, from: normalizeFormat(metadata.extension), to: settings.toFormat });
+        syncQuery({ file_id: metadata.file_id, from: normalizeFormat(metadata.extension), to: selectedOutput || null });
       } catch (caughtError) {
         if (controller.signal.aborted) {
           return;
@@ -241,7 +283,7 @@ export default function ConvertPage() {
         setUploadError(caughtError instanceof Error ? caughtError.message : "Upload failed");
       }
     },
-    [job, settings.toFormat, syncQuery],
+    [job, selectedOutput, syncQuery],
   );
 
   useEffect(() => {
@@ -272,14 +314,14 @@ export default function ConvertPage() {
   }, [fileMeta?.file_id, searchParams]);
 
   const handleProcess = () => {
-    if (!fileMeta || !settings.toFormat) {
+    if (!fileMeta || !selectedOutput) {
       return;
     }
 
     const formData = new FormData();
     formData.append("file_id", fileMeta.file_id);
     formData.append("from_format", inputFormat);
-    formData.append("to_format", settings.toFormat);
+    formData.append("to_format", selectedOutput);
     formData.append(
       "settings",
       JSON.stringify({
@@ -289,7 +331,7 @@ export default function ConvertPage() {
         transparent: settings.transparent,
       }),
     );
-    syncQuery({ file_id: fileMeta.file_id, from: inputFormat, to: settings.toFormat });
+    syncQuery({ file_id: fileMeta.file_id, from: inputFormat, to: selectedOutput });
     job.process("convert", formData);
   };
 
@@ -298,17 +340,32 @@ export default function ConvertPage() {
       {
         key: "output",
         label: "Output",
+        render: () => (
+          <div className="grid gap-2">
+            {outputOptions.map((option) => {
+              const active = selectedOutput === option.value;
+              return (
+                <button
+                  className={[
+                    "rounded-lg border px-3 py-3 text-left transition",
+                    active
+                      ? "border-[#2563EB] bg-[#2563EB]/[0.06] ring-2 ring-[#2563EB]/15"
+                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
+                  ].join(" ")}
+                  key={option.value}
+                  onClick={() => selectOutput(option.value)}
+                  type="button"
+                >
+                  <span className={["block text-[15px] font-semibold", active ? "text-[#2563EB]" : "text-slate-900"].join(" ")}>
+                    {option.label}
+                  </span>
+                  <span className="mt-1 block text-sm font-medium text-slate-500">{option.description}</span>
+                </button>
+              );
+            })}
+          </div>
+        ),
         fields: [
-          {
-            key: "toFormat",
-            label: "Convert to",
-            type: "radioCards",
-            options: outputOptions.map((option) => ({
-              description: option.description,
-              label: option.label,
-              value: option.value,
-            })),
-          },
           {
             key: "outputFilename",
             label: "Output filename",
@@ -342,7 +399,7 @@ export default function ConvertPage() {
             key: "transparent",
             label: "Transparent background when possible",
             type: "toggle",
-            show: () => inputKind === "pdf" && settings.toFormat === "png",
+            show: () => inputKind === "pdf" && selectedOutput === "png",
           },
           {
             key: "preserveMetadata",
@@ -353,7 +410,7 @@ export default function ConvertPage() {
         ],
       },
     ],
-    [inputKind, outputOptions, settings.toFormat],
+    [inputKind, outputOptions, selectOutput, selectedOutput],
   );
 
   const previewContent = useMemo(() => {
