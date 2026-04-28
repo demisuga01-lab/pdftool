@@ -92,15 +92,26 @@ class PDFService:
 
     async def _strip_pdf_metadata(self, path: Path) -> Path:
         sanitized_path = path.with_name(f"{path.stem}-sanitized{path.suffix}")
-        command = [
-            "qpdf",
-            "--remove-info",
-            "--remove-metadata",
-            str(path),
-            str(sanitized_path),
-        ]
-        await self._run_command(command)
+
+        def write() -> None:
+            from pypdf import PdfReader, PdfWriter
+
+            reader = PdfReader(str(path))
+            writer = PdfWriter()
+            for page in reader.pages:
+                writer.add_page(page)
+            writer.add_metadata({})
+            with sanitized_path.open("wb") as output_file:
+                writer.write(output_file)
+
+        await asyncio.to_thread(write)
         sanitized_path.replace(path)
+        return path
+
+    async def _linearize_pdf(self, path: Path) -> Path:
+        linearized_path = path.with_name(f"{path.stem}-linearized{path.suffix}")
+        await self._run_command(["qpdf", "--linearize", str(path), str(linearized_path)])
+        linearized_path.replace(path)
         return path
 
     async def _set_pdf_title(self, path: Path, title: str) -> Path:
@@ -238,6 +249,8 @@ class PDFService:
         compatibility_level: CompatibilityLevel = "1.4",
         remove_metadata: bool = False,
         flatten_transparency: bool = False,
+        linearize: bool = True,
+        force_recompress: bool = False,
     ) -> dict[str, str | int | float]:
         if quality not in {"screen", "ebook", "printer", "prepress"}:
             raise HTTPException(
@@ -284,22 +297,34 @@ class PDFService:
 
         if remove_metadata:
             await self._strip_pdf_metadata(output)
+        if linearize:
+            await self._linearize_pdf(output)
 
         original_size = input_file.stat().st_size
-        compressed_size = output.stat().st_size
+        output_size = output.stat().st_size
+        optimized = output_size < original_size
+        message = None
 
-        if compressed_size >= original_size:
+        if output_size >= original_size and not force_recompress:
             shutil.copy2(input_file, output)
-            compressed_size = output.stat().st_size
-            reduction_percent = 0.0
-        else:
-            reduction_percent = round(((original_size - compressed_size) / original_size) * 100, 2) if original_size else 0.0
+            output_size = output.stat().st_size
+            optimized = False
+            message = "Original PDF was already smaller; kept original to avoid increasing size."
+
+        saved_bytes = max(original_size - output_size, 0)
+        saved_percent = round((saved_bytes / original_size) * 100, 2) if original_size else 0.0
 
         return {
             "output_path": str(output),
+            "optimized": optimized,
+            "message": message,
+            "original_size": original_size,
+            "output_size": output_size,
+            "saved_bytes": saved_bytes,
+            "saved_percent": saved_percent,
             "original_size_bytes": original_size,
-            "compressed_size_bytes": compressed_size,
-            "reduction_percent": reduction_percent,
+            "compressed_size_bytes": output_size,
+            "reduction_percent": saved_percent,
         }
 
     async def merge_pdfs(

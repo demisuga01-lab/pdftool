@@ -1,10 +1,12 @@
 import asyncio
 import logging
 import traceback
+from pathlib import Path
 from typing import Any, Awaitable
 
 from fastapi import HTTPException
 
+from app.services.compression_service import CompressionService
 from app.services.ocr_service import OCRService
 from app.services.pdf_service import PDFService
 from app.workers.celery_app import celery_app
@@ -59,17 +61,25 @@ def compress_pdf_task(
     compatibility_level: str = "1.4",
     remove_metadata: bool = False,
     flatten_transparency: bool = False,
+    linearize: bool = True,
+    force_recompress: bool = False,
 ) -> dict[str, Any]:
     try:
         result = _run_service(
-            PDFService().compress_pdf(
+            CompressionService().compress_file(
                 input_path,
-                output_path,
-                quality,
-                color_mode,
-                compatibility_level,
-                remove_metadata,
-                flatten_transparency,
+                str(Path(output_path).parent),
+                {
+                    "type": "pdf",
+                    "pdf_quality": quality,
+                    "color_mode": color_mode,
+                    "compatibility_level": compatibility_level,
+                    "strip_metadata": remove_metadata,
+                    "flatten_transparency": flatten_transparency,
+                    "linearize": linearize,
+                    "force_recompress": force_recompress,
+                    "keep_original_if_smaller": True,
+                },
             )
         )
         return _success(self, **result)

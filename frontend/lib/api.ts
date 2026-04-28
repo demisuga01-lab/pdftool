@@ -133,7 +133,7 @@ async function waitForPollInterval(intervalMs: number, signal?: AbortSignal): Pr
 }
 
 export async function getJobStatus(
-  prefix: "pdf" | "image",
+  prefix: "pdf" | "image" | "convert" | "compress",
   jobId: string,
   signal?: AbortSignal,
 ): Promise<JobStatus> {
@@ -178,7 +178,7 @@ export async function getJobStatus(
 }
 
 export async function pollJobStatus(
-  prefix: "pdf" | "image",
+  prefix: "pdf" | "image" | "convert" | "compress",
   jobId: string,
   signal?: AbortSignal,
   onUpdate?: (status: JobStatus) => void,
@@ -217,7 +217,7 @@ export async function pollJobStatus(
   }
 }
 
-export function downloadFile(prefix: "pdf" | "image", jobId: string, filename: string): void {
+export function downloadFile(prefix: "pdf" | "image" | "convert" | "compress", jobId: string, filename: string): void {
   const link = document.createElement("a");
   link.href = toApiPath(`${prefix}/download/${jobId}`);
   link.download = filename;

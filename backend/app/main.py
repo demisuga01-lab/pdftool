@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import files, image, ocr, pdf
+from app.api.routes import compress, convert, files, image, ocr, pdf
 from app.core.config import get_settings
 
 APP_VERSION = "0.1.0"
@@ -42,6 +42,8 @@ def create_app() -> FastAPI:
     app.include_router(image.router, prefix="/api/image", tags=["image"])
     app.include_router(files.router, prefix="/api/files", tags=["files"])
     app.include_router(ocr.router, prefix="/api/ocr", tags=["ocr"])
+    app.include_router(convert.router, prefix="/api/convert", tags=["convert"])
+    app.include_router(compress.router, prefix="/api/compress", tags=["compress"])
 
     @app.get("/api/health", tags=["health"])
     async def health_check() -> dict[str, Any]:

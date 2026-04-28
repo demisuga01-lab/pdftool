@@ -6,6 +6,7 @@ from typing import Any, Awaitable
 
 from fastapi import HTTPException
 
+from app.services.compression_service import CompressionService
 from app.services.image_service import ImageService
 from app.services.ocr_service import OCRService
 from app.workers.celery_app import celery_app
@@ -145,15 +146,19 @@ def compress_image_task(
 ) -> dict[str, Any]:
     try:
         output = _run_service(
-            ImageService().compress_image(
+            CompressionService().compress_file(
                 input_path,
-                output_path,
-                quality,
-                format,
-                progressive,
-                strip_metadata,
-                compression_level,
-                force_recompress,
+                str(Path(output_path).parent),
+                {
+                    "type": "image",
+                    "quality": quality,
+                    "output_format": format or "keep",
+                    "progressive": progressive,
+                    "strip_metadata": strip_metadata,
+                    "png_compression": compression_level,
+                    "force_recompress": force_recompress,
+                    "keep_original_if_smaller": True,
+                },
             )
         )
         if isinstance(output, dict):

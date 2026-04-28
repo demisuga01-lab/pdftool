@@ -13,7 +13,7 @@ export function useWorkspaceJob({
   prefix,
 }: {
   filename: string;
-  prefix: "pdf" | "image";
+  prefix: "pdf" | "image" | "convert" | "compress";
 }) {
   const pathname = usePathname();
   const router = useRouter();

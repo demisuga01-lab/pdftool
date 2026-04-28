@@ -124,7 +124,66 @@ function PresetRow<T extends Record<string, unknown>>({
   );
 }
 
-function UploadedPdfPreview({
+const MIN_PREVIEW_ZOOM = 25;
+const MAX_PREVIEW_ZOOM = 500;
+const ZOOM_STEP = 25;
+
+function clampPreviewZoom(value: number) {
+  return Math.max(MIN_PREVIEW_ZOOM, Math.min(MAX_PREVIEW_ZOOM, value));
+}
+
+function nextWheelZoom(current: number, deltaY: number) {
+  return clampPreviewZoom(current + (deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
+}
+
+function PreviewZoomControls({
+  onFit,
+  onZoomIn,
+  onZoomOut,
+  onZoomReset,
+  zoom,
+}: {
+  onFit: () => void;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onZoomReset: () => void;
+  zoom: number;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        aria-label="Zoom out"
+        className="secondary-button h-9 w-9 p-0"
+        onClick={onZoomOut}
+        type="button"
+      >
+        <Minus className="h-4 w-4" />
+      </button>
+      <span className="min-w-[72px] text-center text-sm font-semibold text-slate-600">{zoom}%</span>
+      <button
+        aria-label="Zoom in"
+        className="secondary-button h-9 w-9 p-0"
+        onClick={onZoomIn}
+        type="button"
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+      <button className="secondary-button h-9 px-3 text-sm" onClick={onZoomReset} type="button">
+        100%
+      </button>
+      <button
+        aria-label="Fit to screen"
+        className="secondary-button h-9 w-9 p-0"
+        onClick={onFit}
+        type="button"
+      >
+        <Maximize2 className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+export function UploadedPdfPreview({
   fileId,
   items,
   pageCount,
@@ -136,6 +195,7 @@ function UploadedPdfPreview({
   const [page, setPage] = useState(1);
   const [zoom, setZoom] = useState(100);
   const [failed, setFailed] = useState(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const safePage = Math.min(Math.max(page, 1), Math.max(pageCount, 1));
 
   useEffect(() => {
@@ -170,36 +230,27 @@ function UploadedPdfPreview({
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              aria-label="Zoom out"
-              className="secondary-button h-9 w-9 p-0"
-              onClick={() => setZoom((current) => Math.max(50, current - 25))}
-              type="button"
-            >
-              <Minus className="h-4 w-4" />
-            </button>
-            <span className="min-w-[64px] text-center text-sm font-semibold text-slate-600">{zoom}%</span>
-            <button
-              aria-label="Zoom in"
-              className="secondary-button h-9 w-9 p-0"
-              onClick={() => setZoom((current) => Math.min(300, current + 25))}
-              type="button"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-            <button
-              aria-label="Fit to screen"
-              className="secondary-button h-9 w-9 p-0"
-              onClick={() => setZoom(100)}
-              type="button"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </button>
-          </div>
+          <PreviewZoomControls
+            onFit={() => {
+              setZoom(100);
+              scrollRef.current?.scrollTo({ left: 0, top: 0 });
+            }}
+            onZoomIn={() => setZoom((current) => clampPreviewZoom(current + ZOOM_STEP))}
+            onZoomOut={() => setZoom((current) => clampPreviewZoom(current - ZOOM_STEP))}
+            onZoomReset={() => setZoom(100)}
+            zoom={zoom}
+          />
         </div>
 
-        <div className="flex min-h-[520px] items-center justify-center bg-[#F3F4F6] p-4 sm:p-8">
+        <div
+          className="min-h-[520px] overflow-auto bg-[#F3F4F6] p-4 sm:p-8"
+          onWheel={(event) => {
+            event.preventDefault();
+            setZoom((current) => nextWheelZoom(current, event.deltaY));
+          }}
+          ref={scrollRef}
+        >
+          <div className="flex min-h-[488px] items-center justify-center">
           {failed ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
               Preview failed, but processing may still work.
@@ -210,9 +261,10 @@ function UploadedPdfPreview({
               className="max-h-[72vh] max-w-full rounded-lg bg-white object-contain shadow-sm"
               onError={() => setFailed(true)}
               src={getPdfPagePreviewUrl(fileId, safePage, zoom)}
-              style={{ width: `${Math.min(100, zoom)}%` }}
+              style={{ maxWidth: "none", width: `${zoom}%` }}
             />
           )}
+          </div>
         </div>
       </PreviewStage>
 
@@ -235,6 +287,59 @@ function UploadedPdfPreview({
         </div>
       ) : null}
     </div>
+  );
+}
+
+export function UploadedImagePreview({
+  alt,
+  src,
+}: {
+  alt: string;
+  src: string;
+}) {
+  const [zoom, setZoom] = useState(100);
+  const [failed, setFailed] = useState(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  return (
+    <PreviewStage className="mx-auto max-w-4xl">
+      <div className="flex flex-wrap items-center justify-end gap-3 border-b border-[#E5E7EB] px-4 py-3">
+        <PreviewZoomControls
+          onFit={() => {
+            setZoom(100);
+            scrollRef.current?.scrollTo({ left: 0, top: 0 });
+          }}
+          onZoomIn={() => setZoom((current) => clampPreviewZoom(current + ZOOM_STEP))}
+          onZoomOut={() => setZoom((current) => clampPreviewZoom(current - ZOOM_STEP))}
+          onZoomReset={() => setZoom(100)}
+          zoom={zoom}
+        />
+      </div>
+      <div
+        className="min-h-[520px] overflow-auto bg-[linear-gradient(45deg,#E5E7EB_25%,transparent_25%),linear-gradient(-45deg,#E5E7EB_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#E5E7EB_75%),linear-gradient(-45deg,transparent_75%,#E5E7EB_75%)] bg-[length:24px_24px] bg-[position:0_0,0_12px,12px_-12px,-12px_0] p-8"
+        onWheel={(event) => {
+          event.preventDefault();
+          setZoom((current) => nextWheelZoom(current, event.deltaY));
+        }}
+        ref={scrollRef}
+      >
+        <div className="flex min-h-[456px] items-center justify-center">
+          {failed ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+              Preview failed, but processing may still work.
+            </div>
+          ) : (
+            <img
+              alt={alt}
+              className="rounded-xl border border-[#E5E7EB] bg-white object-contain shadow-sm"
+              onError={() => setFailed(true)}
+              src={src}
+              style={{ maxWidth: "none", width: `${zoom}%` }}
+            />
+          )}
+        </div>
+      </div>
+    </PreviewStage>
   );
 }
 
@@ -764,17 +869,7 @@ export function SingleImageWorkspacePage<T extends Record<string, unknown>>({
           renderCenter ? (
             renderCenter({ file: currentFile ?? fileFromMetadata(fileMeta), preview, settings, update })
           ) : (
-            <PreviewStage className="mx-auto max-w-4xl">
-              <div className="flex min-h-[520px] items-center justify-center bg-[linear-gradient(135deg,#F9FAFB,white)] p-8">
-                {preview ? (
-                  <img
-                    alt={fileMeta.original_name}
-                    className="max-h-[460px] max-w-full rounded-xl border border-[#E5E7EB] bg-white object-contain"
-                    src={preview.dataUrl}
-                  />
-                ) : null}
-              </div>
-            </PreviewStage>
+            preview ? <UploadedImagePreview alt={fileMeta.original_name} src={preview.dataUrl} /> : null
           )
         )
       }

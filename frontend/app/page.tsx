@@ -1,12 +1,13 @@
 import Link from "next/link";
 
 import { ToolCard } from "@/components/ui/ToolCard";
-import { imageTools, pdfTools } from "@/lib/tools";
+import { imageTools, pdfTools, sharedTools } from "@/lib/tools";
 
 export default function HomePage() {
   const pdfCount = pdfTools.length;
   const imageCount = imageTools.length;
-  const totalCount = pdfCount + imageCount;
+  const sharedCount = sharedTools.length;
+  const totalCount = pdfCount + imageCount + sharedCount;
 
   return (
     <main className="bg-white">
@@ -39,6 +40,26 @@ export default function HomePage() {
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="space-y-14">
+          <div className="space-y-5" id="shared-tools">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <h2 className="text-[22px] font-semibold text-[#111827]">Shared Tools</h2>
+                <span className="rounded-full bg-[#EFF6FF] px-2.5 py-1 text-[12px] font-semibold text-[#2563EB]">
+                  {sharedCount} tools
+                </span>
+              </div>
+              <p className="text-sm font-medium text-slate-500">
+                Universal conversion and OCR for PDFs, Office files, spreadsheets, text, and images.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-5">
+              {sharedTools.map((tool) => (
+                <ToolCard key={`${tool.category}-${tool.id}`} tool={tool} />
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-5" id="pdf-tools">
             <div className="space-y-2">
               <div className="flex items-center gap-3">

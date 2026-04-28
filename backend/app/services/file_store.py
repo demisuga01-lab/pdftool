@@ -283,8 +283,8 @@ async def render_pdf_page(file_id: str, page_number: int, settings: Settings, zo
             detail=f"page_number must be between 1 and {page_count}",
         )
 
-    safe_zoom = max(50, min(int(zoom or 100), 300))
-    dpi = max(72, min(round(180 * safe_zoom / 100), 540))
+    safe_zoom = max(25, min(int(zoom or 100), 500))
+    dpi = max(72, min(round(180 * safe_zoom / 100), 900))
     output = preview_cache_path(settings, file_id, f"page-{page_number}-z{safe_zoom}.png")
     if output.exists() and output.stat().st_size > 0:
         return output

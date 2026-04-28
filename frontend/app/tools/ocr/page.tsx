@@ -7,7 +7,7 @@ import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
 import { EmptyWorkspaceState, ImageWorkspace } from "@/components/workspace/ImageWorkspace";
 import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
-import { PDFThumbnailGrid, type WorkspaceThumbnailSize } from "@/components/workspace/PDFWorkspace";
+import { UploadedImagePreview, UploadedPdfPreview } from "@/components/workspace/WorkspacePageBuilders";
 import { downloadFile, pollJobStatus, toApiPath, type JobStatus } from "@/lib/api";
 import {
   getFileMetadata,
@@ -15,7 +15,7 @@ import {
   type UploadedFileMetadata,
   type UploadProgressHandler,
 } from "@/lib/files";
-import { estimateProcessingTime, formatBytes, slugifyBaseName } from "@/lib/format";
+import { estimateProcessingTime, slugifyBaseName } from "@/lib/format";
 import {
   imageSummary,
   uploadedFileSummary,
@@ -100,7 +100,6 @@ export default function OcrPage() {
   const processAbortRef = useRef<AbortController | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [fileMeta, setFileMeta] = useState<UploadedFileMetadata | null>(null);
-  const [pdfSize, setPdfSize] = useState<WorkspaceThumbnailSize>("medium");
   const [uploadState, setUploadState] = useState<"idle" | "uploading" | "failure">("idle");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadPercent, setUploadPercent] = useState(0);
@@ -135,7 +134,7 @@ export default function OcrPage() {
         }
       : null
   );
-  const { items, pageCount, setItems } = useUploadedPdfPageItems(
+  const { items, pageCount } = useUploadedPdfPageItems(
     isPdf && fileMeta ? fileMeta.file_id : null,
     Number(fileMeta?.metadata?.page_count ?? fileMeta?.pages ?? 0),
   );
@@ -171,6 +170,17 @@ export default function OcrPage() {
   useEffect(() => {
     setQueryString(window.location.search.replace(/^\?/, ""));
   }, [pathname]);
+
+  useEffect(() => {
+    const requestedOutput = searchParams.get("output");
+    if (
+      requestedOutput &&
+      requestedOutput !== settings.outputFormat &&
+      ["txt", "json", "searchable_pdf", "docx", "hocr"].includes(requestedOutput)
+    ) {
+      update("outputFormat", requestedOutput as OcrSettings["outputFormat"]);
+    }
+  }, [searchParams, settings.outputFormat]);
 
   const handleFilesSelected = useCallback(
     async (files: File[]) => {
@@ -320,26 +330,11 @@ export default function OcrPage() {
       breadcrumbTitle="OCR"
       centerContent={
         fileMeta ? (
-          <div className="mx-auto max-w-5xl rounded-2xl border border-[#E5E7EB] bg-white p-4 sm:p-6">
-            <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4 sm:min-h-[520px] sm:p-6">
-              {isPdf ? (
-                <div className="w-full space-y-4">
-                  <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-center">
-                    <p className="text-sm font-semibold text-[#2563EB]">PDF OCR preview</p>
-                    <h2 className="mt-2 text-xl font-bold text-slate-900">{fileMeta.original_name}</h2>
-                    <p className="mt-2 text-sm font-medium leading-6 text-slate-500">Preparing pages with MuPDF before Tesseract.</p>
-                  </div>
-                  <PDFThumbnailGrid items={items} onReorder={setItems} onToggleSelect={() => {}} size={pdfSize} />
-                </div>
-              ) : preview ? (
-                <img
-                  alt={fileMeta.original_name}
-                  className="max-h-[460px] max-w-full rounded-xl border border-[#E5E7EB] bg-white object-contain"
-                  src={preview.dataUrl}
-                />
-              ) : null}
-            </div>
-          </div>
+          isPdf ? (
+            <UploadedPdfPreview fileId={fileMeta.file_id} items={items} pageCount={pageCount} />
+          ) : preview ? (
+            <UploadedImagePreview alt={fileMeta.original_name} src={preview.dataUrl} />
+          ) : null
         ) : null
       }
       countLabel={isPdf ? `${pageCount} pages` : preview && preview.width > 0 ? `${preview.width} x ${preview.height} px` : undefined}
@@ -406,9 +401,6 @@ export default function OcrPage() {
           <WorkspaceControls sections={sections} state={settings} update={update} />
         </div>
       }
-      setSize={setPdfSize}
-      showSizeToggle={Boolean(isPdf)}
-      size={pdfSize}
       uploadOverlay={
         file && uploadState === "uploading" ? (
           <UploadProgress

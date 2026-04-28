@@ -9,7 +9,7 @@ celery_app = Celery(
     "pdftool",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["app.workers.pdf_tasks", "app.workers.image_tasks"],
+    include=["app.workers.pdf_tasks", "app.workers.image_tasks", "app.workers.compress_tasks"],
 )
 
 fast_exchange = Exchange("fast", type="direct")
@@ -31,6 +31,7 @@ celery_app.conf.update(
     ),
     task_routes={
         "app.workers.pdf_tasks.compress_pdf_task": {"queue": "heavy"},
+        "app.workers.compress_tasks.compress_file_task": {"queue": "heavy"},
         "app.workers.pdf_tasks.office_to_pdf_task": {"queue": "heavy"},
         "app.workers.image_tasks.batch_resize_task": {"queue": "heavy"},
         "app.workers.pdf_tasks.*": {"queue": "fast"},
@@ -38,6 +39,7 @@ celery_app.conf.update(
     },
     task_annotations={
         "app.workers.pdf_tasks.compress_pdf_task": {"time_limit": 300, "soft_time_limit": 290},
+        "app.workers.compress_tasks.compress_file_task": {"time_limit": 600, "soft_time_limit": 590},
         "app.workers.pdf_tasks.office_to_pdf_task": {"time_limit": 300, "soft_time_limit": 290},
         "app.workers.image_tasks.batch_resize_task": {"time_limit": 300, "soft_time_limit": 290},
         "app.workers.pdf_tasks.*": {"time_limit": 60, "soft_time_limit": 55},

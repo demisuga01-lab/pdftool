@@ -5,7 +5,9 @@ import { Logo } from "@/components/ui/Logo";
 
 const productLinks = [
   { href: "/pdf/compress", label: "All PDF Tools" },
-  { href: "/image/convert", label: "All Image Tools" },
+  { href: "/image/resize", label: "All Image Tools" },
+  { href: "/convert", label: "Convert" },
+  { href: "/tools/ocr", label: "OCR" },
   { href: "/pricing", label: "Pricing" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },

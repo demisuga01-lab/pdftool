@@ -263,6 +263,8 @@ async def compress_pdf(
     compatibility_level: Annotated[str, Form()] = "1.4",
     remove_metadata: Annotated[bool, Form()] = False,
     flatten_transparency: Annotated[bool, Form()] = False,
+    linearize: Annotated[bool, Form()] = True,
+    force_recompress: Annotated[bool, Form()] = False,
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
     output_path = _output_path(settings, ".pdf")
@@ -275,6 +277,8 @@ async def compress_pdf(
             compatibility_level,
             remove_metadata,
             flatten_transparency,
+            linearize,
+            force_recompress,
         ],
         queue="heavy",
     )
@@ -555,8 +559,14 @@ async def get_status(job_id: str) -> dict[str, Any]:
             response["output_paths"] = result.get("output_paths")
             response["result"] = result.get("result")
             response["traceback"] = result.get("traceback")
-            if "original_size_bytes" in result:
+            if "original_size" in result or "original_size_bytes" in result:
                 response["result"] = {
+                    "optimized": result.get("optimized"),
+                    "message": result.get("message"),
+                    "original_size": result.get("original_size", result.get("original_size_bytes")),
+                    "output_size": result.get("output_size", result.get("compressed_size_bytes")),
+                    "saved_bytes": result.get("saved_bytes"),
+                    "saved_percent": result.get("saved_percent", result.get("reduction_percent")),
                     "original_size_bytes": result.get("original_size_bytes"),
                     "compressed_size_bytes": result.get("compressed_size_bytes"),
                     "reduction_percent": result.get("reduction_percent"),

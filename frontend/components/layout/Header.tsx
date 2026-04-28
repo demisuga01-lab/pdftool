@@ -99,12 +99,48 @@ function NavDropdown({
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const desktopPdfTools = useMemo(
-    () => pdfTools.filter((tool, index, list) => list.findIndex((candidate) => candidate.href === tool.href) === index),
+  const desktopPdfTools = useMemo(() => pdfTools, []);
+  const desktopImageTools = useMemo(() => imageTools, []);
+  const convertItems = useMemo(
+    () => [
+      { href: "/convert", name: "Converter Workspace" },
+      { href: "/convert?from=pdf&to=docx", name: "PDF to Word" },
+      { href: "/convert?from=pdf&to=xlsx", name: "PDF to Excel" },
+      { href: "/convert?from=pdf&to=png", name: "PDF to Images" },
+      { href: "/convert?from=pdf&to=txt", name: "PDF to Text" },
+      { href: "/convert?from=pdf&to=html", name: "PDF to HTML" },
+      { href: "/convert?from=image&to=pdf", name: "Images to PDF" },
+      { href: "/convert?from=docx&to=pdf", name: "Word to PDF" },
+      { href: "/convert?from=xlsx&to=pdf", name: "Excel to PDF" },
+      { href: "/convert?from=pptx&to=pdf", name: "PowerPoint to PDF" },
+      { href: "/convert?from=csv&to=xlsx", name: "CSV to Excel" },
+      { href: "/convert?from=image&to=webp", name: "Image to WebP" },
+      { href: "/convert?from=svg&to=pdf", name: "SVG to PDF" },
+    ],
     [],
   );
-  const desktopImageTools = useMemo(
-    () => imageTools.filter((tool, index, list) => list.findIndex((candidate) => candidate.href === tool.href) === index),
+  const compressItems = useMemo(
+    () => [
+      { href: "/compress?type=pdf", name: "Compress PDF" },
+      { href: "/compress?type=image", name: "Compress Image" },
+      { href: "/compress?type=office", name: "Compress Office File" },
+      { href: "/compress?type=text", name: "Compress Text / Code" },
+      { href: "/compress?type=archive", name: "Compress Archive" },
+      { href: "/compress", name: "Universal Compressor" },
+    ],
+    [],
+  );
+  const ocrItems = useMemo(
+    () => [
+      { href: "/tools/ocr", name: "OCR Workspace" },
+      { href: "/tools/ocr?input=pdf", name: "PDF OCR" },
+      { href: "/tools/ocr?input=image", name: "Image OCR" },
+      { href: "/tools/ocr?input=pdf&output=searchable_pdf", name: "Searchable PDF" },
+      { href: "/tools/ocr?output=txt", name: "OCR to TXT" },
+      { href: "/tools/ocr?output=docx", name: "OCR to DOCX" },
+      { href: "/tools/ocr?output=json", name: "OCR to JSON" },
+      { href: "/tools/ocr?output=hocr", name: "OCR to HOCR" },
+    ],
     [],
   );
 
@@ -112,8 +148,11 @@ export function Header() {
     () => [
       { label: "PDF Tools", items: desktopPdfTools },
       { label: "Image Tools", items: desktopImageTools },
+      { label: "Convert", items: convertItems.map((item) => ({ href: item.href, name: item.name })) },
+      { label: "Compress", items: compressItems.map((item) => ({ href: item.href, name: item.name })) },
+      { label: "OCR", items: ocrItems.map((item) => ({ href: item.href, name: item.name })) },
     ],
-    [desktopImageTools, desktopPdfTools],
+    [compressItems, convertItems, desktopImageTools, desktopPdfTools, ocrItems],
   );
 
   return (
@@ -132,6 +171,9 @@ export function Header() {
             items={desktopImageTools.map((tool) => ({ href: tool.href, name: tool.name }))}
             label="Image Tools"
           />
+          <NavDropdown items={convertItems} label="Convert" />
+          <NavDropdown items={compressItems} label="Compress" />
+          <NavDropdown items={ocrItems} label="OCR" />
           <Link
             className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
             href="/pricing"
@@ -143,12 +185,6 @@ export function Header() {
             href="/about"
           >
             About
-          </Link>
-          <Link
-            className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
-            href="/contact"
-          >
-            Contact
           </Link>
         </nav>
 
@@ -212,14 +248,6 @@ export function Header() {
             >
               About
             </Link>
-            <Link
-              className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
-              href="/contact"
-              onClick={() => setMobileOpen(false)}
-            >
-              Contact
-            </Link>
-
             <Link
               className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#D1D5DB] px-3 text-sm font-semibold text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
               href="https://github.com/demisuga01-lab/pdftool"

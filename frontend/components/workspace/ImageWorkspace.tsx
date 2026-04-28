@@ -170,6 +170,7 @@ export function ImageWorkspace({
   onProcess,
   onReset,
   processButtonDisabled,
+  processButtonLabel = "Process",
   processingLabel,
   rightPanel,
   showSizeToggle = false,
@@ -191,6 +192,7 @@ export function ImageWorkspace({
   onProcess?: () => void;
   onReset?: () => void;
   processButtonDisabled?: boolean;
+  processButtonLabel?: string;
   processingLabel?: string | null;
   rightPanel: ReactNode;
   showSizeToggle?: boolean;
@@ -284,7 +286,7 @@ export function ImageWorkspace({
               onClick={onProcess}
               type="button"
             >
-              Process
+              {processButtonLabel}
             </button>
             <div className="mt-3 space-y-1 text-center text-xs text-slate-500">
               <p>{estimatedTime ?? "Estimated processing time updates after upload"}</p>
@@ -296,7 +298,7 @@ export function ImageWorkspace({
         {hasContent ? (
           <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E5E7EB] bg-white/95 p-4 backdrop-blur xl:hidden">
             <button className="primary-button h-12 w-full" disabled={processButtonDisabled} onClick={onProcess} type="button">
-              Process
+              {processButtonLabel}
             </button>
           </div>
         ) : null}

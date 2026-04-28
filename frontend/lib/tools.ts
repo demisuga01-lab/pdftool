@@ -12,15 +12,6 @@ export type ToolDefinition = {
 
 export const tools: ToolDefinition[] = [
   {
-    id: "compress",
-    name: "Compress PDF",
-    description: "Reduce PDF size for faster sharing and cleaner uploads.",
-    icon: "FileArchive",
-    category: "pdf",
-    href: "/pdf/compress",
-    color: "sky",
-  },
-  {
     id: "merge",
     name: "Merge PDFs",
     description: "Combine multiple PDF files into a single organized document.",
@@ -46,15 +37,6 @@ export const tools: ToolDefinition[] = [
     category: "pdf",
     href: "/pdf/rotate",
     color: "violet",
-  },
-  {
-    id: "convert",
-    name: "PDF Converter",
-    description: "Convert PDF to Word, Excel, images, HTML, text, and Office files to PDF.",
-    icon: "RefreshCw",
-    category: "pdf",
-    href: "/pdf/convert",
-    color: "slate",
   },
   {
     id: "images-to-pdf",
@@ -84,15 +66,6 @@ export const tools: ToolDefinition[] = [
     color: "teal",
   },
   {
-    id: "convert",
-    name: "Image Converter",
-    description: "Convert images between common raster formats and export SVG files to image formats.",
-    icon: "RefreshCw",
-    category: "image",
-    href: "/image/convert",
-    color: "sky",
-  },
-  {
     id: "resize",
     name: "Resize Image",
     description: "Resize for web, documents, and batch workflows with clean output.",
@@ -100,15 +73,6 @@ export const tools: ToolDefinition[] = [
     category: "image",
     href: "/image/resize",
     color: "emerald",
-  },
-  {
-    id: "compress",
-    name: "Compress Image",
-    description: "Reduce file size without losing more quality than necessary.",
-    icon: "FileArchive",
-    category: "image",
-    href: "/image/compress",
-    color: "cyan",
   },
   {
     id: "crop",
@@ -147,6 +111,24 @@ export const tools: ToolDefinition[] = [
     color: "fuchsia",
   },
   {
+    id: "convert",
+    name: "Convert",
+    description: "Convert PDFs, Office files, spreadsheets, text, HTML, CSV, and images from one shared workspace.",
+    icon: "RefreshCw",
+    category: "shared",
+    href: "/convert",
+    color: "sky",
+  },
+  {
+    id: "compress",
+    name: "Compress",
+    description: "Compress PDFs, images, Office files, text files, and archives.",
+    icon: "FileArchive",
+    category: "shared",
+    href: "/compress",
+    color: "cyan",
+  },
+  {
     id: "ocr",
     name: "OCR",
     description: "Extract text from PDFs and images",
@@ -175,5 +157,6 @@ export const tools: ToolDefinition[] = [
   },
 ];
 
-export const pdfTools = tools.filter((tool) => tool.category === "pdf" || tool.category === "shared");
-export const imageTools = tools.filter((tool) => tool.category === "image" || tool.category === "shared");
+export const pdfTools = tools.filter((tool) => tool.category === "pdf");
+export const imageTools = tools.filter((tool) => tool.category === "image");
+export const sharedTools = tools.filter((tool) => tool.category === "shared");
