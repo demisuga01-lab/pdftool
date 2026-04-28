@@ -16,14 +16,7 @@ celery_app = Celery(
         "app.workers.compress_tasks",
     ],
 )
-celery_app.autodiscover_tasks(
-    [
-        "app.workers.pdf_tasks",
-        "app.workers.image_tasks",
-        "app.workers.convert_tasks",
-        "app.workers.compress_tasks",
-    ]
-)
+app = celery_app
 
 fast_exchange = Exchange("fast", type="direct")
 heavy_exchange = Exchange("heavy", type="direct")
@@ -66,7 +59,7 @@ celery_app.conf.update(
     result_backend=settings.REDIS_URL,
 )
 
+import app.workers.pdf_tasks  # noqa: E402,F401
+import app.workers.image_tasks  # noqa: E402,F401
 import app.workers.compress_tasks  # noqa: E402,F401
 import app.workers.convert_tasks  # noqa: E402,F401
-import app.workers.image_tasks  # noqa: E402,F401
-import app.workers.pdf_tasks  # noqa: E402,F401

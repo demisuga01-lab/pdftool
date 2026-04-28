@@ -159,17 +159,13 @@ async def convert_file(
         from_format=from_format,
         mime_type=str(metadata.get("mime_type") or ""),
     )
-    queue = ConversionService().select_queue(detected_from, to_format)
-    task = convert_file_task.apply_async(
-        args=[
-            str(input_path),
-            str(_output_dir(settings)),
-            to_format,
-            detected_from,
-            str(metadata.get("mime_type") or ""),
-            parsed_settings,
-        ],
-        queue=queue,
+    task = convert_file_task.delay(
+        str(input_path),
+        str(_output_dir(settings)),
+        to_format,
+        detected_from,
+        str(metadata.get("mime_type") or ""),
+        parsed_settings,
     )
     return _queued_response(str(task.id), "Conversion queued")
 

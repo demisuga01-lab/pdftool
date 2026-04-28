@@ -143,8 +143,8 @@ The README must include:
    Step 6: Start services
    pm2 start "uvicorn app.main:app --host 0.0.0.0 --port 8000" --name pdftool-api --cwd backend
    pm2 start "pnpm start" --name pdftool-frontend --cwd frontend
-   pm2 start "celery -A app.workers.celery_app worker --queues=fast --concurrency=4" --name pdftool-worker-fast --cwd backend
-   pm2 start "celery -A app.workers.celery_app worker --queues=heavy --concurrency=2" --name pdftool-worker-heavy --cwd backend
+   pm2 start "celery -A app.workers.celery_app worker -Q fast -n fast@%h --concurrency=4 --loglevel=info" --name pdftool-worker-fast --cwd backend
+   pm2 start "celery -A app.workers.celery_app worker -Q heavy -n heavy@%h --concurrency=2 --loglevel=info" --name pdftool-worker-heavy --cwd backend
 
    Step 7: Configure Nginx
    (link to docs/NGINX.md)
