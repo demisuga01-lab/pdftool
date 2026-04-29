@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
 
 type LogoProps = {
   className?: string;
@@ -19,21 +19,24 @@ export function Logo({
   showLink = true,
 }: LogoProps) {
   const content = (
-    <span className={["inline-flex items-center gap-3", className].filter(Boolean).join(" ")}>
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-[#059669] shadow-sm shadow-slate-900/5 dark:border-white/10 dark:bg-zinc-900">
-        <Image
-          alt="PDFTools by WellFriend"
-          className={iconClassName ?? "h-10 w-10"}
-          height={40}
-          priority
-          src="/logo.png"
-          width={40}
-        />
-      </span>
+    <span className={["inline-flex items-center gap-3 text-zinc-900 dark:text-zinc-100", className].filter(Boolean).join(" ")}>
+      <Image
+        alt="PDFTools by WellFriend"
+        className={iconClassName ?? "h-10 w-10"}
+        height={40}
+        priority
+        src="/logo-mark.svg"
+        width={40}
+      />
       {!compact ? (
-        <span className="flex items-baseline gap-2">
-          <span className="text-[15px] font-bold text-current">PDFTools</span>
-          <span className="text-sm font-medium text-slate-500 dark:text-zinc-400">by WellFriend</span>
+        <span className="flex min-w-0 flex-col leading-none">
+          <span className="truncate text-[18px] font-extrabold tracking-[-0.02em]">
+            <span className="text-emerald-600 dark:text-emerald-400">PDF</span>
+            <span className="text-current">Tools</span>
+          </span>
+          <span className="hidden text-[11px] font-medium text-current opacity-70 sm:block">
+            by WellFriend
+          </span>
         </span>
       ) : null}
     </span>

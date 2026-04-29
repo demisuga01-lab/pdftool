@@ -595,6 +595,21 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
     [job, setItems, syncFileQuery],
   );
 
+  const cancelUpload = useCallback(() => {
+    uploadAbortRef.current?.abort();
+    uploadAbortRef.current = null;
+    setFile(null);
+    setFileMeta(null);
+    setItems([]);
+    setUploadState("idle");
+    setUploadError(null);
+    setUploadPercent(0);
+    setUploadSpeedKBs(0);
+    setUploadRemainingSecs(0);
+    setUploadedBytes(0);
+    setUploadTotalBytes(0);
+  }, [setItems]);
+
   const handleProcess = () => {
     if (!fileMeta || !currentFile) {
       return;
@@ -710,7 +725,7 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
         fileLabel="Uploading file"
         fileName={file.name}
         fileSize={file.size}
-        onCancel={() => uploadAbortRef.current?.abort()}
+        onCancel={cancelUpload}
         percent={uploadPercent}
         remainingSecs={uploadRemainingSecs}
         speedKBs={uploadSpeedKBs}
@@ -977,6 +992,20 @@ export function SingleImageWorkspacePage<T extends Record<string, unknown>>({
     [job, syncFileQuery],
   );
 
+  const cancelUpload = useCallback(() => {
+    uploadAbortRef.current?.abort();
+    uploadAbortRef.current = null;
+    setFile(null);
+    setFileMeta(null);
+    setUploadState("idle");
+    setUploadError(null);
+    setUploadPercent(0);
+    setUploadSpeedKBs(0);
+    setUploadRemainingSecs(0);
+    setUploadedBytes(0);
+    setUploadTotalBytes(0);
+  }, []);
+
   const handleProcess = () => {
     if (!fileMeta || !currentFile) {
       return;
@@ -1090,7 +1119,7 @@ export function SingleImageWorkspacePage<T extends Record<string, unknown>>({
         fileLabel="Uploading file"
         fileName={file.name}
         fileSize={file.size}
-        onCancel={() => uploadAbortRef.current?.abort()}
+        onCancel={cancelUpload}
         percent={uploadPercent}
         remainingSecs={uploadRemainingSecs}
         speedKBs={uploadSpeedKBs}

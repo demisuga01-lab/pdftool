@@ -23,7 +23,7 @@ const techList = [
 export default function AboutPage() {
   return (
     <StaticPage
-      description="PDFTools by WellFriend is a free, open-source toolkit for processing PDFs and images. No signup. No tracking. No limits on the web."
+      description="PDFTools is an open-source workspace for processing PDFs and images without signup friction."
       eyebrow="About"
       title="Built for developers, designers, and anyone who works with files"
       width="wide"

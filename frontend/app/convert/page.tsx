@@ -305,6 +305,20 @@ export default function ConvertPage() {
     [job, selectedOutput, syncQuery],
   );
 
+  const cancelUpload = useCallback(() => {
+    uploadAbortRef.current?.abort();
+    uploadAbortRef.current = null;
+    setFile(null);
+    setFileMeta(null);
+    setUploadState("idle");
+    setUploadError(null);
+    setUploadPercent(0);
+    setUploadSpeedKBs(0);
+    setUploadRemainingSecs(0);
+    setUploadedBytes(0);
+    setUploadTotalBytes(0);
+  }, []);
+
   useEffect(() => {
     const fileId = searchParams.get("file_id");
     if (!fileId || fileMeta?.file_id === fileId) {
@@ -606,7 +620,7 @@ export default function ConvertPage() {
             fileLabel="Uploading file"
             fileName={file.name}
             fileSize={file.size}
-            onCancel={() => uploadAbortRef.current?.abort()}
+            onCancel={cancelUpload}
             percent={uploadPercent}
             remainingSecs={uploadRemainingSecs}
             speedKBs={uploadSpeedKBs}

@@ -375,7 +375,7 @@ export default function PricingPage() {
 
   return (
     <StaticPage
-      description="Indicative API pricing and credit planning for PDFTools by WellFriend."
+      description="Indicative API pricing and credit planning for PDFTools."
       eyebrow="Pricing"
       title="Simple web usage today, API pricing in progress"
       width="wide"

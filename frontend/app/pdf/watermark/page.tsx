@@ -163,6 +163,22 @@ export default function PdfWatermarkPage() {
     [job],
   );
 
+  const cancelUpload = useCallback(() => {
+    uploadAbortRef.current?.abort();
+    uploadAbortRef.current = null;
+    setFile(null);
+    setFileMeta(null);
+    setCurrentPage(1);
+    setUploadState("idle");
+    setUploadError(null);
+    setUploadPercent(0);
+    setUploadSpeedKBs(0);
+    setUploadRemainingSecs(0);
+    setUploadedBytes(0);
+    setUploadTotalBytes(0);
+    job.reset();
+  }, [job]);
+
   const handleAssetSelected = useCallback(async (files: File[]) => {
     const nextFile = files[0];
     if (!nextFile) {
@@ -464,7 +480,7 @@ export default function PdfWatermarkPage() {
             fileLabel="Uploading PDF"
             fileName={file.name}
             fileSize={file.size}
-            onCancel={() => uploadAbortRef.current?.abort()}
+            onCancel={cancelUpload}
             percent={uploadPercent}
             remainingSecs={uploadRemainingSecs}
             speedKBs={uploadSpeedKBs}

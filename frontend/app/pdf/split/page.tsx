@@ -204,12 +204,12 @@ export default function PdfSplitPage() {
         formData.append("zip_all", String(settings.zipAll));
         return formData;
       }}
-      description="Preview the document, choose how to divide it, and send a single split plan to the backend."
+      description="Review pages in a compact workspace, choose a split strategy, and export structured outputs without losing context."
       downloadFilename={(file) => `${slugifyBaseName(file.name)}-split.zip`}
       emptyDescription="Upload a PDF to split it by ranges, pages, equal parts, or size-driven chunks."
       endpoint="pdf/split"
       initialSettings={initialSettings}
-      layoutKind="editor"
+      layoutKind="compact"
       processDisabled={({ file, items, settings }) => {
         if (!file || items.length === 0) {
           return true;

@@ -290,25 +290,76 @@ function WatermarkEditorCanvas({
     <EditorCanvas
       contentSize={naturalSize}
       footer={
-        pageCount && pageCount > 1 && onPageChange ? (
-          <div className="flex gap-3 overflow-x-auto py-1">
-            {Array.from({ length: pageCount }, (_, index) => index + 1).map((page) => (
+        <div className="space-y-3">
+          {selected ? (
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               <button
-                className={[
-                  "h-10 min-w-10 rounded-lg border px-3 text-sm font-semibold",
-                  currentPage === page
-                    ? "border-[#059669] bg-[#ECFDF5] text-[#059669] dark:border-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-300"
-                    : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300",
-                ].join(" ")}
-                key={page}
-                onClick={() => onPageChange(page)}
+                className="secondary-button min-h-11 px-3 text-sm"
+                onClick={() => onChange({ widthPercent: clamp(state.widthPercent - 4, 4, 95), fontSize: clamp(state.fontSize - 6, 10, 260) })}
                 type="button"
               >
-                {page}
+                Smaller
               </button>
-            ))}
-          </div>
-        ) : null
+              <button
+                className="secondary-button min-h-11 px-3 text-sm"
+                onClick={() => onChange({ widthPercent: clamp(state.widthPercent + 4, 4, 95), fontSize: clamp(state.fontSize + 6, 10, 260) })}
+                type="button"
+              >
+                Bigger
+              </button>
+              <button
+                className="secondary-button min-h-11 px-3 text-sm"
+                onClick={() => onChange({ positionPreset: "custom", rotation: state.rotation - 15 })}
+                type="button"
+              >
+                Rotate left
+              </button>
+              <button
+                className="secondary-button min-h-11 px-3 text-sm"
+                onClick={() => onChange({ positionPreset: "custom", rotation: state.rotation + 15 })}
+                type="button"
+              >
+                Rotate right
+              </button>
+              <button
+                className="secondary-button min-h-11 px-3 text-sm"
+                onClick={() => onChange({ positionPreset: "center", rotation: 0, xPercent: 50, yPercent: 50 })}
+                type="button"
+              >
+                Center
+              </button>
+              {state.type === "image" && asset && onRemoveAsset ? (
+                <button
+                  className="min-h-11 rounded-lg border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 transition hover:border-rose-300 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-300"
+                  onClick={onRemoveAsset}
+                  type="button"
+                >
+                  Remove logo
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {pageCount && pageCount > 1 && onPageChange ? (
+            <div className="flex gap-3 overflow-x-auto py-1">
+              {Array.from({ length: pageCount }, (_, index) => index + 1).map((page) => (
+                <button
+                  className={[
+                    "h-10 min-w-10 rounded-lg border px-3 text-sm font-semibold",
+                    currentPage === page
+                      ? "border-[#059669] bg-[#ECFDF5] text-[#059669] dark:border-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-300"
+                      : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300",
+                  ].join(" ")}
+                  key={page}
+                  onClick={() => onPageChange(page)}
+                  type="button"
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
       }
       toolbar={
         <label className="secondary-button min-h-10 cursor-pointer gap-2 px-3 text-sm">
@@ -460,12 +511,12 @@ function WatermarkEditorCanvas({
 
               {selected ? (
                 <>
-                  <span className="absolute -left-3 -top-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#059669] text-white shadow">
+                  <span className="absolute -left-3 -top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#059669] text-white shadow">
                     <Move className="h-3.5 w-3.5" />
                   </span>
                   <button
                     aria-label="Resize watermark"
-                    className="absolute -bottom-3 -right-3 h-7 w-7 rounded-full border-2 border-[#059669] bg-white shadow dark:bg-zinc-900"
+                    className="absolute -bottom-3 -right-3 hidden h-8 w-8 rounded-full border-2 border-[#059669] bg-white shadow dark:bg-zinc-900 sm:block"
                     onPointerDown={startResize}
                     type="button"
                   />

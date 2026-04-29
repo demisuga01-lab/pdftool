@@ -4,7 +4,7 @@ import { DocumentSection, StaticPage } from "@/components/ui/StaticPage";
 export default function TermsPage() {
   return (
     <StaticPage
-      description="Terms that apply to your use of PDFTools by WellFriend."
+      description="Terms that apply to your use of PDFTools."
       eyebrow="Terms of Service"
       title="Terms of Service"
     >
@@ -24,7 +24,7 @@ export default function TermsPage() {
 
         <DocumentSection title="Service Scope">
           <p>
-            PDFTools by WellFriend is provided as-is and without warranty of any kind. We may
+            PDFTools is provided as-is and without warranty of any kind. We may
             update, suspend, or change features at any time.
           </p>
         </DocumentSection>

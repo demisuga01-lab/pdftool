@@ -370,7 +370,7 @@ export const imageWatermarkSections: Array<SettingSection<ImageWatermarkSettings
         key: "text",
         label: "Text",
         type: "text",
-        placeholder: "WellFriend",
+        placeholder: "PDFTools",
       },
       {
         key: "opacity",

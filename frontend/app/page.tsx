@@ -14,13 +14,13 @@ export default function HomePage() {
       <section className="border-b border-slate-200 dark:border-white/10">
         <div className="mx-auto flex max-w-5xl flex-col items-center px-4 py-20 text-center sm:px-6 lg:px-8 lg:py-24">
           <p className="text-[12px] font-semibold uppercase tracking-[0.22em] text-[#059669]">
-            Free � Open Source � No Signup
+            Unified Workspace · Open Source · No Signup
           </p>
           <h1 className="mt-5 max-w-4xl text-[38px] font-bold leading-[1.05] text-zinc-900 dark:text-zinc-100 sm:text-[46px] lg:text-[52px]">
-            Every PDF and Image tool you need
+            One coherent workspace for every PDF and image task
           </h1>
           <p className="mt-5 max-w-[560px] text-[18px] font-medium leading-8 text-slate-500 dark:text-zinc-300">
-            Compress, convert, merge, split, OCR, resize and more. Free forever, no account needed.
+            Upload once, adjust visually, process confidently, and download clean results without bouncing between mismatched tool screens.
           </p>
 
           <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
@@ -33,7 +33,7 @@ export default function HomePage() {
           </div>
 
           <p className="mt-6 text-sm font-medium text-zinc-400 dark:text-zinc-500">
-            {totalCount} tools available � Files deleted after 24 hours � Open source
+            {totalCount} tools available · Files deleted after 24 hours · Open source
           </p>
         </div>
       </section>
@@ -49,7 +49,7 @@ export default function HomePage() {
                 </span>
               </div>
               <p className="text-sm font-medium text-slate-500 dark:text-zinc-300">
-                Universal conversion and OCR for PDFs, Office files, spreadsheets, text, and images.
+                Conversion, compression, and OCR workspaces that adapt cleanly to PDFs, images, and mixed source files.
               </p>
             </div>
 
@@ -69,7 +69,7 @@ export default function HomePage() {
                 </span>
               </div>
               <p className="text-sm font-medium text-slate-500 dark:text-zinc-300">
-                Compress, convert, merge, split, protect, and extract from PDFs.
+                Merge, split, rotate, protect, convert, watermark, and export PDFs from one consistent product flow.
               </p>
             </div>
 
@@ -89,7 +89,7 @@ export default function HomePage() {
                 </span>
               </div>
               <p className="text-sm font-medium text-slate-500 dark:text-zinc-300">
-                Convert, resize, compress, crop, watermark, and enhance images.
+                Resize, crop, rotate, watermark, remove backgrounds, and convert images with editor-first controls where they matter.
               </p>
             </div>
 
@@ -104,4 +104,3 @@ export default function HomePage() {
     </main>
   );
 }
-

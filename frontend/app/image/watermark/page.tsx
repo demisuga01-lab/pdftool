@@ -39,7 +39,7 @@ const initialSettings: ImageWatermarkSettings = {
   positionPreset: "bottom-right",
   rotation: 0,
   selectedPages: "",
-  text: "PDFTools by WellFriend",
+  text: "PDFTools",
   type: "text",
   widthPercent: 22,
   xPercent: 82,
@@ -167,6 +167,21 @@ export default function ImageWatermarkPage() {
     },
     [job],
   );
+
+  const cancelUpload = useCallback(() => {
+    uploadAbortRef.current?.abort();
+    uploadAbortRef.current = null;
+    setFile(null);
+    setFileMeta(null);
+    setUploadState("idle");
+    setUploadError(null);
+    setUploadPercent(0);
+    setUploadSpeedKBs(0);
+    setUploadRemainingSecs(0);
+    setUploadedBytes(0);
+    setUploadTotalBytes(0);
+    job.reset();
+  }, [job]);
 
   const handleAssetSelected = useCallback(async (files: File[]) => {
     const nextFile = files[0];
@@ -413,7 +428,7 @@ export default function ImageWatermarkPage() {
             fileLabel="Uploading image"
             fileName={file.name}
             fileSize={file.size}
-            onCancel={() => uploadAbortRef.current?.abort()}
+            onCancel={cancelUpload}
             percent={uploadPercent}
             remainingSecs={uploadRemainingSecs}
             speedKBs={uploadSpeedKBs}

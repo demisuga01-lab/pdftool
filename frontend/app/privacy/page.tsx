@@ -4,7 +4,7 @@ import { DocumentSection, StaticPage } from "@/components/ui/StaticPage";
 export default function PrivacyPage() {
   return (
     <StaticPage
-      description="How PDFTools by WellFriend handles files, network information, and deletion windows."
+      description="How PDFTools handles files, network information, and deletion windows."
       eyebrow="Privacy Policy"
       title="Privacy Policy"
     >
@@ -25,7 +25,7 @@ export default function PrivacyPage() {
         <DocumentSection title="What We Collect">
           <p>
             We process uploaded files in order to complete the file request you initiate on
-            PDFTools by WellFriend. Uploaded files are automatically deleted within 24 hours.
+            PDFTools. Uploaded files are automatically deleted within 24 hours.
           </p>
           <p>
             We also process IP addresses for rate limiting and abuse prevention only. We do not

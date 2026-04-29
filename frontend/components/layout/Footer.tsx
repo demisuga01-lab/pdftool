@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { FlagIndiaIcon, GithubIcon, MailIcon } from "@/components/icons/SiteIcons";
+import { GithubIcon, MailIcon } from "@/components/icons/SiteIcons";
 import { Logo } from "@/components/ui/Logo";
 
 const productLinks = [
@@ -30,11 +30,7 @@ export function Footer() {
               href="/"
               iconClassName="h-8 w-8"
             />
-            <p className="text-sm text-zinc-300">Free, open-source PDF and image processing</p>
-            <div className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200">
-              <FlagIndiaIcon className="h-4 w-4" />
-              <span>Made in India</span>
-            </div>
+            <p className="text-sm text-zinc-300">A focused workspace for PDFs, images, OCR, conversion, and export.</p>
           </div>
 
           <div className="space-y-4">

@@ -215,7 +215,7 @@ export const defaultToolSettings: ToolSettingsMap = {
     angle: 90,
   },
   "image-watermark": {
-    text: "WellFriend",
+    text: "PDFTools",
     opacity: 50,
     position: "bottom-right",
   },

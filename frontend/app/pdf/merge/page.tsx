@@ -66,7 +66,7 @@ const sections: Array<ControlSection<MergeSettings>> = [
     label: "Metadata",
     fields: [
       { key: "title", label: "Output title", type: "text", placeholder: "Merged PDF" },
-      { key: "author", label: "Output author", type: "text", placeholder: "WellFriend" },
+      { key: "author", label: "Output author", type: "text", placeholder: "PDFTools" },
       { key: "subject", label: "Output subject", type: "text", placeholder: "Combined document" },
     ],
   },

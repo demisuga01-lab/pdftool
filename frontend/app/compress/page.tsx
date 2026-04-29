@@ -583,6 +583,20 @@ export default function CompressPage() {
     [job, syncFileQuery],
   );
 
+  const cancelUpload = useCallback(() => {
+    uploadAbortRef.current?.abort();
+    uploadAbortRef.current = null;
+    setFile(null);
+    setFileMeta(null);
+    setUploadState("idle");
+    setUploadError(null);
+    setUploadPercent(0);
+    setUploadSpeedKBs(0);
+    setUploadRemainingSecs(0);
+    setUploadedBytes(0);
+    setUploadTotalBytes(0);
+  }, []);
+
   useEffect(() => {
     const queryFileId = searchParams.get("file_id");
     if (!queryFileId || fileMeta?.file_id === queryFileId) {
@@ -749,7 +763,7 @@ export default function CompressPage() {
             fileLabel="Uploading file"
             fileName={file.name}
             fileSize={file.size}
-            onCancel={() => uploadAbortRef.current?.abort()}
+            onCancel={cancelUpload}
             percent={uploadPercent}
             remainingSecs={uploadRemainingSecs}
             speedKBs={uploadSpeedKBs}

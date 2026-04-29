@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 
 import { AppShell } from "@/components/layout/AppShell";
-import { ThemeProvider, THEME_STORAGE_KEY } from "@/components/theme/ThemeProvider";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { GlobalSettingsProvider } from "@/lib/settings";
 
 import "./globals.css";
@@ -12,30 +12,36 @@ const inter = Inter({
   display: "swap",
 });
 
+const THEME_STORAGE_KEY = "pdftools-theme";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://tools.wellfriend.online"),
-  title: "PDFTools by WellFriend - Free PDF and Image Tools Online",
+  title: "PDFTools by WellFriend - Premium PDF and Image Workspace",
   description:
-    "Free open-source PDF and image processing tools. Compress, merge, split, convert, OCR and more. No signup required. Files deleted within 24 hours.",
+    "A polished PDF and image workspace for compressing, converting, merging, splitting, watermarking, OCR, and export.",
   keywords: ["PDF tools", "image tools", "compress PDF", "convert image", "OCR", "free"],
   openGraph: {
-    title: "PDFTools by WellFriend - Free PDF and Image Tools Online",
+    title: "PDFTools by WellFriend - Premium PDF and Image Workspace",
     description:
-      "Free open-source PDF and image processing tools. Compress, merge, split, convert, OCR and more. No signup required. Files deleted within 24 hours.",
+      "A polished PDF and image workspace for compressing, converting, merging, splitting, watermarking, OCR, and export.",
     url: "https://tools.wellfriend.online",
     siteName: "PDFTools by WellFriend",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "PDFTools by WellFriend - Free PDF and Image Tools Online",
+    title: "PDFTools by WellFriend - Premium PDF and Image Workspace",
     description:
-      "Free open-source PDF and image processing tools. Compress, merge, split, convert, OCR and more. No signup required. Files deleted within 24 hours.",
+      "A polished PDF and image workspace for compressing, converting, merging, splitting, watermarking, OCR, and export.",
   },
   icons: {
-    icon: [{ url: "/logo.png", type: "image/png" }],
-    shortcut: ["/logo.png"],
-    apple: [{ url: "/logo.png", type: "image/png" }],
+    icon: [
+      { url: "/logo-mark.svg", type: "image/svg+xml" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/logo-mark.png", sizes: "512x512", type: "image/png" },
+    ],
+    shortcut: ["/favicon-32x32.png"],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
 };
 

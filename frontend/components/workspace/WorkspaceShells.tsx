@@ -161,7 +161,7 @@ export function CompactWorkspaceShell({
   const { dragProps, dragging } = useDropZone(onFilesDropped);
 
   return (
-    <main className="min-h-[calc(100vh-60px)] overflow-x-hidden bg-slate-50 dark:bg-zinc-950" {...dragProps}>
+    <main className="min-h-[calc(100vh-60px)] overflow-x-hidden overscroll-x-none bg-slate-50 dark:bg-zinc-950" {...dragProps}>
       <WorkspaceHeader
         countLabel={countLabel}
         fileInfo={fileInfo}
@@ -270,7 +270,7 @@ export function VisualEditorWorkspaceShell({
   }, [mobilePanelOpen]);
 
   return (
-    <main className="flex min-h-[calc(100vh-60px)] flex-col overflow-x-hidden bg-white dark:bg-zinc-950 lg:h-[calc(100vh-60px)]" {...dragProps}>
+    <main className="flex min-h-[calc(100vh-60px)] flex-col overflow-x-hidden overscroll-x-none bg-white dark:bg-zinc-950 lg:h-[calc(100vh-60px)]" {...dragProps}>
       <WorkspaceHeader
         countLabel={countLabel}
         fileInfo={fileInfo}
@@ -283,7 +283,7 @@ export function VisualEditorWorkspaceShell({
       />
 
       <div className="relative flex min-h-0 flex-1 flex-col bg-slate-50 dark:bg-zinc-950 lg:flex-row">
-        <section className="min-w-0 flex-1 overflow-y-auto px-3 py-3 pb-28 sm:px-5 sm:py-5 lg:pb-5">
+        <section className="min-w-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-28 sm:px-5 sm:py-5 lg:pb-5">
           {hasContent ? editor : <div className="flex min-h-[520px] items-center justify-center">{emptyState}</div>}
         </section>
 
@@ -350,7 +350,7 @@ export function VisualEditorWorkspaceShell({
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="overflow-y-auto px-5 py-4 pb-28">
+          <div className="overflow-y-auto overscroll-contain px-5 py-4 pb-28">
             {propertiesPanel}
             <div className="pt-5">
               <button
@@ -534,9 +534,12 @@ export function EditorCanvas({
         {toolbar}
       </div>
       <div
-        className="h-[min(72vh,760px)] touch-pan-x touch-pan-y overflow-auto bg-slate-50 p-3 dark:bg-zinc-950 sm:p-5"
+        className="h-[min(72vh,760px)] overflow-auto overscroll-contain bg-slate-50 p-3 dark:bg-zinc-950 sm:p-5"
         ref={zoom.viewportRef}
-        style={{ cursor: dragPan.panCursor }}
+        style={{
+          cursor: dragPan.panCursor,
+          touchAction: !zoom.fitMode && zoom.effectiveZoom > 100 ? "none" : "manipulation",
+        }}
       >
         <div className="flex min-h-full min-w-full items-center justify-center">{children({ effectiveZoom: zoom.effectiveZoom, mode: zoom.mode })}</div>
       </div>

@@ -42,7 +42,7 @@ export default function ContactPage() {
               <MailIcon className="h-5 w-5" />
             </span>
             <div>
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Contact PDFTools by WellFriend</h2>
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Contact PDFTools</h2>
               <p className="text-sm text-slate-500 dark:text-zinc-400">Use email for product, API, and partnership questions.</p>
             </div>
           </div>
