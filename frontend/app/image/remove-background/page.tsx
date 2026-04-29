@@ -124,9 +124,9 @@ export default function ImageRemoveBackgroundPage() {
         <PreviewStage className="mx-auto max-w-5xl">
           <div className="grid gap-4 p-6 lg:grid-cols-2">
             {["Original", "Background removed"].map((label, index) => (
-              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 dark:border-white/10 dark:bg-slate-900" key={label}>
-                <p className="mb-3 text-[13px] text-slate-500 dark:text-slate-400">{label}</p>
-                <div className={["flex min-h-[360px] items-center justify-center rounded-xl border border-[#E5E7EB] p-4 dark:border-white/10", index === 1 ? "preview-checkerboard" : "bg-[#F9FAFB] dark:bg-slate-950"].join(" ")}>
+              <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-zinc-900" key={label}>
+                <p className="mb-3 text-[13px] text-slate-500 dark:text-zinc-400">{label}</p>
+                <div className={["flex min-h-[360px] items-center justify-center rounded-xl border border-zinc-200 p-4 dark:border-white/10", index === 1 ? "preview-checkerboard" : "bg-zinc-50 dark:bg-zinc-950"].join(" ")}>
                   {preview ? (
                     <img
                       alt={file.name}

@@ -217,17 +217,17 @@ export function JobProgress({ jobId, prefix, filename, onComplete, onReset }: Jo
               : state === "failure"
                 ? "bg-rose-500"
                 : state === "processing"
-                  ? "animate-pulse bg-[#2563EB]"
+                  ? "animate-pulse bg-[#059669]"
                   : "bg-slate-300",
           ].join(" ")}
         />
-        <span className="font-medium text-[#111827]">{statusText}</span>
+        <span className="font-medium text-zinc-900">{statusText}</span>
         {jobId ? <span className="font-mono text-xs text-slate-400">{jobId}</span> : null}
       </div>
 
       {isActive && state === "processing" ? (
         <div className="h-1 w-full overflow-hidden rounded-full bg-slate-200">
-          <div className="h-full w-2/3 animate-pulse rounded-full bg-[#2563EB]" />
+          <div className="h-full w-2/3 animate-pulse rounded-full bg-[#059669]" />
         </div>
       ) : null}
 

@@ -198,7 +198,7 @@ export default function ConvertPage() {
         {details.map((detail) => (
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0" key={detail.label}>
             <span className="text-slate-500">{detail.label}</span>
-            <span className="max-w-[60%] text-right font-medium text-slate-900 dark:text-slate-100">{detail.value}</span>
+            <span className="max-w-[60%] text-right font-medium text-slate-900 dark:text-zinc-100">{detail.value}</span>
           </div>
         ))}
       </div>
@@ -371,27 +371,27 @@ export default function ConvertPage() {
                   className={[
                     "relative rounded-lg border px-3 py-3 text-left transition",
                     active
-                      ? "border-[#2563EB] bg-[#2563EB]/[0.06] ring-2 ring-[#2563EB]/15"
-                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:hover:bg-white/5",
+                      ? "border-[#059669] bg-[#059669]/[0.06] ring-2 ring-[#059669]/15"
+                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-zinc-900 dark:hover:bg-white/5",
                   ].join(" ")}
                   key={option.value}
                   onClick={() => selectOutput(option.value)}
                   type="button"
                 >
-                  <span className={["block text-[15px] font-semibold", active ? "text-[#2563EB] dark:text-blue-300" : "text-slate-900 dark:text-slate-100"].join(" ")}>
+                  <span className={["block text-[15px] font-semibold", active ? "text-[#059669] dark:text-emerald-300" : "text-slate-900 dark:text-zinc-100"].join(" ")}>
                     {option.label}
                   </span>
                   <span className="mt-1 block text-sm font-medium text-slate-500">{option.description}</span>
                   {active ? (
-                    <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-[#2563EB] text-[11px] font-bold text-white">
-                      ✓
+                    <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-[#059669] text-[11px] font-bold text-white">
+                      ?
                     </span>
                   ) : null}
                 </button>
               );
             })}
             {process.env.NODE_ENV !== "production" ? (
-              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-400">
+              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-400">
                 Selected output: {selectedOutput || "(none)"}
               </p>
             ) : null}
@@ -465,7 +465,7 @@ export default function ConvertPage() {
         <PreviewCard badges={badges} description="Compact preview for this conversion." title={fileMeta.original_name}>
           <img
             alt={`Preview of ${fileMeta.original_name}`}
-            className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm dark:border-white/10"
+            className="max-h-[320px] w-auto max-w-full rounded-lg border border-zinc-200 bg-white object-contain shadow-sm dark:border-white/10"
             src={getPdfPagePreviewUrl(fileMeta.file_id, 1, 100)}
           />
         </PreviewCard>
@@ -477,7 +477,7 @@ export default function ConvertPage() {
         <PreviewCard badges={badges} description="Compact preview for this conversion." title={fileMeta.original_name}>
           <img
             alt={fileMeta.original_name}
-            className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm dark:border-white/10"
+            className="max-h-[320px] w-auto max-w-full rounded-lg border border-zinc-200 bg-white object-contain shadow-sm dark:border-white/10"
             src={fileMeta.preview_url}
           />
         </PreviewCard>
@@ -487,7 +487,7 @@ export default function ConvertPage() {
     return (
       <PreviewCard badges={badges} description="Uploaded and ready to convert." title={fileMeta.original_name}>
         <div className="flex flex-col items-center justify-center gap-3 text-center">
-          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#EFF6FF] text-sm font-bold text-[#2563EB]">
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#ECFDF5] text-sm font-bold text-[#059669]">
             {(fileMeta.extension || "?").toUpperCase().slice(0, 4)}
           </span>
           <p className="text-sm font-medium text-slate-500">No preview is available for this file type.</p>
@@ -584,7 +584,7 @@ export default function ConvertPage() {
                 ? "border-rose-200 bg-rose-50 text-rose-700"
                 : job.state === "success"
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300",
+                  : "border-zinc-200 bg-zinc-50 text-slate-500 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300",
             ].join(" ")}
           >
             {uploadState === "failure"
@@ -618,3 +618,4 @@ export default function ConvertPage() {
     />
   );
 }
+

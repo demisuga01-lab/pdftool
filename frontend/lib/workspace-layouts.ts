@@ -1,4 +1,4 @@
-export type WorkspaceLayoutKind = "compact" | "editor";
+export type WorkspaceLayoutKind = "compact" | "grid" | "editor";
 
 export type WorkspaceToolId =
   | "compress"
@@ -33,6 +33,7 @@ export type WorkspaceToolId =
 
 // Workspace layout decision map:
 // compact = upload/file card + contained preview + settings.
+// grid = clean file/page list or thumbnail grid for multi-file and batch operations.
 // editor = large interactive surface for dragging, selecting, cropping, rotating, or placing overlays.
 export const TOOL_WORKSPACE_LAYOUTS: Record<WorkspaceToolId, WorkspaceLayoutKind> = {
   compress: "compact",
@@ -45,16 +46,16 @@ export const TOOL_WORKSPACE_LAYOUTS: Record<WorkspaceToolId, WorkspaceLayoutKind
   "pdf-decrypt": "compact",
   "pdf-repair": "compact",
   "pdf-info": "compact",
-  "pdf-merge": "editor",
-  "pdf-split": "editor",
-  "pdf-rotate": "editor",
+  "pdf-merge": "grid",
+  "pdf-split": "grid",
+  "pdf-rotate": "grid",
   "pdf-watermark": "editor",
   "pdf-crop": "editor",
-  "pdf-reorder": "editor",
+  "pdf-reorder": "grid",
   "image-compress": "compact",
   "image-convert": "compact",
   "image-info": "compact",
-  "image-batch-resize": "compact",
+  "image-batch-resize": "grid",
   "image-remove-background": "compact",
   "image-ocr": "compact",
   "image-resize": "editor",

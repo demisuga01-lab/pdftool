@@ -36,7 +36,7 @@ import {
   useUploadedPdfPageItems,
   useSingleImagePreview,
 } from "@/lib/workspace-data";
-import { useWorkspaceZoom } from "@/lib/use-workspace-zoom";
+import { useDragPan, useWorkspaceZoom } from "@/lib/use-workspace-zoom";
 
 type PresetButton<T> = {
   label: string;
@@ -53,7 +53,7 @@ export function PreviewStage({
   return (
     <div
       className={[
-        "overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900",
+        "overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-zinc-900",
         className ?? "",
       ].join(" ")}
     >
@@ -92,7 +92,7 @@ function SidebarStatus({
           ? "border-rose-200 bg-rose-50 text-rose-700"
           : state === "success"
             ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-            : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300",
+            : "border-zinc-200 bg-zinc-50 text-slate-500 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300",
       ].join(" ")}
     >
       {copy}
@@ -115,7 +115,7 @@ function PresetRow<T extends Record<string, unknown>>({
     <div className="flex flex-wrap gap-2">
       {presets.map((preset) => (
         <button
-          className="h-8 rounded-lg border border-slate-200 px-3 text-[13px] text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
+          className="h-8 rounded-lg border border-slate-200 px-3 text-[13px] text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white"
           key={preset.label}
           onClick={() => onApply(preset.values)}
           type="button"
@@ -150,7 +150,7 @@ function PreviewZoomControls({
       >
         <Minus className="h-4 w-4" />
       </button>
-      <span className="min-w-[72px] text-center text-sm font-semibold text-slate-600 dark:text-slate-300">{zoom === "fit" ? "Fit" : `${zoom}%`}</span>
+      <span className="min-w-[72px] text-center text-sm font-semibold text-slate-600 dark:text-zinc-300">{zoom === "fit" ? "Fit" : `${zoom}%`}</span>
       <button
         aria-label="Zoom in"
         className="secondary-button h-9 w-9 p-0"
@@ -188,6 +188,9 @@ export function UploadedPdfPreview({
   const [naturalSize, setNaturalSize] = useState<{ height: number; width: number } | null>(null);
   const safePage = Math.min(Math.max(page, 1), Math.max(pageCount, 1));
   const zoom = useWorkspaceZoom({ contentSize: naturalSize });
+  const dragPan = useDragPan(zoom.viewportRef, {
+    enabled: !zoom.fitMode && zoom.effectiveZoom > 100,
+  });
 
   useEffect(() => {
     const node = zoom.viewportRef.current;
@@ -225,7 +228,7 @@ export function UploadedPdfPreview({
             >
               Prev
             </button>
-            <span className="min-w-[92px] text-center text-sm font-semibold text-slate-600 dark:text-slate-300">
+            <span className="min-w-[92px] text-center text-sm font-semibold text-slate-600 dark:text-zinc-300">
               {safePage} / {Math.max(pageCount, 1)}
             </span>
             <button
@@ -251,8 +254,9 @@ export function UploadedPdfPreview({
         </div>
 
         <div
-          className="h-[min(70vh,640px)] overflow-auto bg-slate-100 dark:bg-slate-950"
+          className="h-[min(70vh,640px)] overflow-auto bg-slate-100 dark:bg-zinc-950"
           ref={zoom.viewportRef}
+          style={{ cursor: dragPan.panCursor }}
         >
           <div className="flex min-h-full min-w-full items-center justify-center p-4 sm:p-6">
             {failed ? (
@@ -270,7 +274,7 @@ export function UploadedPdfPreview({
               >
                 <img
                   alt={`Page ${safePage}`}
-                  className="block rounded-lg border border-slate-300 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.12)] dark:border-slate-300"
+                  className="block rounded-lg border border-slate-300 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.12)] dark:border-white/10"
                   onError={() => setFailed(true)}
                   onLoad={(event) => {
                     if (event.currentTarget.naturalWidth > 0 && event.currentTarget.naturalHeight > 0) {
@@ -303,9 +307,9 @@ export function UploadedPdfPreview({
           {items.map((item) => (
             <button
               className={[
-                "w-24 shrink-0 rounded-xl border bg-white p-2 text-left transition dark:bg-slate-900",
+                "w-24 shrink-0 rounded-xl border bg-white p-2 text-left transition dark:bg-zinc-900",
                 item.pageNumber === safePage
-                  ? "border-[#2563EB] ring-2 ring-[#2563EB]/15 dark:border-blue-400"
+                  ? "border-[#059669] ring-2 ring-[#059669]/15 dark:border-emerald-400"
                   : "border-slate-200 dark:border-white/10",
               ].join(" ")}
               key={item.id}
@@ -313,7 +317,7 @@ export function UploadedPdfPreview({
               type="button"
             >
               <img alt={`Page ${item.pageNumber}`} className="aspect-[1/1.35] w-full rounded object-cover" src={item.thumbnail} />
-              <span className="mt-1 block text-center text-xs font-semibold text-slate-500 dark:text-slate-400">{item.pageNumber}</span>
+              <span className="mt-1 block text-center text-xs font-semibold text-slate-500 dark:text-zinc-400">{item.pageNumber}</span>
             </button>
           ))}
         </div>
@@ -338,6 +342,9 @@ export function UploadedImagePreview({
     width && height ? { height, width } : null,
   );
   const zoom = useWorkspaceZoom({ contentSize: naturalSize });
+  const dragPan = useDragPan(zoom.viewportRef, {
+    enabled: !zoom.fitMode && zoom.effectiveZoom > 100,
+  });
 
   useEffect(() => {
     const node = zoom.viewportRef.current;
@@ -371,8 +378,9 @@ export function UploadedImagePreview({
         />
       </div>
       <div
-        className="preview-checkerboard h-[min(70vh,620px)] overflow-auto bg-slate-100 dark:bg-slate-950"
+        className="preview-checkerboard h-[min(70vh,620px)] overflow-auto bg-slate-100 dark:bg-zinc-950"
         ref={zoom.viewportRef}
+        style={{ cursor: dragPan.panCursor }}
       >
         <div className="flex min-h-full min-w-full items-center justify-center p-4 sm:p-6">
           {failed ? (
@@ -655,6 +663,7 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
     fileMeta && currentFile && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
       <DownloadPanel
         error={job.error}
+        errorDetails={job.errorDetails ?? job.result?.traceback ?? null}
         estimatedTime={estimateProcessingTime(fileMeta.size_bytes, pageCount)}
         jobId={job.jobId}
         onDownload={job.state === "success" ? job.download : undefined}
@@ -734,7 +743,7 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
         >
           <img
             alt={`Preview of ${fileMeta.original_name}`}
-            className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm"
+            className="max-h-[320px] w-auto max-w-full rounded-lg border border-zinc-200 bg-white object-contain shadow-sm"
             onError={(event) => {
               event.currentTarget.style.display = "none";
             }}
@@ -1034,6 +1043,7 @@ export function SingleImageWorkspacePage<T extends Record<string, unknown>>({
     fileMeta && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
       <DownloadPanel
         error={job.error}
+        errorDetails={job.errorDetails ?? job.result?.traceback ?? null}
         estimatedTime={estimateProcessingTime(fileMeta.size_bytes, 1)}
         jobId={job.jobId}
         onDownload={job.state === "success" ? job.download : undefined}
@@ -1106,7 +1116,7 @@ export function SingleImageWorkspacePage<T extends Record<string, unknown>>({
           >
             <img
               alt={fileMeta.original_name}
-              className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm"
+              className="max-h-[320px] w-auto max-w-full rounded-lg border border-zinc-200 bg-white object-contain shadow-sm"
               src={preview.dataUrl}
             />
           </PreviewCard>
@@ -1243,6 +1253,7 @@ export function MultiImageWorkspacePage<T extends Record<string, unknown>>({
         job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
           <DownloadPanel
             error={job.error}
+            errorDetails={job.errorDetails ?? job.result?.traceback ?? null}
             estimatedTime={estimateProcessingTime(totalBytes, files.length)}
             jobId={job.jobId}
             onDownload={job.state === "success" ? job.download : undefined}

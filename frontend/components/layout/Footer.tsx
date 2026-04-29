@@ -21,7 +21,7 @@ const supportLinks = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-slate-200 bg-slate-950 text-white dark:border-white/10">
+    <footer className="border-t border-slate-200 bg-zinc-950 text-white dark:border-white/10">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="grid gap-10 lg:grid-cols-3">
           <div className="space-y-4">
@@ -30,8 +30,8 @@ export function Footer() {
               href="/"
               iconClassName="h-8 w-8"
             />
-            <p className="text-sm text-slate-300">Free, open-source PDF and image processing</p>
-            <div className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200">
+            <p className="text-sm text-zinc-300">Free, open-source PDF and image processing</p>
+            <div className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200">
               <FlagIndiaIcon className="h-4 w-4" />
               <span>Made in India</span>
             </div>
@@ -39,9 +39,9 @@ export function Footer() {
 
           <div className="space-y-4">
             <h2 className="text-sm font-semibold text-white">Product</h2>
-            <div className="grid gap-2 text-sm text-slate-300">
+            <div className="grid gap-2 text-sm text-zinc-300">
               {productLinks.map((link) => (
-                <Link className="transition hover:text-white" href={link.href} key={link.href}>
+                <Link className="transition hover:text-emerald-300" href={link.href} key={link.href}>
                   {link.label}
                 </Link>
               ))}
@@ -50,10 +50,10 @@ export function Footer() {
 
           <div className="space-y-4">
             <h2 className="text-sm font-semibold text-white">Legal and Support</h2>
-            <div className="grid gap-2 text-sm text-slate-300">
+            <div className="grid gap-2 text-sm text-zinc-300">
               {supportLinks.map((link) => (
                 <Link
-                  className="inline-flex items-center gap-2 transition hover:text-white"
+                  className="inline-flex items-center gap-2 transition hover:text-emerald-300"
                   href={link.href}
                   key={link.href}
                   rel={link.external ? "noreferrer" : undefined}
@@ -64,18 +64,18 @@ export function Footer() {
                 </Link>
               ))}
               <a
-                className="inline-flex items-center gap-2 transition hover:text-white"
+                className="inline-flex items-center gap-2 transition hover:text-emerald-300"
                 href="mailto:contact@wellfriend.online"
               >
                 <MailIcon className="h-4 w-4" />
                 <span>contact@wellfriend.online</span>
               </a>
-              <p className="text-sm text-slate-400">API Coming Soon</p>
+              <p className="text-sm text-zinc-400">API Coming Soon</p>
             </div>
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col gap-3 border-t border-white/10 pt-6 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-12 flex flex-col gap-3 border-t border-white/10 pt-6 text-sm text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
           <p>2026 WellFriend. All rights reserved.</p>
           <p>Open source software. Free to use and self-host.</p>
         </div>

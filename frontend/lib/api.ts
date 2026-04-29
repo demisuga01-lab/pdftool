@@ -23,12 +23,14 @@ export type ApiResponse = {
 
 const API_BASE_URL = "/api";
 const NETWORK_ERROR_MESSAGE = "Cannot connect to processing server. Please try again in a moment.";
-const JOB_TIMEOUT_MESSAGE = "Job is taking longer than expected. The file may still be processing.";
+const JOB_TIMEOUT_MESSAGE = "This job took longer than expected and was stopped in the workspace. You can retry or process another file.";
+const MISSING_RESULT_MESSAGE = "Processing finished but no download URL was returned.";
+const NOT_FOUND_MESSAGE = "The processing endpoint or result was not found. Please check route registration and job output.";
 
 const JOB_TIMEOUTS_MS = {
-  fast: 2 * 60 * 1000,
-  heavy: 10 * 60 * 1000,
-  ocr: 15 * 60 * 1000,
+  fast: 90 * 1000,
+  heavy: 5 * 60 * 1000,
+  ocr: 5 * 60 * 1000,
 };
 
 export function toApiPath(endpoint: string): string {
@@ -38,7 +40,7 @@ export function toApiPath(endpoint: string): string {
 function normalizeStatus(status: string): JobStatus["status"] {
   const normalized = status.toLowerCase();
 
-  if (["success", "completed"].includes(normalized)) {
+  if (["success", "completed", "complete", "done", "ready"].includes(normalized)) {
     return "success";
   }
 
@@ -69,16 +71,17 @@ async function parseResponse<T>(response: Response): Promise<T> {
         : typeof data?.error === "string"
           ? data.error
           : rawText.trim() || "Request failed";
+    const normalizedDetail = response.status === 404 ? `${NOT_FOUND_MESSAGE}\n\nTechnical details: ${detail}` : detail;
 
     if (process.env.NODE_ENV !== "production") {
       console.error("API request failed", {
         status: response.status,
         url: response.url,
-        detail,
+        detail: normalizedDetail,
       });
     }
 
-    throw new Error(detail);
+    throw new Error(normalizedDetail);
   }
 
   return data as T;
@@ -161,6 +164,11 @@ export async function getJobStatus(
   const outputPaths = Array.isArray(data.output_paths) ? data.output_paths.map((path) => String(path)) : undefined;
   const outputFilename = typeof data.output_filename === "string" ? data.output_filename : undefined;
   const error = typeof data.error === "string" ? data.error : undefined;
+  const result = data.result;
+  const successWithoutDownload =
+    normalizedStatus === "success" &&
+    !outputPath &&
+    (!outputPaths || outputPaths.length === 0);
 
   return {
     job_id: String(data.job_id ?? jobId),
@@ -175,11 +183,8 @@ export async function getJobStatus(
     queue_position: typeof data.queue_position === "number" ? data.queue_position : undefined,
     estimated_seconds_remaining:
       typeof data.estimated_seconds_remaining === "number" ? data.estimated_seconds_remaining : undefined,
-    result: data.result,
-    error:
-      normalizedStatus === "success" && !outputPath && !outputPaths && !data.result
-        ? "Job completed but no output file was returned."
-        : error,
+    result,
+    error: successWithoutDownload ? MISSING_RESULT_MESSAGE : error,
     traceback: typeof data.traceback === "string" ? data.traceback : undefined,
   };
 }
@@ -212,6 +217,13 @@ export async function pollJobStatus(
 
     onUpdate?.(status);
 
+    if (status.status === "success" && status.error) {
+      return {
+        ...status,
+        status: "failure",
+      };
+    }
+
     if (status.status === "success" || status.status === "failure") {
       return status;
     }
@@ -220,7 +232,7 @@ export async function pollJobStatus(
       throw new Error(JOB_TIMEOUT_MESSAGE);
     }
 
-    await waitForPollInterval(Date.now() - startedAt > 30_000 ? 5000 : 2000, signal);
+    await waitForPollInterval(Date.now() - startedAt > 30_000 ? 3000 : 1000, signal);
   }
 }
 

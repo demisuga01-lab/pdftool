@@ -63,7 +63,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className={`${inter.className} min-h-screen bg-white text-[#111827] antialiased dark:bg-slate-950 dark:text-slate-100`}>
+      <body className={`${inter.className} min-h-screen bg-white text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100`}>
         <ThemeProvider>
           <GlobalSettingsProvider>
             <AppShell>{children}</AppShell>

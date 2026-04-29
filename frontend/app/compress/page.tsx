@@ -204,7 +204,7 @@ function ResultStats({ result }: { result?: CompressionResult }) {
     <section
       className={[
         "rounded-xl border p-4",
-        alreadyOptimized ? "border-amber-200 bg-amber-50" : "border-[#E5E7EB] bg-white",
+        alreadyOptimized ? "border-amber-200 bg-amber-50" : "border-zinc-200 bg-white",
       ].join(" ")}
     >
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Compression result</p>
@@ -245,7 +245,7 @@ function FileTypePreview({ file, type }: { file: UploadedFileMetadata; type: Com
         : FileText;
   return (
     <div className="flex flex-col items-center justify-center gap-3 text-center">
-      <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#2563EB]">
+      <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#ECFDF5] text-[#059669]">
           <Icon className="h-6 w-6" />
       </span>
       <p className="max-w-md text-sm font-medium leading-6 text-slate-500">
@@ -506,7 +506,7 @@ export default function CompressPage() {
         {details.map((detail) => (
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0" key={detail.label}>
             <span className="text-slate-500">{detail.label}</span>
-            <span className="max-w-[60%] text-right font-medium text-slate-900 dark:text-slate-100">{detail.value}</span>
+            <span className="max-w-[60%] text-right font-medium text-slate-900 dark:text-zinc-100">{detail.value}</span>
           </div>
         ))}
       </div>
@@ -641,13 +641,13 @@ export default function CompressPage() {
       {activeType === "pdf" ? (
         <img
           alt={`Preview of ${fileMeta.original_name}`}
-          className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm dark:border-white/10"
+          className="max-h-[320px] w-auto max-w-full rounded-lg border border-zinc-200 bg-white object-contain shadow-sm dark:border-white/10"
           src={getPdfPagePreviewUrl(fileMeta.file_id, 1, 100)}
         />
       ) : activeType === "image" ? (
         <img
           alt={fileMeta.original_name}
-          className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm dark:border-white/10"
+          className="max-h-[320px] w-auto max-w-full rounded-lg border border-zinc-200 bg-white object-contain shadow-sm dark:border-white/10"
           src={fileMeta.preview_url}
         />
       ) : (
@@ -667,6 +667,7 @@ export default function CompressPage() {
         fileMeta && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
           <DownloadPanel
             error={job.error}
+            errorDetails={job.errorDetails ?? job.result?.traceback ?? null}
             estimatedTime={estimateProcessingTime(fileMeta.size_bytes, 1)}
             jobId={job.jobId}
             onDownload={job.state === "success" ? job.download : undefined}
@@ -726,7 +727,7 @@ export default function CompressPage() {
                 ? "border-rose-200 bg-rose-50 text-rose-700"
                 : job.state === "success"
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300",
+                  : "border-zinc-200 bg-zinc-50 text-slate-500 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300",
             ].join(" ")}
           >
             {uploadState === "failure"

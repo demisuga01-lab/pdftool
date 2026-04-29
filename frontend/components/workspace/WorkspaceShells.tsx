@@ -34,7 +34,7 @@ import { useEffect, useState, type DragEvent, type ReactNode } from "react";
 
 import { PageIcon } from "@/components/icons/SiteIcons";
 import { WorkspaceHeader } from "@/components/workspace/WorkspaceHeader";
-import { useWorkspaceZoom } from "@/lib/use-workspace-zoom";
+import { useDragPan, useWorkspaceZoom } from "@/lib/use-workspace-zoom";
 
 type DropHandler = (files: File[]) => void;
 
@@ -85,10 +85,10 @@ export function ToolSettingsPanel({
   title: string;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/[0.03] dark:border-white/10 dark:bg-slate-900 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/[0.03] dark:border-white/10 dark:bg-zinc-900 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
       <div className="mb-5 space-y-1">
-        <h2 className="text-[18px] font-bold leading-tight text-slate-900 dark:text-slate-100 lg:text-[22px]">{title}</h2>
-        {description ? <p className="text-[13px] font-medium leading-5 text-slate-500 dark:text-slate-400">{description}</p> : null}
+        <h2 className="text-[18px] font-bold leading-tight text-slate-900 dark:text-zinc-100 lg:text-[22px]">{title}</h2>
+        {description ? <p className="text-[13px] font-medium leading-5 text-slate-500 dark:text-zinc-400">{description}</p> : null}
       </div>
       {children}
     </section>
@@ -105,7 +105,7 @@ export function MobileActionBar({
   onClick?: () => void;
 }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur dark:border-white/10 dark:bg-slate-950/95 dark:shadow-black/30 lg:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur dark:border-white/10 dark:bg-zinc-950/95 dark:shadow-black/30 lg:hidden">
       <button className="primary-button min-h-11 w-full" disabled={disabled} onClick={onClick} type="button">
         {label}
       </button>
@@ -161,7 +161,7 @@ export function CompactWorkspaceShell({
   const { dragProps, dragging } = useDropZone(onFilesDropped);
 
   return (
-    <main className="min-h-[calc(100vh-60px)] overflow-x-hidden bg-slate-50 dark:bg-slate-950" {...dragProps}>
+    <main className="min-h-[calc(100vh-60px)] overflow-x-hidden bg-slate-50 dark:bg-zinc-950" {...dragProps}>
       <WorkspaceHeader
         countLabel={countLabel}
         fileInfo={fileInfo}
@@ -192,7 +192,7 @@ export function CompactWorkspaceShell({
                 >
                   {processButtonLabel}
                 </button>
-                <div className="mt-2 space-y-0.5 text-center text-xs text-slate-400 dark:text-slate-500">
+                <div className="mt-2 space-y-0.5 text-center text-xs text-slate-400 dark:text-zinc-500">
                   <p>{estimatedTime ?? "Estimated time updates after upload"}</p>
                   <p>Files deleted after 24 hours</p>
                 </div>
@@ -203,8 +203,8 @@ export function CompactWorkspaceShell({
       </div>
 
       {dragging ? (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-[#2563EB]/10 p-4">
-          <div className="rounded-2xl border border-[#2563EB]/30 bg-white px-5 py-4 text-sm font-semibold text-[#1D4ED8] shadow-xl shadow-slate-900/10 dark:bg-slate-900 dark:text-blue-300 dark:shadow-black/30">
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-[#059669]/10 p-4">
+          <div className="rounded-2xl border border-[#059669]/30 bg-white px-5 py-4 text-sm font-semibold text-[#047857] shadow-xl shadow-slate-900/10 dark:bg-zinc-900 dark:text-emerald-300 dark:shadow-black/30">
             Drop files to upload
           </div>
         </div>
@@ -270,7 +270,7 @@ export function VisualEditorWorkspaceShell({
   }, [mobilePanelOpen]);
 
   return (
-    <main className="flex min-h-[calc(100vh-60px)] flex-col overflow-x-hidden bg-white dark:bg-slate-950 lg:h-[calc(100vh-60px)]" {...dragProps}>
+    <main className="flex min-h-[calc(100vh-60px)] flex-col overflow-x-hidden bg-white dark:bg-zinc-950 lg:h-[calc(100vh-60px)]" {...dragProps}>
       <WorkspaceHeader
         countLabel={countLabel}
         fileInfo={fileInfo}
@@ -282,18 +282,18 @@ export function VisualEditorWorkspaceShell({
         title={title}
       />
 
-      <div className="relative flex min-h-0 flex-1 flex-col bg-slate-50 dark:bg-slate-950 lg:flex-row">
+      <div className="relative flex min-h-0 flex-1 flex-col bg-slate-50 dark:bg-zinc-950 lg:flex-row">
         <section className="min-w-0 flex-1 overflow-y-auto px-3 py-3 pb-28 sm:px-5 sm:py-5 lg:pb-5">
           {hasContent ? editor : <div className="flex min-h-[520px] items-center justify-center">{emptyState}</div>}
         </section>
 
-        <aside className="hidden w-[380px] shrink-0 flex-col border-l border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950 lg:flex">
+        <aside className="hidden w-[380px] shrink-0 flex-col border-l border-slate-200 bg-white dark:border-white/10 dark:bg-zinc-950 lg:flex">
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
             <ToolSettingsPanel description={description} title={title}>
               {propertiesPanel}
             </ToolSettingsPanel>
           </div>
-          <div className="border-t border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-950">
+          <div className="border-t border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
             <button
               className="primary-button min-h-11 w-full text-[15px]"
               disabled={processButtonDisabled}
@@ -302,7 +302,7 @@ export function VisualEditorWorkspaceShell({
             >
               {processButtonLabel}
             </button>
-            <div className="mt-2 space-y-0.5 text-center text-xs text-slate-400 dark:text-slate-500">
+            <div className="mt-2 space-y-0.5 text-center text-xs text-slate-400 dark:text-zinc-500">
               <p>{estimatedTime ?? "Estimated time updates after upload"}</p>
               <p>Files deleted after 24 hours</p>
             </div>
@@ -312,7 +312,7 @@ export function VisualEditorWorkspaceShell({
         {hasContent ? (
           <>
             <button
-              className="fixed bottom-16 right-4 z-30 inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-full bg-[#2563EB] px-4 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 lg:hidden"
+              className="fixed bottom-16 right-4 z-30 inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-full bg-[#059669] px-4 text-sm font-semibold text-white shadow-lg shadow-emerald-600/25 lg:hidden"
               onClick={() => setMobilePanelOpen(true)}
               type="button"
             >
@@ -332,14 +332,14 @@ export function VisualEditorWorkspaceShell({
         />
         <div
           className={[
-            "fixed inset-x-0 bottom-0 z-50 max-h-[86vh] rounded-t-[24px] bg-white shadow-2xl shadow-slate-900/20 transition dark:bg-slate-900 dark:shadow-black/40 lg:hidden",
+            "fixed inset-x-0 bottom-0 z-50 max-h-[86vh] rounded-t-[24px] bg-white shadow-2xl shadow-slate-900/20 transition dark:bg-zinc-900 dark:shadow-black/40 lg:hidden",
             mobilePanelOpen ? "translate-y-0" : "translate-y-full",
           ].join(" ")}
         >
           <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10">
             <div className="min-w-0">
-              <h2 className="truncate text-base font-bold text-slate-900 dark:text-slate-100">{title}</h2>
-              <p className="text-[13px] font-medium leading-5 text-slate-500 dark:text-slate-400">{description}</p>
+              <h2 className="truncate text-base font-bold text-slate-900 dark:text-zinc-100">{title}</h2>
+              <p className="text-[13px] font-medium leading-5 text-slate-500 dark:text-zinc-400">{description}</p>
             </div>
             <button
               aria-label="Close controls"
@@ -370,8 +370,8 @@ export function VisualEditorWorkspaceShell({
       </div>
 
       {dragging ? (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-[#2563EB]/10 p-4">
-          <div className="rounded-2xl border border-[#2563EB]/30 bg-white px-5 py-4 text-sm font-semibold text-[#1D4ED8] shadow-xl shadow-slate-900/10 dark:bg-slate-900 dark:text-blue-300 dark:shadow-black/30">
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-[#059669]/10 p-4">
+          <div className="rounded-2xl border border-[#059669]/30 bg-white px-5 py-4 text-sm font-semibold text-[#047857] shadow-xl shadow-slate-900/10 dark:bg-zinc-900 dark:text-emerald-300 dark:shadow-black/30">
             Drop files to upload
           </div>
         </div>
@@ -401,24 +401,24 @@ export function PreviewCard({
 
   return (
     <>
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/[0.03] dark:border-white/10 dark:bg-slate-900 sm:p-5">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/[0.03] dark:border-white/10 dark:bg-zinc-900 sm:p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-start">
-          <div className="flex min-h-[220px] min-w-0 flex-1 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-slate-950 sm:min-h-[280px]">
+          <div className="flex min-h-[220px] min-w-0 flex-1 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-zinc-950 sm:min-h-[280px]">
             {children ?? (
-              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white text-slate-300 dark:bg-slate-900 dark:text-slate-600">
+              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white text-slate-300 dark:bg-zinc-900 dark:text-zinc-600">
                 {icon ?? <PageIcon className="h-10 w-10" />}
               </div>
             )}
           </div>
           <div className="min-w-0 space-y-3 md:w-[280px]">
             <div className="space-y-1">
-              <p className="truncate font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</p>
-              {description ? <p className="text-sm font-medium leading-6 text-slate-500 dark:text-slate-400">{description}</p> : null}
+              <p className="truncate font-mono text-sm font-semibold text-slate-900 dark:text-zinc-100">{title}</p>
+              {description ? <p className="text-sm font-medium leading-6 text-slate-500 dark:text-zinc-400">{description}</p> : null}
             </div>
             {badges?.length ? (
               <div className="flex flex-wrap gap-2">
                 {badges.map((badge) => (
-                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-400" key={badge}>
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-500 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-400" key={badge}>
                     {badge}
                   </span>
                 ))}
@@ -437,17 +437,17 @@ export function PreviewCard({
 
       {expanded ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4" onClick={() => setExpanded(false)}>
-          <div className="flex max-h-[92vh] w-full flex-col rounded-t-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900 dark:shadow-black/40 sm:max-w-5xl sm:rounded-2xl" onClick={(event) => event.stopPropagation()}>
+          <div className="flex max-h-[92vh] w-full flex-col rounded-t-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/40 sm:max-w-5xl sm:rounded-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-white/10">
               <div className="min-w-0">
-                <p className="truncate font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</p>
-                {description ? <p className="text-xs text-slate-500 dark:text-slate-400">{description}</p> : null}
+                <p className="truncate font-mono text-sm font-semibold text-slate-900 dark:text-zinc-100">{title}</p>
+                {description ? <p className="text-xs text-slate-500 dark:text-zinc-400">{description}</p> : null}
               </div>
               <button aria-label="Close preview" className="secondary-button h-10 w-10 p-0" onClick={() => setExpanded(false)} type="button">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="min-h-0 overflow-auto bg-slate-50 p-4 dark:bg-slate-950 sm:p-6">
+            <div className="min-h-0 overflow-auto bg-slate-50 p-4 dark:bg-zinc-950 sm:p-6">
               <div className="flex min-h-[60vh] items-center justify-center">{children}</div>
             </div>
           </div>
@@ -475,7 +475,7 @@ export function ZoomControls({
       <button aria-label="Zoom out" className="secondary-button h-10 w-10 p-0" onClick={zoomOut} type="button">
         <Minus className="h-4 w-4" />
       </button>
-      <span className="min-w-[68px] text-center text-sm font-semibold text-slate-600 dark:text-slate-300">{label}</span>
+      <span className="min-w-[68px] text-center text-sm font-semibold text-slate-600 dark:text-zinc-300">{label}</span>
       <button aria-label="Zoom in" className="secondary-button h-10 w-10 p-0" onClick={zoomIn} type="button">
         <Plus className="h-4 w-4" />
       </button>
@@ -494,15 +494,21 @@ export function EditorCanvas({
   className,
   contentSize,
   footer,
+  ignorePanSelectors,
   toolbar,
 }: {
   children: (args: { effectiveZoom: number; mode: "fit" | "manual" }) => ReactNode;
   className?: string;
   contentSize?: { height: number; width: number } | null;
   footer?: ReactNode;
+  ignorePanSelectors?: string;
   toolbar?: ReactNode;
 }) {
   const zoom = useWorkspaceZoom({ contentSize });
+  const dragPan = useDragPan(zoom.viewportRef, {
+    enabled: !zoom.fitMode && zoom.effectiveZoom > 100,
+    ignoreSelectors: ignorePanSelectors,
+  });
 
   useEffect(() => {
     const node = zoom.viewportRef.current;
@@ -522,14 +528,15 @@ export function EditorCanvas({
   }, [zoom]);
 
   return (
-    <section className={["overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-900/[0.03] dark:border-white/10 dark:bg-slate-900", className ?? ""].join(" ")}>
+    <section className={["overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-900/[0.03] dark:border-white/10 dark:bg-zinc-900", className ?? ""].join(" ")}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-3 py-3 dark:border-white/10 sm:px-4">
         <ZoomControls fit={zoom.fit} label={zoom.label} reset={zoom.reset} zoomIn={zoom.zoomIn} zoomOut={zoom.zoomOut} />
         {toolbar}
       </div>
       <div
-        className="h-[min(72vh,760px)] touch-pan-x touch-pan-y overflow-auto bg-slate-50 p-3 dark:bg-slate-950 sm:p-5"
+        className="h-[min(72vh,760px)] touch-pan-x touch-pan-y overflow-auto bg-slate-50 p-3 dark:bg-zinc-950 sm:p-5"
         ref={zoom.viewportRef}
+        style={{ cursor: dragPan.panCursor }}
       >
         <div className="flex min-h-full min-w-full items-center justify-center">{children({ effectiveZoom: zoom.effectiveZoom, mode: zoom.mode })}</div>
       </div>
@@ -574,24 +581,24 @@ function SortableFileRow({
         transition,
       }}
     >
-      <div className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-900/[0.02] dark:border-white/10 dark:bg-slate-900">
+      <div className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-900/[0.02] dark:border-white/10 dark:bg-zinc-900">
         <button
           aria-label="Drag to reorder"
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-400 dark:border-white/10 dark:text-slate-500"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-400 dark:border-white/10 dark:text-zinc-500"
           type="button"
           {...attributes}
           {...listeners}
         >
           <GripVertical className="h-4 w-4" />
         </button>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-300">{index + 1}</span>
-        <div className="flex h-16 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-950">
-          {item.thumbnail ? <img alt="" className="h-full w-full object-cover" src={item.thumbnail} /> : <PageIcon className="h-8 w-8 text-slate-300 dark:text-slate-600" />}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500 dark:bg-zinc-800 dark:text-zinc-300">{index + 1}</span>
+        <div className="flex h-16 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-zinc-950">
+          {item.thumbnail ? <img alt="" className="h-full w-full object-cover" src={item.thumbnail} /> : <PageIcon className="h-8 w-8 text-slate-300 dark:text-zinc-600" />}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-mono text-[13px] font-semibold text-slate-800 dark:text-slate-100">{item.title}</p>
-          {item.meta ? <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">{item.meta}</p> : null}
-          {item.status ? <p className="mt-1 text-xs font-semibold text-[#2563EB]">{item.status}</p> : null}
+          <p className="truncate font-mono text-[13px] font-semibold text-slate-800 dark:text-zinc-100">{item.title}</p>
+          {item.meta ? <p className="mt-1 text-sm font-medium text-slate-500 dark:text-zinc-400">{item.meta}</p> : null}
+          {item.status ? <p className="mt-1 text-xs font-semibold text-[#059669]">{item.status}</p> : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <button aria-label="Move up" className="secondary-button h-10 w-10 p-0" disabled={!canMoveUp} onClick={onMoveUp} type="button">
@@ -664,7 +671,7 @@ export function FileGrid({
 
 export function UploadDropHint({ children }: { children?: ReactNode }) {
   return (
-    <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-500 dark:border-white/15 dark:bg-slate-900 dark:text-slate-400">
+    <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-500 dark:border-white/15 dark:bg-zinc-900 dark:text-zinc-400">
       <Upload className="h-4 w-4" />
       {children ?? "Drag files here or browse"}
     </div>

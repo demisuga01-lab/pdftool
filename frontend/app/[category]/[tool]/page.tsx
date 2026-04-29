@@ -32,7 +32,7 @@ export default async function ToolPage({ params }: ToolPageProps) {
         </section>
 
         <section className="tool-panel space-y-4">
-          <div className="flex items-center gap-2 text-sm font-medium text-[#2563EB]">
+          <div className="flex items-center gap-2 text-sm font-medium text-[#059669]">
             <Hammer className="h-4 w-4" />
             <span>Interactive form coming next</span>
           </div>

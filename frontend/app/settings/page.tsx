@@ -83,16 +83,16 @@ export default function SettingsPage() {
             </label>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 dark:border-white/10 dark:bg-slate-900">
+          <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
             <div className="space-y-1">
-              <p className="text-sm font-medium text-[#111827] dark:text-slate-100">Auto-download completed files</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Trigger the download automatically when a job succeeds.</p>
+              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Auto-download completed files</p>
+              <p className="text-xs text-slate-500 dark:text-zinc-400">Trigger the download automatically when a job succeeds.</p>
             </div>
             <button
               aria-pressed={globalSettings.autoDownload}
               className={[
                 "relative inline-flex h-6 w-11 items-center rounded-full transition",
-                globalSettings.autoDownload ? "bg-[#2563EB]" : "bg-slate-200 dark:bg-slate-700",
+                globalSettings.autoDownload ? "bg-[#059669]" : "bg-slate-200 dark:bg-zinc-700",
               ].join(" ")}
               onClick={() =>
                 updateGlobalSettings({
@@ -138,24 +138,24 @@ export default function SettingsPage() {
         <section className={`${panelClass} space-y-4`}>
           <div className="space-y-1">
             <h2 className="section-title">Saved custom presets</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Delete presets per tool or jump back into the tool that uses them.</p>
+            <p className="text-sm text-slate-500 dark:text-zinc-400">Delete presets per tool or jump back into the tool that uses them.</p>
           </div>
 
           {Object.keys(customPresets).length === 0 ? (
-            <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-4 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-400">
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-4 text-sm text-slate-500 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-400">
               No custom presets saved yet.
             </div>
           ) : (
             <div className="space-y-4">
               {(Object.entries(customPresets) as Array<[ToolId, Array<{ id: string; name: string }>]>).map(
                 ([toolId, presets]) => (
-                  <div className="space-y-3 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4 dark:border-white/10 dark:bg-slate-900" key={toolId}>
+                  <div className="space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-900" key={toolId}>
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm font-semibold text-[#111827] dark:text-slate-100">
+                        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                           {toolNames[toolId] ?? toolId}
                         </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{toolId}</p>
+                        <p className="text-xs text-slate-500 dark:text-zinc-400">{toolId}</p>
                       </div>
                       <Link
                         className="ghost-button"
@@ -166,8 +166,8 @@ export default function SettingsPage() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {presets.map((preset) => (
-                        <div className="flex items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 dark:border-white/10 dark:bg-slate-950" key={preset.id}>
-                          <span className="text-sm text-[#111827] dark:text-slate-100">{preset.name}</span>
+                        <div className="flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-zinc-950" key={preset.id}>
+                          <span className="text-sm text-zinc-900 dark:text-zinc-100">{preset.name}</span>
                           <button
                             className="text-xs text-slate-400 transition hover:text-rose-500"
                             onClick={() => {
@@ -192,9 +192,9 @@ export default function SettingsPage() {
           <h2 className="section-title">Tracked tools</h2>
           <div className="grid gap-2 sm:grid-cols-2">
             {(Object.keys(defaultToolSettings) as ToolId[]).map((toolId) => (
-              <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 dark:border-white/10 dark:bg-slate-900" key={toolId}>
-                <p className="text-sm font-medium text-[#111827] dark:text-slate-100">{toolNames[toolId] ?? toolId}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{toolId}</p>
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-zinc-900" key={toolId}>
+                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{toolNames[toolId] ?? toolId}</p>
+                <p className="text-xs text-slate-500 dark:text-zinc-400">{toolId}</p>
               </div>
             ))}
           </div>

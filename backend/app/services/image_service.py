@@ -627,7 +627,6 @@ class ImageService:
             )
 
         output = self._ensure_parent(output_path)
-        image = self._load_image(input_path)
         preset_positions = {
             "top-left": (18.0, 16.0),
             "top": (50.0, 16.0),
@@ -646,109 +645,109 @@ class ImageService:
             "tiled": (50.0, 50.0),
             "custom": (50.0, 50.0),
         }
-        preset_x, preset_y = preset_positions.get(position, preset_positions["bottom-right"])
-        center_x = int(((x_percent if x_percent is not None else preset_x) / 100) * image.width)
-        center_y = int(((y_percent if y_percent is not None else preset_y) / 100) * image.height)
         use_tile = tile or position == "tiled"
 
-        def alpha_color(value: str) -> str:
-            if value.startswith("#") and len(value) == 7:
-                red = int(value[1:3], 16)
-                green = int(value[3:5], 16)
-                blue = int(value[5:7], 16)
-                return f"rgba({red},{green},{blue},{opacity})"
-            return value
+        def normalized_percent(value: float | None, fallback: float) -> float:
+            raw = fallback if value is None else value
+            if raw <= 1:
+                raw *= 100
+            return max(0.0, min(raw, 100.0))
 
-        def escape_draw_text(value: str) -> str:
-            return value.replace("\\", "\\\\").replace("'", "\\'")
-
-        if normalized_type == "image":
-            watermark = Path(str(watermark_image_path))
-            if not watermark.exists():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Watermark image was not found",
-                )
-            overlay_width = max(1, int((max(1.0, min(width_percent, 100.0)) / 100) * image.width))
-
-            command = [get_imagemagick_command(), str(input_path)]
-            placements: list[tuple[int, int]]
+        def placements_for(width: int, height: int) -> list[tuple[int, int]]:
+            default_x, default_y = preset_positions.get(position, preset_positions["bottom-right"])
+            center_x = round((normalized_percent(x_percent, default_x) / 100) * width)
+            center_y = round((normalized_percent(y_percent, default_y) / 100) * height)
             if use_tile:
-                placements = [
-                    (int(image.width * x / 100), int(image.height * y / 100))
+                return [
+                    (round(width * x / 100), round(height * y / 100))
                     for y in (18, 50, 82)
                     for x in (18, 40, 62, 84)
                 ]
-            else:
-                placements = [(center_x, center_y)]
+            return [(center_x, center_y)]
 
-            for placement_x, placement_y in placements:
-                command.extend(
-                    [
-                        "(",
-                        str(watermark),
-                        "-auto-orient",
-                        "-resize",
-                        f"{overlay_width}x",
-                        "-alpha",
-                        "set",
-                        "-channel",
-                        "A",
-                        "-evaluate",
-                        "multiply",
-                        str(opacity),
-                        "+channel",
-                        "-background",
-                        "none",
-                        "-rotate",
-                        str(rotation),
-                        ")",
-                        "-gravity",
-                        "center",
-                        "-geometry",
-                        f"{placement_x - image.width // 2:+d}{placement_y - image.height // 2:+d}",
-                        "-composite",
-                    ]
-                )
-            command.append(str(output))
-            await self._run_command(command)
+        def load_font(size: int) -> Any:
+            from PIL import ImageFont
+
+            candidates = [
+                "arial.ttf",
+                "Arial.ttf",
+                "DejaVuSans.ttf",
+                "DejaVuSans-Bold.ttf" if font_weight == "bold" else "DejaVuSans.ttf",
+            ]
+            for candidate in candidates:
+                try:
+                    return ImageFont.truetype(candidate, size=size)
+                except OSError:
+                    continue
+            return ImageFont.load_default()
+
+        def apply_opacity(image: Any, alpha_scale: float) -> Any:
+            alpha = image.getchannel("A")
+            alpha = alpha.point(lambda value: max(0, min(255, round(value * alpha_scale))))
+            image.putalpha(alpha)
+            return image
+
+        def watermark() -> str:
+            from PIL import Image, ImageColor, ImageDraw
+
+            base = Image.open(input_path).convert("RGBA")
+            canvas = Image.new("RGBA", base.size, (0, 0, 0, 0))
+            points = placements_for(base.width, base.height)
+
+            if normalized_type == "image":
+                watermark = Path(str(watermark_image_path))
+                if not watermark.exists():
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Watermark image was not found",
+                    )
+                overlay = Image.open(watermark).convert("RGBA")
+                width_ratio = normalized_percent(width_percent, 22.0) / 100
+                target_width = max(1, round(base.width * width_ratio))
+                if height_percent is not None:
+                    height_ratio = normalized_percent(height_percent, 22.0) / 100
+                    target_height = max(1, round(base.height * height_ratio))
+                else:
+                    target_height = max(1, round(target_width * (overlay.height / max(overlay.width, 1))))
+                overlay = overlay.resize((target_width, target_height))
+                overlay = apply_opacity(overlay, opacity)
+                if rotation:
+                    overlay = overlay.rotate(rotation, expand=True, resample=Image.Resampling.BICUBIC)
+
+                for center_x, center_y in points:
+                    left = round(center_x - overlay.width / 2)
+                    top = round(center_y - overlay.height / 2)
+                    canvas.alpha_composite(overlay, (left, top))
+            else:
+                font = load_font(max(10, int(font_size)))
+                fill = ImageColor.getrgb(font_color or "#ffffff")
+                for center_x, center_y in points:
+                    text_layer = Image.new("RGBA", base.size, (0, 0, 0, 0))
+                    draw = ImageDraw.Draw(text_layer)
+                    bbox = draw.textbbox((0, 0), watermark_text, font=font)
+                    text_width = max(1, bbox[2] - bbox[0])
+                    text_height = max(1, bbox[3] - bbox[1])
+                    draw.text(
+                        (center_x - text_width / 2, center_y - text_height / 2),
+                        watermark_text,
+                        fill=(*fill, round(opacity * 255)),
+                        font=font,
+                    )
+                    if rotation:
+                        text_layer = text_layer.rotate(rotation, resample=Image.Resampling.BICUBIC)
+                    canvas.alpha_composite(text_layer)
+
+            result = Image.alpha_composite(base, canvas)
+            suffix = output.suffix.lower()
+            if suffix in {".jpg", ".jpeg"}:
+                flattened = Image.new("RGB", result.size, (255, 255, 255))
+                flattened.paste(result, mask=result.getchannel("A"))
+                flattened.save(output, quality=95)
+            else:
+                result.save(output)
             return str(output)
 
-        fill_color = font_color
-        if font_color.startswith("#") and len(font_color) == 7:
-            fill_color = alpha_color(font_color)
-        font = font_family or "Arial"
-        if font.lower() == "arial":
-            font = "Arial-BoldItalic" if font_weight == "bold" and italic else "Arial-Bold" if font_weight == "bold" else "Arial-Italic" if italic else "Arial"
-        draw_commands: list[str] = []
-        placements = (
-            [(int(image.width * x / 100), int(image.height * y / 100)) for y in (18, 50, 82) for x in (18, 40, 62, 84)]
-            if use_tile
-            else [(center_x, center_y)]
-        )
-        for placement_x, placement_y in placements:
-            draw_commands.append(
-                f"translate {placement_x},{placement_y} rotate {rotation} text 0,0 '{escape_draw_text(watermark_text)}'"
-            )
-        command = [
-            get_imagemagick_command(),
-            str(input_path),
-            "-pointsize",
-            str(font_size),
-            "-font",
-            font,
-            "-fill",
-            fill_color,
-            "-alpha",
-            "on",
-            "-gravity",
-            "NorthWest",
-            "-draw",
-            " ".join(draw_commands),
-            str(output),
-        ]
-        await self._run_command(command)
-        return str(output)
+        return await self._run_blocking(watermark, failure_message="Failed to watermark image")
 
     async def remove_background(self, input_path: str | Path, output_path: str | Path) -> str:
         output = self._ensure_parent(Path(output_path).with_suffix(".png"))

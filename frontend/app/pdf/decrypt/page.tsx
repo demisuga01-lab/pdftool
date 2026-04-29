@@ -19,16 +19,16 @@ const sections: Array<ControlSection<DecryptSettings>> = [
     render: (settings, update) => (
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <label className="block text-[13px] text-slate-700 dark:text-slate-300">Password</label>
+          <label className="block text-[13px] text-slate-700 dark:text-zinc-300">Password</label>
           <div className="flex gap-2">
             <input
-              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-[14px] text-slate-700 outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-1 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-blue-400 dark:focus:ring-offset-slate-900"
+              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-[14px] text-slate-700 outline-none focus:ring-2 focus:ring-[#10B981] focus:ring-offset-1 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:ring-emerald-400 dark:focus:ring-offset-zinc-900"
               onChange={(event) => update("password", event.target.value)}
               type={settings.showPassword ? "text" : "password"}
               value={settings.password}
             />
             <button
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-white/5"
               onClick={() => update("showPassword", !settings.showPassword)}
               type="button"
             >
@@ -74,13 +74,13 @@ export default function PdfDecryptPage() {
       processDisabled={({ file, settings }) => !file || !settings.password}
       renderCenter={({ file }) => (
         <PreviewStage className="mx-auto max-w-3xl">
-          <div className="flex min-h-[420px] items-center justify-center bg-slate-50 p-8 dark:bg-slate-950">
-            <div className="w-full max-w-md rounded-2xl border border-[#E5E7EB] bg-white p-8 text-center dark:border-white/10 dark:bg-slate-900">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#2563EB]">
+          <div className="flex min-h-[420px] items-center justify-center bg-slate-50 p-8 dark:bg-zinc-950">
+            <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-8 text-center dark:border-white/10 dark:bg-zinc-900">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ECFDF5] text-[#059669]">
                 <LockIcon className="h-7 w-7" />
               </div>
-              <h2 className="mt-4 text-[24px] text-slate-900 dark:text-slate-100">{file.name}</h2>
-              <p className="mt-2 text-[14px] leading-6 text-slate-500 dark:text-slate-400">{formatBytes(file.size)}</p>
+              <h2 className="mt-4 text-[24px] text-slate-900 dark:text-zinc-100">{file.name}</h2>
+              <p className="mt-2 text-[14px] leading-6 text-slate-500 dark:text-zinc-400">{formatBytes(file.size)}</p>
             </div>
           </div>
         </PreviewStage>

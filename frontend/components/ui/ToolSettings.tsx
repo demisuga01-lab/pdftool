@@ -87,7 +87,7 @@ function Toggle({
       aria-pressed={checked}
       className={[
         "relative inline-flex h-6 w-11 items-center rounded-full transition",
-        checked ? "bg-[#2563EB]" : "bg-slate-200 dark:bg-slate-700",
+        checked ? "bg-[#059669]" : "bg-slate-200 dark:bg-zinc-700",
       ].join(" ")}
       onClick={onClick}
       type="button"
@@ -180,15 +180,15 @@ export function ToolSettings<T extends ToolId>({
         </div>
       ) : null}
 
-      <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] dark:border-white/10 dark:bg-slate-900">
+      <div className="rounded-lg border border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-zinc-900">
         <button
           className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
           onClick={() => setExpanded((current) => !current)}
           type="button"
         >
           <div>
-            <p className="text-sm font-medium text-[#111827] dark:text-slate-100">Advanced Settings</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Saved per tool on this device.</p>
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Advanced Settings</p>
+            <p className="text-xs text-slate-500 dark:text-zinc-400">Saved per tool on this device.</p>
           </div>
           <ChevronDown
             className={[
@@ -199,7 +199,7 @@ export function ToolSettings<T extends ToolId>({
         </button>
 
         {expanded ? (
-          <div className="space-y-6 border-t border-[#E5E7EB] px-4 py-4 dark:border-white/10">
+          <div className="space-y-6 border-t border-zinc-200 px-4 py-4 dark:border-white/10">
             {sections.length > 0 || presets.length > 0 || customPresets.length > 0 ? (
               <div className="flex flex-col gap-3 lg:flex-row">
                 <select
@@ -244,19 +244,19 @@ export function ToolSettings<T extends ToolId>({
                 </div>
               </div>
             ) : (
-              <div className="rounded-lg border border-[#E5E7EB] bg-white px-4 py-4 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-400">
+              <div className="rounded-lg border border-zinc-200 bg-white px-4 py-4 text-sm text-slate-500 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-400">
                 No additional advanced settings for this tool yet.
               </div>
             )}
 
             {customPresets.length > 0 ? (
               <div className="space-y-2">
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Saved presets</p>
+                <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">Saved presets</p>
                 <div className="flex flex-wrap gap-2">
                   {customPresets.map((preset) => (
-                    <div className="flex items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-3 py-2 dark:border-white/10 dark:bg-slate-950" key={preset.id}>
+                    <div className="flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-zinc-950" key={preset.id}>
                       <button
-                        className="text-sm text-[#111827] dark:text-slate-100"
+                        className="text-sm text-zinc-900 dark:text-zinc-100"
                         onClick={() => onChange(preset.values)}
                         type="button"
                       >
@@ -282,9 +282,9 @@ export function ToolSettings<T extends ToolId>({
               {sections.map((section) => (
                 <div className="space-y-4" key={section.title}>
                   <div className="space-y-1">
-                    <h3 className="text-sm font-semibold text-[#111827] dark:text-slate-100">{section.title}</h3>
+                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{section.title}</h3>
                     {section.description ? (
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{section.description}</p>
+                      <p className="text-xs text-slate-500 dark:text-zinc-400">{section.description}</p>
                     ) : null}
                   </div>
 
@@ -296,11 +296,11 @@ export function ToolSettings<T extends ToolId>({
 
                         if (field.type === "toggle") {
                           return (
-                            <div className="flex items-center justify-between gap-4 rounded-lg border border-[#E5E7EB] bg-white px-4 py-3 dark:border-white/10 dark:bg-slate-950" key={field.key}>
+                            <div className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-950" key={field.key}>
                               <div className="space-y-1">
-                                <p className="text-sm font-medium text-[#111827] dark:text-slate-100">{field.label}</p>
+                                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{field.label}</p>
                                 {field.description ? (
-                                  <p className="text-xs text-slate-500 dark:text-slate-400">{field.description}</p>
+                                  <p className="text-xs text-slate-500 dark:text-zinc-400">{field.description}</p>
                                 ) : null}
                               </div>
                               <Toggle

@@ -22,13 +22,14 @@ OFFICE_EXTENSIONS = {".docx", ".xlsx", ".pptx", ".odt", ".ods", ".odp"}
 TEXT_EXTENSIONS = {".txt", ".csv", ".json", ".html", ".htm", ".css", ".js", ".xml", ".svg"}
 ARCHIVE_EXTENSIONS = {".zip", ".7z", ".rar", ".tar", ".gz", ".bz2", ".xz"}
 
-ALREADY_OPTIMIZED_MESSAGE = "Already optimized — original kept because recompression would increase size."
+ALREADY_OPTIMIZED_MESSAGE = "Already optimized - original kept because recompression would increase size."
 ORIGINAL_BELOW_TARGET_MESSAGE = "Original file is already below the target size."
 TARGET_NOT_REACHED_MESSAGE = "Could not reach the exact target size safely. This is the smallest valid output produced."
 UNSUPPORTED_MESSAGE = "This format cannot be compressed meaningfully. Use ZIP or 7z packaging instead."
 UNSUPPORTED_ARCHIVE_MESSAGE = "This archive type is not safely supported for extraction yet. You can package it as ZIP/7z instead."
 MAX_ARCHIVE_MEMBERS = 10_000
 MAX_ARCHIVE_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024
+COMMAND_TIMEOUT_SECONDS = 120
 
 def get_imagemagick_command() -> str:
     import shutil
@@ -123,10 +124,10 @@ class CompressionService:
             for preset in ["screen", "ebook", "printer"]:
                 if reached:
                     break
-                for dpi in [300, 200, 150, 120, 96, 72]:
+                for dpi in [200, 150, 120, 96, 72]:
                     if reached:
                         break
-                    for jpeg_quality in [90, 85, 75, 65, 55, 45, 35, 25]:
+                    for jpeg_quality in [85, 70, 55, 40, 25]:
                         gs_output = temp_dir / f"ghostscript-{preset}-{dpi}-{jpeg_quality}.pdf"
                         command = self._ghostscript_command(input_file, gs_output, preset, dpi, grayscale, jpeg_quality)
                         if await self._try_command(command) and await self._valid_pdf(gs_output):
@@ -668,7 +669,12 @@ class CompressionService:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await process.communicate()
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=COMMAND_TIMEOUT_SECONDS)
+        except asyncio.TimeoutError:
+            process.kill()
+            await process.communicate()
+            logger.info("Compression command timed out after %s seconds: %s", COMMAND_TIMEOUT_SECONDS, command[0])
+            return False
         except OSError:
             logger.info("Compression command failed to start: %s", command[0], exc_info=True)
             return False
@@ -747,3 +753,4 @@ class CompressionService:
 
     def _path_glob_suffix(self) -> str:
         return "\\*" if "\\" in str(Path.cwd()) else "/*"
+

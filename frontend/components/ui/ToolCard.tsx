@@ -49,15 +49,15 @@ export function ToolCard({ tool }: { tool: ToolDefinition }) {
 
   return (
     <Link
-      className="group flex h-full min-h-[124px] flex-col rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-[#60A5FA] hover:shadow-sm dark:border-white/10 dark:bg-slate-900 dark:hover:border-blue-400/60"
+      className="group flex h-full min-h-[124px] flex-col rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-[#34D399] hover:shadow-sm dark:border-white/10 dark:bg-zinc-900 dark:hover:border-emerald-400/60"
       href={tool.href}
     >
-      <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-[#EFF6FF] text-[#2563EB] transition duration-200 group-hover:scale-[1.04] group-hover:bg-[#DBEAFE] dark:bg-blue-500/10 dark:text-blue-300 dark:group-hover:bg-blue-500/15">
+      <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-[#ECFDF5] text-[#059669] transition duration-200 group-hover:scale-[1.04] group-hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:group-hover:bg-emerald-500/15">
         <Icon className="h-[18px] w-[18px]" />
       </div>
       <div className="space-y-1">
-        <h3 className="text-[14px] font-semibold text-[#111827] dark:text-slate-100">{tool.name}</h3>
-        <p className="truncate text-[12px] font-medium text-slate-500 dark:text-slate-400">{tool.description}</p>
+        <h3 className="text-[14px] font-semibold text-zinc-900 dark:text-zinc-100">{tool.name}</h3>
+        <p className="truncate text-[12px] font-medium text-slate-500 dark:text-zinc-400">{tool.description}</p>
       </div>
     </Link>
   );

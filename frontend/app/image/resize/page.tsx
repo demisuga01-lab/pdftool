@@ -52,9 +52,9 @@ const sections: Array<ControlSection<ResizeSettings>> = [
     render: (settings, update) => (
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <label className="block text-[13px] text-slate-700 dark:text-slate-200">Width</label>
+          <label className="block text-[13px] text-slate-700 dark:text-zinc-200">Width</label>
           <input
-            className="h-9 w-full rounded-md border border-slate-200 px-3 text-[14px] text-slate-700 outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-1 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100"
+            className="h-9 w-full rounded-md border border-slate-200 px-3 text-[14px] text-slate-700 outline-none focus:ring-2 focus:ring-[#10B981] focus:ring-offset-1 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-100"
             min={1}
             onChange={(event) => {
               const nextWidth = Number(event.target.value);
@@ -68,9 +68,9 @@ const sections: Array<ControlSection<ResizeSettings>> = [
           />
         </div>
         <div className="space-y-1.5">
-          <label className="block text-[13px] text-slate-700 dark:text-slate-200">Height</label>
+          <label className="block text-[13px] text-slate-700 dark:text-zinc-200">Height</label>
           <input
-            className="h-9 w-full rounded-md border border-slate-200 px-3 text-[14px] text-slate-700 outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-1 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100"
+            className="h-9 w-full rounded-md border border-slate-200 px-3 text-[14px] text-slate-700 outline-none focus:ring-2 focus:ring-[#10B981] focus:ring-offset-1 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-100"
             min={1}
             onChange={(event) => {
               const nextHeight = Number(event.target.value);
@@ -84,7 +84,7 @@ const sections: Array<ControlSection<ResizeSettings>> = [
           />
         </div>
         <div className="space-y-1.5">
-          <label className="block text-[13px] text-slate-700 dark:text-slate-200">Unit</label>
+          <label className="block text-[13px] text-slate-700 dark:text-zinc-200">Unit</label>
           <select
             className="field-input"
             onChange={(event) => update("unit", event.target.value as ResizeSettings["unit"])}
@@ -104,12 +104,12 @@ const sections: Array<ControlSection<ResizeSettings>> = [
             value={settings.percentage}
           />
         </div>
-        <div className="col-span-2 flex items-center justify-between rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 dark:border-white/10 dark:bg-slate-900">
-          <span className="text-[13px] text-slate-600 dark:text-slate-300">Lock aspect ratio</span>
+        <div className="col-span-2 flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-zinc-900">
+          <span className="text-[13px] text-slate-600 dark:text-zinc-300">Lock aspect ratio</span>
           <button
             className={[
               "relative inline-flex h-6 w-11 items-center rounded-full transition",
-                settings.lockAspect ? "bg-[#2563EB]" : "bg-slate-200 dark:bg-slate-700",
+                settings.lockAspect ? "bg-[#059669]" : "bg-slate-200 dark:bg-zinc-700",
             ].join(" ")}
             onClick={() => update("lockAspect", !settings.lockAspect)}
             type="button"
@@ -148,7 +148,7 @@ const sections: Array<ControlSection<ResizeSettings>> = [
             <button
               className={[
                 "rounded-lg border px-3 py-2 text-[13px]",
-                settings.aspectRatio === value ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB] dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300" : "border-slate-200 text-slate-700 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300",
+                settings.aspectRatio === value ? "border-[#059669] bg-[#ECFDF5] text-[#059669] dark:border-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-300" : "border-slate-200 text-slate-700 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300",
               ].join(" ")}
               key={value}
               onClick={() => update("aspectRatio", value as ResizeSettings["aspectRatio"])}
@@ -213,7 +213,7 @@ const sections: Array<ControlSection<ResizeSettings>> = [
           [2550, 3300, "Letter 300 DPI", "letter-300"],
         ].map(([width, height, label, preset]) => (
           <button
-            className="rounded-lg border border-slate-200 px-3 py-2 text-[13px] text-slate-700 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300"
+            className="rounded-lg border border-slate-200 px-3 py-2 text-[13px] text-slate-700 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300"
             key={label}
             onClick={() => {
               update("presetSize", preset as ResizeSettings["presetSize"]);
@@ -362,25 +362,25 @@ export default function ImageResizePage() {
         <div className="space-y-3">
           <PreviewStage className="mx-auto max-w-3xl">
             {preview ? (
-              <div className="relative flex items-center justify-center bg-[#F3F4F6] p-4 dark:bg-slate-950">
+              <div className="relative flex items-center justify-center bg-zinc-100 p-4 dark:bg-zinc-950">
                 <img
                   alt={file.name}
-                  className="max-h-[min(55vh,480px)] max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain dark:border-white/10"
+                  className="max-h-[min(55vh,480px)] max-w-full rounded-lg border border-zinc-200 bg-white object-contain dark:border-white/10"
                   src={preview.dataUrl}
                 />
               </div>
             ) : null}
           </PreviewStage>
           <div className="mx-auto flex max-w-3xl flex-wrap gap-3">
-            <div className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 dark:border-white/10 dark:bg-slate-900">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Original</p>
-              <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
+            <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-zinc-500">Original</p>
+              <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-zinc-100">
                 {preview ? formatDimensions(preview.width, preview.height) : "--"}
               </p>
             </div>
-            <div className="rounded-xl border border-[#2563EB]/30 bg-[#EFF6FF] px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#2563EB]">Output</p>
-              <p className="mt-1 text-sm font-semibold text-[#1D4ED8]">
+            <div className="rounded-xl border border-[#059669]/30 bg-[#ECFDF5] px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#059669]">Output</p>
+              <p className="mt-1 text-sm font-semibold text-[#047857]">
                 {settings.width} × {settings.height} px
               </p>
             </div>

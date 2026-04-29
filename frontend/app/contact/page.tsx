@@ -38,20 +38,20 @@ export default function ContactPage() {
       <div className="mx-auto max-w-[600px]">
         <div className="tool-panel space-y-6">
           <div className="flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-md bg-[#2563EB]/10 text-[#2563EB]">
+            <span className="flex h-12 w-12 items-center justify-center rounded-md bg-[#059669]/10 text-[#059669]">
               <MailIcon className="h-5 w-5" />
             </span>
             <div>
-              <h2 className="text-lg font-semibold text-[#111827] dark:text-slate-100">Contact PDFTools by WellFriend</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Use email for product, API, and partnership questions.</p>
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Contact PDFTools by WellFriend</h2>
+              <p className="text-sm text-slate-500 dark:text-zinc-400">Use email for product, API, and partnership questions.</p>
             </div>
           </div>
 
-          <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-5 dark:border-white/10 dark:bg-slate-900">
-            <ul className="space-y-3 text-[15px] leading-7 text-slate-600 dark:text-slate-300">
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-5 dark:border-white/10 dark:bg-zinc-900">
+            <ul className="space-y-3 text-[15px] leading-7 text-slate-600 dark:text-zinc-300">
               {reasons.map((reason) => (
                 <li className="flex gap-3" key={reason}>
-                  <span className="mt-[10px] h-1.5 w-1.5 rounded-full bg-[#2563EB]" />
+                  <span className="mt-[10px] h-1.5 w-1.5 rounded-full bg-[#059669]" />
                   <span>{reason}</span>
                 </li>
               ))}
@@ -59,7 +59,7 @@ export default function ContactPage() {
           </div>
 
           <a
-            className="inline-flex items-center gap-2 text-base font-semibold text-[#2563EB] hover:text-[#1D4ED8]"
+            className="inline-flex items-center gap-2 text-base font-semibold text-[#059669] hover:text-[#047857]"
             href="mailto:contact@wellfriend.online"
           >
             <MailIcon className="h-4 w-4" />
@@ -74,7 +74,7 @@ export default function ContactPage() {
             ))}
           </div>
 
-          <p className="text-sm leading-7 text-slate-500 dark:text-slate-400">
+          <p className="text-sm leading-7 text-slate-500 dark:text-zinc-400">
             Include your use case and expected monthly volume for API and enterprise inquiries.
           </p>
         </div>

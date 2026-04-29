@@ -20,7 +20,7 @@ export function Logo({
 }: LogoProps) {
   const content = (
     <span className={["inline-flex items-center gap-3", className].filter(Boolean).join(" ")}>
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-[#2563EB] shadow-sm shadow-slate-900/5 dark:border-white/10 dark:bg-slate-900">
+      <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-[#059669] shadow-sm shadow-slate-900/5 dark:border-white/10 dark:bg-zinc-900">
         <Image
           alt="PDFTools by WellFriend"
           className={iconClassName ?? "h-10 w-10"}
@@ -33,7 +33,7 @@ export function Logo({
       {!compact ? (
         <span className="flex items-baseline gap-2">
           <span className="text-[15px] font-bold text-current">PDFTools</span>
-          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">by WellFriend</span>
+          <span className="text-sm font-medium text-slate-500 dark:text-zinc-400">by WellFriend</span>
         </span>
       ) : null}
     </span>

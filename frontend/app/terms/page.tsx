@@ -9,15 +9,15 @@ export default function TermsPage() {
       title="Terms of Service"
     >
       <div className="space-y-10">
-        <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-5 dark:border-white/10 dark:bg-slate-900">
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-5 dark:border-white/10 dark:bg-zinc-900">
           <div className="flex items-start gap-3">
-            <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-md bg-[#2563EB]/10 text-[#2563EB]">
+            <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-md bg-[#059669]/10 text-[#059669]">
               <DocumentIcon className="h-5 w-5" />
             </span>
-            <div className="space-y-1 text-[15px] leading-7 text-slate-600 dark:text-slate-300">
-              <p><span className="font-semibold text-[#111827] dark:text-slate-100">Effective date:</span> April 25, 2026</p>
-              <p><span className="font-semibold text-[#111827] dark:text-slate-100">Provider:</span> WellFriend, India</p>
-              <p><span className="font-semibold text-[#111827] dark:text-slate-100">Contact:</span> contact@wellfriend.online</p>
+            <div className="space-y-1 text-[15px] leading-7 text-slate-600 dark:text-zinc-300">
+              <p><span className="font-semibold text-zinc-900 dark:text-zinc-100">Effective date:</span> April 25, 2026</p>
+              <p><span className="font-semibold text-zinc-900 dark:text-zinc-100">Provider:</span> WellFriend, India</p>
+              <p><span className="font-semibold text-zinc-900 dark:text-zinc-100">Contact:</span> contact@wellfriend.online</p>
             </div>
           </div>
         </div>
@@ -76,7 +76,7 @@ export default function TermsPage() {
           <p>
             For questions about these Terms, contact
             {" "}
-            <a className="font-medium text-[#2563EB] hover:text-[#1D4ED8]" href="mailto:contact@wellfriend.online">
+            <a className="font-medium text-[#059669] hover:text-[#047857]" href="mailto:contact@wellfriend.online">
               contact@wellfriend.online
             </a>
             .

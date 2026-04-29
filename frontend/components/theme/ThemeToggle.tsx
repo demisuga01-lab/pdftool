@@ -61,7 +61,7 @@ export function ThemeToggle() {
       <button
         aria-expanded={open}
         aria-label={`Theme: ${theme === "system" ? `System (${resolvedTheme})` : theme}`}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white dark:focus-visible:ring-blue-400/40"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white dark:focus-visible:ring-emerald-400/35"
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
@@ -69,7 +69,7 @@ export function ThemeToggle() {
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-[60] w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10 dark:border-white/10 dark:bg-slate-900 dark:shadow-black/30">
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-[60] w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10 dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/30">
           <div className="space-y-1">
             {themeOptions.map((option) => {
               const Icon = option.icon;
@@ -79,10 +79,10 @@ export function ThemeToggle() {
                 <button
                   aria-pressed={selected}
                   className={[
-                    "flex min-h-11 w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:focus-visible:ring-blue-400/40",
+                    "flex min-h-11 w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:focus-visible:ring-emerald-400/35",
                     selected
-                      ? "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-400/40 dark:bg-blue-500/10 dark:text-blue-300"
-                      : "border-transparent text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-white/5",
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-500/10 dark:text-emerald-300"
+                      : "border-transparent text-slate-700 hover:bg-slate-50 dark:text-zinc-200 dark:hover:bg-white/5",
                   ].join(" ")}
                   key={option.value}
                   onClick={() => {
@@ -96,7 +96,7 @@ export function ThemeToggle() {
                       "inline-flex h-9 w-9 items-center justify-center rounded-lg border",
                       selected
                         ? "border-current/20 bg-current/10"
-                        : "border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950",
+                        : "border-slate-200 bg-white dark:border-white/10 dark:bg-zinc-950",
                     ].join(" ")}
                   >
                     <Icon className="h-4 w-4" />
@@ -106,7 +106,7 @@ export function ThemeToggle() {
                       <span className="text-sm font-semibold">{option.label}</span>
                       {selected ? <span className="text-xs font-semibold">Selected</span> : null}
                     </span>
-                    <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">{option.description}</span>
+                    <span className="mt-0.5 block text-xs text-slate-500 dark:text-zinc-400">{option.description}</span>
                   </span>
                 </button>
               );

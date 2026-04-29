@@ -201,6 +201,7 @@ export default function PdfImagesToPdfPage() {
           job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
             <DownloadPanel
               error={job.error}
+              errorDetails={job.errorDetails ?? job.result?.traceback ?? null}
               estimatedTime={estimateProcessingTime(totalBytes, files.length)}
               jobId={job.jobId}
               onDownload={job.state === "success" ? job.download : undefined}
@@ -238,18 +239,18 @@ export default function PdfImagesToPdfPage() {
         processingLabel={job.processingLabel}
         rightPanel={
           <div className="space-y-6">
-            <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] leading-6 text-slate-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-300">
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-[13px] leading-6 text-slate-500 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300">
               {job.state === "failure"
                 ? job.error ?? "PDF creation failed."
                 : "Drag images in the canvas to reorder pages before export."}
             </div>
 
             <div className="space-y-3">
-              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-zinc-500">
                 Images ({files.length} selected)
               </p>
               <button
-                className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-[14px] text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5"
+                className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-[14px] text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-white/5"
                 onClick={() => inputRef.current?.click()}
                 type="button"
               >

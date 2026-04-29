@@ -39,18 +39,18 @@ export function DownloadPanel({
   const isFailed = state === "failure";
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-900/12 dark:border-white/10 dark:bg-slate-900 dark:shadow-black/35">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-900/12 dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/35">
       <div className="space-y-4">
         <div className="space-y-1">
-          <p className="text-sm font-semibold text-[#2563EB] dark:text-blue-300">Download status</p>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+          <p className="text-sm font-semibold text-[#059669] dark:text-emerald-300">Download status</p>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-zinc-100">
             {isReady
               ? "Your file is ready"
               : isFailed
                 ? "Processing failed"
                 : "Processing your file..."}
           </h2>
-          <p className="text-sm font-medium leading-6 text-slate-500 dark:text-slate-400">
+          <p className="text-sm font-medium leading-6 text-slate-500 dark:text-zinc-400">
             {isReady
               ? "Download the finished file or jump back into the workspace."
               : isFailed
@@ -61,18 +61,18 @@ export function DownloadPanel({
 
         {!isReady && !isFailed ? (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 dark:bg-slate-950 dark:text-slate-300">
-              <LoaderCircle className="h-4 w-4 animate-spin text-[#2563EB]" />
+            <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 dark:bg-zinc-950 dark:text-zinc-300">
+              <LoaderCircle className="h-4 w-4 animate-spin text-[#059669]" />
               <span>{statusText ?? (state === "queued" ? "Queued" : "Processing")}</span>
             </div>
-            {queuePosition ? <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Position {queuePosition} in queue</p> : null}
-            {estimatedTime ? <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{estimatedTime}</p> : null}
+            {queuePosition ? <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">Position {queuePosition} in queue</p> : null}
+            {estimatedTime ? <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">{estimatedTime}</p> : null}
           </div>
         ) : null}
 
         {isReady && (outputFilename || outputSize) ? (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 dark:border-white/10 dark:bg-slate-950 dark:text-slate-300">
-            {outputFilename ? <p className="truncate text-slate-700 dark:text-slate-100">{outputFilename}</p> : null}
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300">
+            {outputFilename ? <p className="truncate text-slate-700 dark:text-zinc-100">{outputFilename}</p> : null}
             {outputSize ? <p>{outputSize}</p> : null}
           </div>
         ) : null}
@@ -121,7 +121,7 @@ export function DownloadPanel({
           ) : null}
         </div>
 
-        {jobId ? <p className="text-center text-xs font-medium text-slate-400 dark:text-slate-500">Job ID: {jobId}</p> : null}
+        {jobId ? <p className="text-center text-xs font-medium text-slate-400 dark:text-zinc-500">Job ID: {jobId}</p> : null}
       </div>
     </div>
   );

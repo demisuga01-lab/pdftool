@@ -297,8 +297,8 @@ function WatermarkEditorCanvas({
                 className={[
                   "h-10 min-w-10 rounded-lg border px-3 text-sm font-semibold",
                   currentPage === page
-                    ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB] dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300"
-                    : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300",
+                    ? "border-[#059669] bg-[#ECFDF5] text-[#059669] dark:border-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-300"
+                    : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300",
                 ].join(" ")}
                 key={page}
                 onClick={() => onPageChange(page)}
@@ -409,8 +409,9 @@ function WatermarkEditorCanvas({
             <div
               className={[
                 "absolute touch-none outline-none",
-                selected ? "ring-2 ring-[#2563EB] ring-offset-2 ring-offset-white dark:ring-blue-400 dark:ring-offset-slate-950" : "",
+                selected ? "ring-2 ring-[#059669] ring-offset-2 ring-offset-white dark:ring-emerald-400 dark:ring-offset-zinc-950" : "",
               ].join(" ")}
+              data-draggable-overlay
               onKeyDown={nudge}
               onPointerDown={startMove}
               role="button"
@@ -427,7 +428,7 @@ function WatermarkEditorCanvas({
                     style={{ width: "100%" }}
                   />
                 ) : (
-                  <label className="flex min-h-24 min-w-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[#2563EB] bg-white/90 px-4 py-3 text-sm font-semibold text-[#2563EB] dark:bg-slate-900/90 dark:text-blue-300">
+                  <label className="flex min-h-24 min-w-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[#059669] bg-white/90 px-4 py-3 text-sm font-semibold text-[#059669] dark:bg-zinc-900/90 dark:text-emerald-300">
                     <ImageIcon className="h-5 w-5" />
                     Upload logo
                     <input
@@ -459,19 +460,19 @@ function WatermarkEditorCanvas({
 
               {selected ? (
                 <>
-                  <span className="absolute -left-3 -top-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#2563EB] text-white shadow">
+                  <span className="absolute -left-3 -top-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#059669] text-white shadow">
                     <Move className="h-3.5 w-3.5" />
                   </span>
                   <button
                     aria-label="Resize watermark"
-                    className="absolute -bottom-3 -right-3 h-7 w-7 rounded-full border-2 border-[#2563EB] bg-white shadow dark:bg-slate-900"
+                    className="absolute -bottom-3 -right-3 h-7 w-7 rounded-full border-2 border-[#059669] bg-white shadow dark:bg-zinc-900"
                     onPointerDown={startResize}
                     type="button"
                   />
                   {state.type === "image" && asset && onRemoveAsset ? (
                     <button
                       aria-label="Remove watermark image"
-                      className="absolute -right-3 -top-3 inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 bg-white text-rose-600 shadow dark:border-rose-400/30 dark:bg-slate-900"
+                      className="absolute -right-3 -top-3 inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 bg-white text-rose-600 shadow dark:border-rose-400/30 dark:bg-zinc-900"
                       onClick={onRemoveAsset}
                       type="button"
                     >
@@ -498,7 +499,7 @@ export function WatermarkPresetControls({
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Watermark type</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-zinc-500">Watermark type</p>
         <div className="grid grid-cols-2 gap-2">
           {[
             { icon: Type, label: "Text", value: "text" as const },
@@ -509,7 +510,7 @@ export function WatermarkPresetControls({
               <button
                 className={[
                   "flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-semibold",
-                  state.type === option.value ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB] dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300" : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300",
+                  state.type === option.value ? "border-[#059669] bg-[#ECFDF5] text-[#059669] dark:border-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-300" : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300",
                 ].join(" ")}
                 key={option.value}
                 onClick={() => onChange({ type: option.value })}
@@ -525,11 +526,11 @@ export function WatermarkPresetControls({
 
       {state.type === "text" ? (
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Text presets</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-zinc-500">Text presets</p>
           <div className="flex flex-wrap gap-2">
             {textWatermarkPresets.map((preset) => (
               <button
-                className="min-h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300"
+                className="min-h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300"
                 key={preset}
                 onClick={() => onChange({ text: preset === "Custom" ? state.text : preset })}
                 type="button"
@@ -542,13 +543,13 @@ export function WatermarkPresetControls({
       ) : null}
 
       <div className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Position presets</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-zinc-500">Position presets</p>
         <div className="grid grid-cols-2 gap-2">
           {positionPresets.map((preset) => (
             <button
               className={[
                 "min-h-10 rounded-lg border px-3 text-sm font-medium",
-                state.positionPreset === preset.value ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB] dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300" : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300",
+                state.positionPreset === preset.value ? "border-[#059669] bg-[#ECFDF5] text-[#059669] dark:border-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-300" : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300",
               ].join(" ")}
               key={preset.value}
               onClick={() => applyWatermarkPositionPreset(preset.value, onChange)}

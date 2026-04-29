@@ -27,7 +27,7 @@ function fileInfoParts(fileInfo?: string, countLabel?: string): string[] {
   return parts;
 }
 
-type StatusInfo = { label: string; color: "blue" | "green" | "red" | "amber" };
+type StatusInfo = { label: string; color: "active" | "green" | "red" | "amber" };
 
 function statusInfo(label?: string | null): StatusInfo | null {
   const normalized = (label ?? "").trim().toLowerCase();
@@ -35,13 +35,13 @@ function statusInfo(label?: string | null): StatusInfo | null {
     return null;
   }
   if (normalized.includes("upload")) {
-    return { label: "Uploading", color: "blue" };
+    return { label: "Uploading", color: "active" };
   }
   if (normalized.includes("queue")) {
     return { label: "Queued", color: "amber" };
   }
   if (normalized.includes("process")) {
-    return { label: "Processing", color: "blue" };
+    return { label: "Processing", color: "active" };
   }
   if (normalized.includes("fail") || normalized.includes("error")) {
     return { label: "Failed", color: "red" };
@@ -53,14 +53,14 @@ function statusInfo(label?: string | null): StatusInfo | null {
 }
 
 const statusColors: Record<string, string> = {
-  blue: "border-[#DBEAFE] bg-[#EFF6FF] text-[#1D4ED8]",
+  active: "border-emerald-200 bg-emerald-50 text-emerald-700",
   green: "border-emerald-200 bg-emerald-50 text-emerald-700",
   red: "border-rose-200 bg-rose-50 text-rose-700",
   amber: "border-amber-200 bg-amber-50 text-amber-700",
 };
 
 const statusDotColors: Record<string, string> = {
-  blue: "bg-[#2563EB]",
+  active: "bg-[#059669]",
   green: "bg-emerald-500",
   red: "bg-rose-500",
   amber: "bg-amber-400",
@@ -82,21 +82,21 @@ export function WorkspaceHeader({
 
   return (
     <>
-      <div className="border-b border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-slate-950 sm:px-6">
+      <div className="border-b border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-950 sm:px-6">
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-zinc-500">
               PDFTools / {title}
             </p>
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
               {fileName ? (
-                <span className="min-w-0 max-w-[240px] truncate font-mono text-[13px] font-medium text-slate-800 dark:text-slate-100 sm:max-w-[360px] md:max-w-none">
+                <span className="min-w-0 max-w-[240px] truncate font-mono text-[13px] font-medium text-slate-800 dark:text-zinc-100 sm:max-w-[360px] md:max-w-none">
                   {fileName}
                 </span>
               ) : null}
               {metaParts.map((part) => (
                 <span
-                  className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-400"
+                  className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-400"
                   key={part}
                 >
                   {part}
@@ -120,7 +120,7 @@ export function WorkspaceHeader({
             {infoContent ? (
               <button
                 aria-label="File details"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-white/10 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
                 onClick={() => setInfoOpen(true)}
                 type="button"
               >
@@ -129,7 +129,7 @@ export function WorkspaceHeader({
             ) : null}
             {onDownload ? (
               <button
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5"
                 onClick={onDownload}
                 type="button"
               >
@@ -140,7 +140,7 @@ export function WorkspaceHeader({
             ) : null}
             {onReset ? (
               <button
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5"
                 onClick={onReset}
                 type="button"
               >
@@ -158,21 +158,21 @@ export function WorkspaceHeader({
           onClick={() => setInfoOpen(false)}
         >
           <div
-            className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900"
+            className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-900"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-white/10">
-              <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">File details</h2>
+              <h2 className="text-base font-semibold text-slate-900 dark:text-zinc-100">File details</h2>
               <button
                 aria-label="Close"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-white"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-zinc-500 dark:hover:bg-white/5 dark:hover:text-white"
                 onClick={() => setInfoOpen(false)}
                 type="button"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="max-h-[65vh] overflow-y-auto p-5 text-sm text-slate-700 dark:text-slate-300">{infoContent}</div>
+            <div className="max-h-[65vh] overflow-y-auto p-5 text-sm text-slate-700 dark:text-zinc-300">{infoContent}</div>
           </div>
         </div>
       ) : null}
