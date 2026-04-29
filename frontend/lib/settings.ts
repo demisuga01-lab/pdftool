@@ -61,7 +61,6 @@ export type ImageCompressSettings = {
 };
 
 export type GlobalSettings = {
-  theme: "light" | "dark" | "system";
   defaultDownloadFormat: string;
   autoDownload: boolean;
 };
@@ -149,7 +148,6 @@ export const TOOL_SETTINGS_STORAGE_PREFIX = "pdftool-settings-";
 export const CUSTOM_PRESETS_STORAGE_PREFIX = "pdftool-custom-presets-";
 
 export const defaultGlobalSettings: GlobalSettings = {
-  theme: "system",
   defaultDownloadFormat: "original",
   autoDownload: false,
 };
@@ -436,32 +434,6 @@ export function GlobalSettingsProvider({ children }: GlobalSettingsProviderProps
 
     saveGlobalSettings(globalSettings);
   }, [globalSettings, hydrated]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const applyTheme = () => {
-      const resolvedTheme =
-        globalSettings.theme === "system"
-          ? mediaQuery.matches
-            ? "dark"
-            : "light"
-          : globalSettings.theme;
-
-      document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
-      document.documentElement.dataset.theme = resolvedTheme;
-    };
-
-    applyTheme();
-    mediaQuery.addEventListener("change", applyTheme);
-
-    return () => {
-      mediaQuery.removeEventListener("change", applyTheme);
-    };
-  }, [globalSettings.theme]);
 
   const value = useMemo<CustomPresetContextValue>(
     () => ({

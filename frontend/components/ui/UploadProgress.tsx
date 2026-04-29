@@ -45,12 +45,12 @@ export function UploadProgress({
   const total = totalBytes && totalBytes > 0 ? totalBytes : fileSize;
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-900/10">
+    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-900/10 dark:border-white/10 dark:bg-slate-900 dark:shadow-black/35">
       <div className="space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-[#2563EB]">{fileLabel ?? "Uploading file"}</p>
-            <h2 className="text-4xl font-bold text-slate-900">{percent}%</h2>
+            <p className="text-sm font-semibold text-[#2563EB] dark:text-blue-300">{fileLabel ?? "Uploading file"}</p>
+            <h2 className="text-4xl font-bold text-slate-900 dark:text-slate-100">{percent}%</h2>
           </div>
           {onCancel ? (
             <button className="secondary-button h-10 shrink-0 px-3" onClick={onCancel} type="button">
@@ -60,20 +60,20 @@ export function UploadProgress({
         </div>
 
         <div className="space-y-1">
-          <p className="truncate text-sm font-semibold text-slate-700">{fileName}</p>
-          <p className="text-sm font-medium text-slate-500">
+          <p className="truncate text-sm font-semibold text-slate-700 dark:text-slate-100">{fileName}</p>
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
             {formatBytes(uploaded)} of {formatBytes(total)}
           </p>
         </div>
 
         <div className="space-y-2">
-          <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-950">
             <div
               className="h-full rounded-full bg-[#2563EB] transition-all duration-200"
               style={{ width: `${percent}%` }}
             />
           </div>
-          <div className="flex items-center justify-between gap-3 text-sm font-medium text-slate-500">
+          <div className="flex items-center justify-between gap-3 text-sm font-medium text-slate-500 dark:text-slate-400">
             <p>{formatSpeed(speedKBs)}</p>
             <p>{formatRemaining(remainingSecs ?? 0)}</p>
           </div>

@@ -293,12 +293,12 @@ export default function ImageCropPage() {
       breadcrumbTitle="Crop Image"
       centerContent={
         preview ? (
-          <div className="mx-auto max-w-6xl rounded-2xl border border-[#E5E7EB] bg-white p-4 sm:p-6">
-            <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4 sm:min-h-[520px] sm:p-6">
+          <div className="mx-auto max-w-6xl rounded-2xl border border-[#E5E7EB] bg-white p-4 dark:border-white/10 dark:bg-slate-900 sm:p-6">
+            <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4 dark:border-white/10 dark:bg-slate-950 sm:min-h-[520px] sm:p-6">
               <div className="relative inline-block max-w-full" ref={frameRef}>
                 <img
                   alt={file?.name ?? "Preview"}
-                  className="max-h-[65vh] max-w-full rounded-xl border border-[#E5E7EB] bg-white object-contain"
+                  className="max-h-[65vh] max-w-full rounded-xl border border-[#E5E7EB] bg-white object-contain dark:border-white/10"
                   src={preview.dataUrl}
                 />
                 <div className="absolute inset-0">
@@ -328,7 +328,7 @@ export default function ImageCropPage() {
                       ["w", "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-w-resize"],
                     ].map(([handle, className]) => (
                       <div
-                        className={`absolute h-4 w-4 rounded-[2px] border-2 border-[#2563EB] bg-white md:h-[10px] md:w-[10px] ${className}`}
+                        className={`absolute h-4 w-4 rounded-[2px] border-2 border-[#2563EB] bg-white dark:bg-slate-900 md:h-[10px] md:w-[10px] ${className}`}
                         key={handle}
                         onPointerDown={(event) => {
                           event.stopPropagation();
@@ -395,7 +395,7 @@ export default function ImageCropPage() {
       processingLabel={job.processingLabel}
       rightPanel={
         <div className="space-y-6">
-          <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] font-medium leading-6 text-slate-500">
+          <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] font-medium leading-6 text-slate-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">
             Drag inside the crop box to move it, or use any of the eight handles to resize it. The X, Y, Width, and Height fields update live.
           </div>
           <WorkspaceControls sections={sections} state={settings} update={update} />

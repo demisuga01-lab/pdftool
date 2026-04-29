@@ -229,9 +229,9 @@ function formatInr(value: number): string {
 
 function PricingPlanCard({ plan }: { plan: Plan }) {
   return (
-    <div className="relative flex h-full min-w-[220px] flex-col rounded-xl border border-[#E5E7EB] bg-white p-6 shadow-sm shadow-slate-900/[0.04]">
+    <div className="relative flex h-full min-w-[220px] flex-col rounded-xl border border-[#E5E7EB] bg-white p-6 shadow-sm shadow-slate-900/[0.04] dark:border-white/10 dark:bg-slate-900">
       {plan.comingSoon ? (
-        <span className="absolute right-4 top-4 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-500">
+        <span className="absolute right-4 top-4 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-500 dark:bg-slate-800 dark:text-slate-300">
           Coming Soon
         </span>
       ) : null}
@@ -239,24 +239,24 @@ function PricingPlanCard({ plan }: { plan: Plan }) {
       <div className="flex h-full flex-col">
         <div className="space-y-4">
           <div className="pr-16">
-            <h3 className="text-[16px] font-semibold text-gray-900">{plan.label}</h3>
+            <h3 className="text-[16px] font-semibold text-gray-900 dark:text-slate-100">{plan.label}</h3>
           </div>
           <div className="space-y-1.5">
-            <div className="flex items-end gap-1 text-gray-900">
+            <div className="flex items-end gap-1 text-gray-900 dark:text-slate-100">
               <span className="text-[20px] font-semibold">₹</span>
               <span className="text-[48px] font-bold leading-none">{plan.price.toLocaleString("en-IN")}</span>
-              <span className="pb-1 text-[14px] font-medium text-gray-400">{plan.price === 0 ? "" : "/mo"}</span>
+              <span className="pb-1 text-[14px] font-medium text-gray-400 dark:text-slate-500">{plan.price === 0 ? "" : "/mo"}</span>
             </div>
-            <p className="text-[14px] font-medium text-gray-400">
+            <p className="text-[14px] font-medium text-gray-400 dark:text-slate-500">
               {plan.price === 0 ? "~$0" : plan.usdPrice}
             </p>
-            <p className="text-[13px] font-medium text-gray-500">{plan.credits.toLocaleString("en-IN")} credits</p>
+            <p className="text-[13px] font-medium text-gray-500 dark:text-slate-400">{plan.credits.toLocaleString("en-IN")} credits</p>
           </div>
         </div>
 
-        <div className="my-5 border-t border-[#E5E7EB]" />
+        <div className="my-5 border-t border-[#E5E7EB] dark:border-white/10" />
 
-        <ul className="flex-1 space-y-3 text-[13px] font-medium leading-6 text-slate-600">
+        <ul className="flex-1 space-y-3 text-[13px] font-medium leading-6 text-slate-600 dark:text-slate-300">
           {plan.notes.map((note) => (
             <li className="flex gap-3" key={note}>
               <span className="mt-[2px] shrink-0 text-[#2563EB]">
@@ -297,7 +297,7 @@ function PricingPlanCard({ plan }: { plan: Plan }) {
               className={[
                 "h-10 w-full rounded-lg text-sm font-semibold transition",
                 plan.buttonDisabled
-                  ? "border border-[#D1D5DB] bg-gray-100 text-gray-500"
+                  ? "border border-[#D1D5DB] bg-gray-100 text-gray-500 dark:border-white/10 dark:bg-slate-800 dark:text-slate-400"
                   : "bg-[#2563EB] text-white hover:bg-[#1D4ED8]",
               ].join(" ")}
               disabled={plan.buttonDisabled}
@@ -324,16 +324,16 @@ function FAQItem({
   toggle: () => void;
 }) {
   return (
-    <div className="rounded-lg border border-[#E5E7EB] bg-white">
+    <div className="rounded-lg border border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-slate-900">
       <button
         className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left"
         onClick={toggle}
         type="button"
       >
-        <span className="text-sm font-semibold text-[#111827]">{question}</span>
+        <span className="text-sm font-semibold text-[#111827] dark:text-slate-100">{question}</span>
         <ChevronDownIcon className={["h-4 w-4 text-slate-400 transition", open ? "rotate-180" : ""].join(" ")} />
       </button>
-      {open ? <div className="border-t border-[#E5E7EB] px-4 py-4 text-sm leading-7 text-slate-600">{answer}</div> : null}
+      {open ? <div className="border-t border-[#E5E7EB] px-4 py-4 text-sm leading-7 text-slate-600 dark:border-white/10 dark:text-slate-300">{answer}</div> : null}
     </div>
   );
 }
@@ -382,7 +382,7 @@ export default function PricingPage() {
     >
       <div className="space-y-10">
         {bannerVisible ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-7 text-amber-950">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-7 text-amber-950 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100">
             <div className="flex items-start justify-between gap-4">
               <p>
                 API integration is currently in development. Prices listed are indicative and subject
@@ -405,9 +405,9 @@ export default function PricingPage() {
             <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#2563EB]/10 text-[#2563EB]">
               <GlobeIcon className="h-5 w-5" />
             </span>
-            <h2 className="text-xl font-semibold text-[#111827]">Free Web Tool</h2>
+            <h2 className="text-xl font-semibold text-[#111827] dark:text-slate-100">Free Web Tool</h2>
           </div>
-          <ul className="grid gap-3 text-sm leading-7 text-slate-600 sm:grid-cols-2">
+          <ul className="grid gap-3 text-sm leading-7 text-slate-600 dark:text-slate-300 sm:grid-cols-2">
             <li>Always free, no signup required</li>
             <li>All 20 PDF and image tools</li>
             <li>Files deleted within 24 hours</li>
@@ -421,34 +421,34 @@ export default function PricingPage() {
             <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#2563EB]/10 text-[#2563EB]">
               <StackIcon className="h-5 w-5" />
             </span>
-            <h2 className="text-xl font-semibold text-[#111827]">How Credits Work</h2>
+            <h2 className="text-xl font-semibold text-[#111827] dark:text-slate-100">How Credits Work</h2>
           </div>
           <div className="grid gap-6 lg:grid-cols-4">
-            <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4">
-              <h3 className="text-sm font-semibold text-[#111827]">Simple operations</h3>
-              <p className="mt-1 text-xs text-slate-500">1 credit each</p>
-              <p className="mt-3 text-sm leading-7 text-slate-600">
+            <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4 dark:border-white/10 dark:bg-slate-950">
+              <h3 className="text-sm font-semibold text-[#111827] dark:text-slate-100">Simple operations</h3>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">1 credit each</p>
+              <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
                 Merge PDFs, Split PDF, Rotate PDF, Encrypt PDF, Decrypt PDF, Crop Image, Rotate Image, Images to PDF
               </p>
             </div>
-            <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4">
-              <h3 className="text-sm font-semibold text-[#111827]">Standard operations</h3>
-              <p className="mt-1 text-xs text-slate-500">2 credits each</p>
-              <p className="mt-3 text-sm leading-7 text-slate-600">
+            <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4 dark:border-white/10 dark:bg-slate-950">
+              <h3 className="text-sm font-semibold text-[#111827] dark:text-slate-100">Standard operations</h3>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">2 credits each</p>
+              <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
                 Compress PDF, Extract Text, Convert Image, Resize Image, Compress Image, Watermark Image
               </p>
             </div>
-            <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4">
-              <h3 className="text-sm font-semibold text-[#111827]">Heavy operations</h3>
-              <p className="mt-1 text-xs text-slate-500">5 credits each</p>
-              <p className="mt-3 text-sm leading-7 text-slate-600">
+            <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4 dark:border-white/10 dark:bg-slate-950">
+              <h3 className="text-sm font-semibold text-[#111827] dark:text-slate-100">Heavy operations</h3>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">5 credits each</p>
+              <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
                 PDF to Images, Office to PDF, OCR Image, Remove Background
               </p>
             </div>
-            <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4">
-              <h3 className="text-sm font-semibold text-[#111827]">Batch operations</h3>
-              <p className="mt-1 text-xs text-slate-500">Per file multiplier</p>
-              <p className="mt-3 text-sm leading-7 text-slate-600">
+            <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4 dark:border-white/10 dark:bg-slate-950">
+              <h3 className="text-sm font-semibold text-[#111827] dark:text-slate-100">Batch operations</h3>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Per file multiplier</p>
+              <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
                 Credits are multiplied by the number of files in the batch.
               </p>
             </div>
@@ -460,7 +460,7 @@ export default function PricingPage() {
             <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#2563EB]/10 text-[#2563EB]">
               <DocumentIcon className="h-5 w-5" />
             </span>
-            <h2 className="text-xl font-semibold text-[#111827]">API Plans</h2>
+            <h2 className="text-xl font-semibold text-[#111827] dark:text-slate-100">API Plans</h2>
           </div>
           <div className="grid gap-5 md:grid-cols-2 min-[1200px]:grid-cols-5">
             {planCards.map((plan) => (
@@ -468,8 +468,8 @@ export default function PricingPage() {
             ))}
           </div>
           <div className="tool-panel">
-            <h3 className="text-lg font-semibold text-[#111827]">Need more than 10,000 credits or a white-label setup?</h3>
-            <p className="mt-2 text-sm leading-7 text-slate-600">
+            <h3 className="text-lg font-semibold text-[#111827] dark:text-slate-100">Need more than 10,000 credits or a white-label setup?</h3>
+            <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
               Contact: contact@wellfriend.online
             </p>
             <a
@@ -486,7 +486,7 @@ export default function PricingPage() {
             <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#2563EB]/10 text-[#2563EB]">
               <CalculatorIcon className="h-5 w-5" />
             </span>
-            <h2 className="text-xl font-semibold text-[#111827]">Credit Calculator</h2>
+            <h2 className="text-xl font-semibold text-[#111827] dark:text-slate-100">Credit Calculator</h2>
           </div>
 
           <div className="space-y-4">
@@ -494,7 +494,7 @@ export default function PricingPage() {
               const subtotal = operationCosts[row.operation] * row.quantity;
 
               return (
-                <div className="grid gap-3 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4 md:grid-cols-[1.6fr_0.7fr_0.7fr_auto] md:items-end" key={row.id}>
+                <div className="grid gap-3 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4 dark:border-white/10 dark:bg-slate-950 md:grid-cols-[1.6fr_0.7fr_0.7fr_auto] md:items-end" key={row.id}>
                   <label className="space-y-2">
                     <span className="field-label">Operation</span>
                     <select
@@ -574,19 +574,19 @@ export default function PricingPage() {
           </div>
 
           <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-            <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-5">
-              <p className="text-sm text-slate-500">Total credits</p>
-              <p className="mt-2 text-4xl font-semibold text-[#111827]">{totalCredits.toLocaleString("en-IN")}</p>
+            <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-5 dark:border-white/10 dark:bg-slate-950">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Total credits</p>
+              <p className="mt-2 text-4xl font-semibold text-[#111827] dark:text-slate-100">{totalCredits.toLocaleString("en-IN")}</p>
             </div>
 
-            <div className="rounded-lg border border-[#E5E7EB] bg-white p-5">
-              <h3 className="text-lg font-semibold text-[#111827]">Recommended plan: {recommendedPlan.label}</h3>
-              <div className="mt-4 space-y-2 text-sm leading-7 text-slate-600">
+            <div className="rounded-lg border border-[#E5E7EB] bg-white p-5 dark:border-white/10 dark:bg-slate-900">
+              <h3 className="text-lg font-semibold text-[#111827] dark:text-slate-100">Recommended plan: {recommendedPlan.label}</h3>
+              <div className="mt-4 space-y-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
                 <p>Plan cost: {formatInr(recommendedPlan.price)}</p>
                 <p>Credits included: {recommendedPlan.credits.toLocaleString("en-IN")}</p>
                 <p>Your usage: {totalCredits.toLocaleString("en-IN")} credits</p>
                 <p>Overage: {overage.toLocaleString("en-IN")} credits at ₹1 each = {formatInr(overage)}</p>
-                <p className="font-semibold text-[#111827]">Total estimated monthly cost: {formatInr(totalEstimated)}</p>
+                <p className="font-semibold text-[#111827] dark:text-slate-100">Total estimated monthly cost: {formatInr(totalEstimated)}</p>
               </div>
               <a
                 className="primary-button mt-5"
@@ -599,11 +599,11 @@ export default function PricingPage() {
         </section>
 
         <section className="tool-panel space-y-6">
-          <h2 className="text-xl font-semibold text-[#111827]">Per Tool Reference Table</h2>
+          <h2 className="text-xl font-semibold text-[#111827] dark:text-slate-100">Per Tool Reference Table</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-[#E5E7EB] text-slate-500">
+                <tr className="border-b border-[#E5E7EB] text-slate-500 dark:border-white/10 dark:text-slate-400">
                   <th className="pb-3 pr-4 font-medium">Tool</th>
                   <th className="pb-3 pr-4 font-medium">Category</th>
                   <th className="pb-3 pr-4 font-medium">Credits per Request</th>
@@ -613,22 +613,22 @@ export default function PricingPage() {
               </thead>
               <tbody>
                 {toolReference.map((tool) => (
-                  <tr className="border-b border-[#F1F5F9]" key={`${tool.category}-${tool.name}`}>
-                    <td className="py-3 pr-4 text-[#111827]">{tool.name}</td>
-                    <td className="py-3 pr-4 text-slate-600">{tool.category}</td>
-                    <td className="py-3 pr-4 text-slate-600">{tool.credits}</td>
-                    <td className="py-3 pr-4 text-slate-600">{formatInr(tool.starter)}</td>
-                    <td className="py-3 text-slate-600">{formatInr(tool.growth)}</td>
+                  <tr className="border-b border-[#F1F5F9] dark:border-white/10" key={`${tool.category}-${tool.name}`}>
+                    <td className="py-3 pr-4 text-[#111827] dark:text-slate-100">{tool.name}</td>
+                    <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">{tool.category}</td>
+                    <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">{tool.credits}</td>
+                    <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">{formatInr(tool.starter)}</td>
+                    <td className="py-3 text-slate-600 dark:text-slate-300">{formatInr(tool.growth)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="text-sm text-slate-500">Batch operations multiply credits by file count.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Batch operations multiply credits by file count.</p>
         </section>
 
         <section className="tool-panel space-y-6">
-          <h2 className="text-xl font-semibold text-[#111827]">FAQ</h2>
+          <h2 className="text-xl font-semibold text-[#111827] dark:text-slate-100">FAQ</h2>
           <div className="space-y-3">
             {faqItems.map((item, index) => (
               <FAQItem

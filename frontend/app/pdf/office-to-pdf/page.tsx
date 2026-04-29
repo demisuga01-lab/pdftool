@@ -130,7 +130,7 @@ export default function PdfOfficeToPdfPage() {
         ) : null
       }
       emptyState={
-        <label className="flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
+        <label className="flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center transition hover:border-slate-400 hover:bg-slate-50 dark:border-white/15 dark:bg-slate-900 dark:hover:border-blue-400/50 dark:hover:bg-slate-900/80">
           <input
             accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf,.txt"
             className="hidden"
@@ -143,11 +143,11 @@ export default function PdfOfficeToPdfPage() {
           <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#2563EB]">
             <DocumentIcon className="h-7 w-7" />
           </span>
-          <h2 className="text-[18px] text-slate-900">Upload a document</h2>
-          <p className="mt-2 max-w-xl text-[14px] leading-7 text-slate-500">
+          <h2 className="text-[18px] text-slate-900 dark:text-slate-100">Upload a document</h2>
+          <p className="mt-2 max-w-xl text-[14px] leading-7 text-slate-500 dark:text-slate-400">
             DOCX, XLSX, PPTX, ODT, ODS, ODP, RTF, and TXT are supported.
           </p>
-          <span className="mt-5 inline-flex h-9 items-center rounded-lg border border-slate-200 px-3 text-[14px] text-slate-700">
+          <span className="mt-5 inline-flex h-9 items-center rounded-lg border border-slate-200 px-3 text-[14px] text-slate-700 dark:border-white/10 dark:text-slate-200">
             Browse files
           </span>
         </label>
@@ -167,21 +167,21 @@ export default function PdfOfficeToPdfPage() {
       renderCenter={
         file ? (
           <div className="mx-auto grid max-w-4xl gap-6 lg:grid-cols-[1fr_240px]">
-            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-8">
+            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-8 dark:border-white/10 dark:bg-slate-900">
               <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#2563EB]">
                 <DocumentIcon className="h-6 w-6" />
               </div>
-              <h2 className="mt-4 text-[24px] text-slate-900">{file.name}</h2>
-              <p className="mt-2 text-[14px] leading-6 text-slate-500">{formatBytes(file.size)}</p>
+              <h2 className="mt-4 text-[24px] text-slate-900 dark:text-slate-100">{file.name}</h2>
+              <p className="mt-2 text-[14px] leading-6 text-slate-500 dark:text-slate-400">{formatBytes(file.size)}</p>
             </div>
-            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4">
-              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
+            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 dark:border-white/10 dark:bg-slate-900">
+              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                 Supported Formats
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {supportedFormats.map((format) => (
                   <span
-                    className="rounded-md border border-slate-200 bg-[#F9FAFB] px-2.5 py-1 text-[13px] text-slate-600"
+                    className="rounded-md border border-slate-200 bg-[#F9FAFB] px-2.5 py-1 text-[13px] text-slate-600 dark:border-white/10 dark:bg-slate-950 dark:text-slate-300"
                     key={format}
                   >
                     {format}
@@ -194,7 +194,7 @@ export default function PdfOfficeToPdfPage() {
       }
       rightPanel={
         <div className="space-y-6">
-          <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] leading-6 text-slate-500">
+          <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] leading-6 text-slate-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-300">
             {job.state === "failure"
               ? job.error ?? "Conversion failed."
               : "Choose archival and export options before converting the document."}

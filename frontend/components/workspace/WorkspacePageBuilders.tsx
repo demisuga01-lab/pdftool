@@ -36,6 +36,7 @@ import {
   useUploadedPdfPageItems,
   useSingleImagePreview,
 } from "@/lib/workspace-data";
+import { useWorkspaceZoom } from "@/lib/use-workspace-zoom";
 
 type PresetButton<T> = {
   label: string;
@@ -52,7 +53,7 @@ export function PreviewStage({
   return (
     <div
       className={[
-        "overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white",
+        "overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900",
         className ?? "",
       ].join(" ")}
     >
@@ -91,7 +92,7 @@ function SidebarStatus({
           ? "border-rose-200 bg-rose-50 text-rose-700"
           : state === "success"
             ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-            : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-500",
+            : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300",
       ].join(" ")}
     >
       {copy}
@@ -114,7 +115,7 @@ function PresetRow<T extends Record<string, unknown>>({
     <div className="flex flex-wrap gap-2">
       {presets.map((preset) => (
         <button
-          className="h-8 rounded-lg border border-slate-200 px-3 text-[13px] text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+          className="h-8 rounded-lg border border-slate-200 px-3 text-[13px] text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
           key={preset.label}
           onClick={() => onApply(preset.values)}
           type="button"
@@ -124,18 +125,6 @@ function PresetRow<T extends Record<string, unknown>>({
       ))}
     </div>
   );
-}
-
-const MIN_PREVIEW_ZOOM = 25;
-const MAX_PREVIEW_ZOOM = 500;
-const ZOOM_STEP = 25;
-
-function clampPreviewZoom(value: number) {
-  return Math.max(MIN_PREVIEW_ZOOM, Math.min(MAX_PREVIEW_ZOOM, value));
-}
-
-function nextWheelZoom(current: number, deltaY: number) {
-  return clampPreviewZoom(current + (deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
 }
 
 function PreviewZoomControls({
@@ -161,7 +150,7 @@ function PreviewZoomControls({
       >
         <Minus className="h-4 w-4" />
       </button>
-      <span className="min-w-[72px] text-center text-sm font-semibold text-slate-600">{zoom === "fit" ? "Fit" : `${zoom}%`}</span>
+      <span className="min-w-[72px] text-center text-sm font-semibold text-slate-600 dark:text-slate-300">{zoom === "fit" ? "Fit" : `${zoom}%`}</span>
       <button
         aria-label="Zoom in"
         className="secondary-button h-9 w-9 p-0"
@@ -195,19 +184,37 @@ export function UploadedPdfPreview({
   pageCount: number;
 }) {
   const [page, setPage] = useState(1);
-  const [zoom, setZoom] = useState<number | "fit">("fit");
   const [failed, setFailed] = useState(false);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [naturalSize, setNaturalSize] = useState<{ height: number; width: number } | null>(null);
   const safePage = Math.min(Math.max(page, 1), Math.max(pageCount, 1));
+  const zoom = useWorkspaceZoom({ contentSize: naturalSize });
+
+  useEffect(() => {
+    const node = zoom.viewportRef.current;
+    if (!node) {
+      return;
+    }
+
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      zoom.zoomByWheel(event.deltaY);
+    };
+
+    node.addEventListener("wheel", handleWheel, { passive: false });
+    return () => node.removeEventListener("wheel", handleWheel);
+  }, [zoom]);
 
   useEffect(() => {
     setFailed(false);
-  }, [fileId, safePage, zoom]);
+  }, [fileId, safePage]);
+
+  const displayWidth = naturalSize ? (naturalSize.width * zoom.effectiveZoom) / 100 : undefined;
+  const displayHeight = naturalSize ? (naturalSize.height * zoom.effectiveZoom) / 100 : undefined;
 
   return (
     <div className="space-y-4">
       <PreviewStage className="mx-auto max-w-5xl">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-white/10">
           <div className="flex items-center gap-2">
             <button
               aria-label="Previous page"
@@ -218,7 +225,7 @@ export function UploadedPdfPreview({
             >
               Prev
             </button>
-            <span className="min-w-[92px] text-center text-sm font-semibold text-slate-600">
+            <span className="min-w-[92px] text-center text-sm font-semibold text-slate-600 dark:text-slate-300">
               {safePage} / {Math.max(pageCount, 1)}
             </span>
             <button
@@ -234,42 +241,59 @@ export function UploadedPdfPreview({
 
           <PreviewZoomControls
             onFit={() => {
-              setZoom("fit");
-              scrollRef.current?.scrollTo({ left: 0, top: 0 });
+              zoom.fit();
             }}
-            onZoomIn={() => setZoom((current) => clampPreviewZoom((current === "fit" ? 100 : current) + ZOOM_STEP))}
-            onZoomOut={() => setZoom((current) => clampPreviewZoom((current === "fit" ? 100 : current) - ZOOM_STEP))}
-            onZoomReset={() => setZoom(100)}
-            zoom={zoom}
+            onZoomIn={zoom.zoomIn}
+            onZoomOut={zoom.zoomOut}
+            onZoomReset={zoom.reset}
+            zoom={zoom.fitMode ? "fit" : zoom.zoom}
           />
         </div>
 
         <div
-          className="h-[min(70vh,640px)] overflow-auto bg-[#F3F4F6] p-4 sm:p-6"
-          onWheel={(event) => {
-            event.preventDefault();
-            setZoom((current) => nextWheelZoom(current === "fit" ? 100 : current, event.deltaY));
-          }}
-          ref={scrollRef}
+          className="h-[min(70vh,640px)] overflow-auto bg-slate-100 dark:bg-slate-950"
+          ref={zoom.viewportRef}
         >
-          <div className="flex min-h-full items-center justify-center">
-          {failed ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-              Preview failed, but processing may still work.
-            </div>
-          ) : (
-            <img
-              alt={`Page ${safePage}`}
-              className="max-h-[72vh] max-w-full rounded-lg bg-white object-contain shadow-sm"
-              onError={() => setFailed(true)}
-              src={getPdfPagePreviewUrl(fileId, safePage, zoom === "fit" ? 100 : zoom)}
-              style={
-                zoom === "fit"
-                  ? { maxHeight: "100%", maxWidth: "100%" }
-                  : { maxWidth: "none", width: `${zoom}%` }
-              }
-            />
-          )}
+          <div className="flex min-h-full min-w-full items-center justify-center p-4 sm:p-6">
+            {failed ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                Preview failed, but processing may still work.
+              </div>
+            ) : (
+              <div
+                className="relative shrink-0"
+                style={
+                  displayWidth && displayHeight
+                    ? { height: displayHeight, width: displayWidth }
+                    : undefined
+                }
+              >
+                <img
+                  alt={`Page ${safePage}`}
+                  className="block rounded-lg border border-slate-300 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.12)] dark:border-slate-300"
+                  onError={() => setFailed(true)}
+                  onLoad={(event) => {
+                    if (event.currentTarget.naturalWidth > 0 && event.currentTarget.naturalHeight > 0) {
+                      setNaturalSize({
+                        height: event.currentTarget.naturalHeight,
+                        width: event.currentTarget.naturalWidth,
+                      });
+                    }
+                  }}
+                  src={getPdfPagePreviewUrl(fileId, safePage, 100)}
+                  style={
+                    displayWidth && displayHeight
+                      ? {
+                          height: displayHeight,
+                          maxHeight: "none",
+                          maxWidth: "none",
+                          width: displayWidth,
+                        }
+                      : { maxHeight: "100%", maxWidth: "100%" }
+                  }
+                />
+              </div>
+            )}
           </div>
         </div>
       </PreviewStage>
@@ -279,15 +303,17 @@ export function UploadedPdfPreview({
           {items.map((item) => (
             <button
               className={[
-                "w-24 shrink-0 rounded-lg border bg-white p-2 text-left transition",
-                item.pageNumber === safePage ? "border-[#2563EB] ring-2 ring-[#2563EB]/15" : "border-[#E5E7EB]",
+                "w-24 shrink-0 rounded-xl border bg-white p-2 text-left transition dark:bg-slate-900",
+                item.pageNumber === safePage
+                  ? "border-[#2563EB] ring-2 ring-[#2563EB]/15 dark:border-blue-400"
+                  : "border-slate-200 dark:border-white/10",
               ].join(" ")}
               key={item.id}
               onClick={() => setPage(item.pageNumber)}
               type="button"
             >
               <img alt={`Page ${item.pageNumber}`} className="aspect-[1/1.35] w-full rounded object-cover" src={item.thumbnail} />
-              <span className="mt-1 block text-center text-xs font-semibold text-slate-500">{item.pageNumber}</span>
+              <span className="mt-1 block text-center text-xs font-semibold text-slate-500 dark:text-slate-400">{item.pageNumber}</span>
             </button>
           ))}
         </div>
@@ -299,53 +325,94 @@ export function UploadedPdfPreview({
 export function UploadedImagePreview({
   alt,
   src,
+  height,
+  width,
 }: {
   alt: string;
   src: string;
+  height?: number;
+  width?: number;
 }) {
-  const [zoom, setZoom] = useState<number | "fit">("fit");
   const [failed, setFailed] = useState(false);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [naturalSize, setNaturalSize] = useState<{ height: number; width: number } | null>(
+    width && height ? { height, width } : null,
+  );
+  const zoom = useWorkspaceZoom({ contentSize: naturalSize });
+
+  useEffect(() => {
+    const node = zoom.viewportRef.current;
+    if (!node) {
+      return;
+    }
+
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      zoom.zoomByWheel(event.deltaY);
+    };
+
+    node.addEventListener("wheel", handleWheel, { passive: false });
+    return () => node.removeEventListener("wheel", handleWheel);
+  }, [zoom]);
+
+  const displayWidth = naturalSize ? (naturalSize.width * zoom.effectiveZoom) / 100 : undefined;
+  const displayHeight = naturalSize ? (naturalSize.height * zoom.effectiveZoom) / 100 : undefined;
 
   return (
     <PreviewStage className="mx-auto max-w-[760px]">
-      <div className="flex flex-wrap items-center justify-end gap-3 border-b border-[#E5E7EB] px-4 py-3">
+      <div className="flex flex-wrap items-center justify-end gap-3 border-b border-slate-200 px-4 py-3 dark:border-white/10">
         <PreviewZoomControls
           onFit={() => {
-            setZoom("fit");
-            scrollRef.current?.scrollTo({ left: 0, top: 0 });
+            zoom.fit();
           }}
-          onZoomIn={() => setZoom((current) => clampPreviewZoom((current === "fit" ? 100 : current) + ZOOM_STEP))}
-          onZoomOut={() => setZoom((current) => clampPreviewZoom((current === "fit" ? 100 : current) - ZOOM_STEP))}
-          onZoomReset={() => setZoom(100)}
-          zoom={zoom}
+          onZoomIn={zoom.zoomIn}
+          onZoomOut={zoom.zoomOut}
+          onZoomReset={zoom.reset}
+          zoom={zoom.fitMode ? "fit" : zoom.zoom}
         />
       </div>
       <div
-        className="h-[min(70vh,620px)] overflow-auto bg-[#F8FAFC] p-4 sm:p-6"
-        onWheel={(event) => {
-          event.preventDefault();
-          setZoom((current) => nextWheelZoom(current === "fit" ? 100 : current, event.deltaY));
-        }}
-        ref={scrollRef}
+        className="preview-checkerboard h-[min(70vh,620px)] overflow-auto bg-slate-100 dark:bg-slate-950"
+        ref={zoom.viewportRef}
       >
-        <div className="flex min-h-full items-center justify-center">
+        <div className="flex min-h-full min-w-full items-center justify-center p-4 sm:p-6">
           {failed ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
               Preview failed, but processing may still work.
             </div>
           ) : (
-            <img
-              alt={alt}
-              className="rounded-xl border border-[#E5E7EB] bg-white object-contain shadow-sm"
-              onError={() => setFailed(true)}
-              src={src}
+            <div
+              className="relative shrink-0"
               style={
-                zoom === "fit"
-                  ? { maxHeight: "100%", maxWidth: "100%" }
-                  : { maxWidth: "none", width: `${zoom}%` }
+                displayWidth && displayHeight
+                  ? { height: displayHeight, width: displayWidth }
+                  : undefined
               }
-            />
+            >
+              <img
+                alt={alt}
+                className="block rounded-xl border border-slate-200 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.12)] dark:border-white/10"
+                onError={() => setFailed(true)}
+                onLoad={(event) => {
+                  if (event.currentTarget.naturalWidth > 0 && event.currentTarget.naturalHeight > 0) {
+                    setNaturalSize({
+                      height: event.currentTarget.naturalHeight,
+                      width: event.currentTarget.naturalWidth,
+                    });
+                  }
+                }}
+                src={src}
+                style={
+                  displayWidth && displayHeight
+                    ? {
+                        height: displayHeight,
+                        maxHeight: "none",
+                        maxWidth: "none",
+                        width: displayWidth,
+                      }
+                    : { maxHeight: "100%", maxWidth: "100%" }
+                }
+              />
+            </div>
           )}
         </div>
       </div>
@@ -1086,7 +1153,7 @@ export function SingleImageWorkspacePage<T extends Record<string, unknown>>({
           renderCenter ? (
             renderCenter({ file: currentFile ?? fileFromMetadata(fileMeta), preview, settings, update })
           ) : (
-            preview ? <UploadedImagePreview alt={fileMeta.original_name} src={preview.dataUrl} /> : null
+            preview ? <UploadedImagePreview alt={fileMeta.original_name} height={preview.height} src={preview.dataUrl} width={preview.width} /> : null
           )
         )
       }

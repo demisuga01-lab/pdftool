@@ -29,16 +29,16 @@ const sections: Array<ControlSection<ProtectSettings>> = [
     render: (settings, update) => (
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <label className="block text-[13px] text-slate-700">Password</label>
+          <label className="block text-[13px] text-slate-700 dark:text-slate-300">Password</label>
           <div className="flex gap-2">
             <input
-              className="h-9 w-full rounded-md border border-slate-200 px-3 text-[14px] text-slate-700 outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-1"
+              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-[14px] text-slate-700 outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-1 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-blue-400 dark:focus:ring-offset-slate-900"
               onChange={(event) => update("userPassword", event.target.value)}
               type={settings.showPasswords ? "text" : "password"}
               value={settings.userPassword}
             />
             <button
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-500"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5"
               onClick={() => update("showPasswords", !settings.showPasswords)}
               type="button"
             >
@@ -47,21 +47,21 @@ const sections: Array<ControlSection<ProtectSettings>> = [
           </div>
         </div>
         <div className="space-y-1.5">
-          <label className="block text-[13px] text-slate-700">Confirm password</label>
+          <label className="block text-[13px] text-slate-700 dark:text-slate-300">Confirm password</label>
           <input
-            className="h-9 w-full rounded-md border border-slate-200 px-3 text-[14px] text-slate-700 outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-1"
+            className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-[14px] text-slate-700 outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-1 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-blue-400 dark:focus:ring-offset-slate-900"
             onChange={(event) => update("userPasswordConfirm", event.target.value)}
             type={settings.showPasswords ? "text" : "password"}
             value={settings.userPasswordConfirm}
           />
         </div>
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-[13px] text-slate-600">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-[13px] text-slate-600 dark:border-white/10 dark:bg-slate-950 dark:text-slate-300">
           <span>
             Password strength:{" "}
             {settings.userPassword.length >= 12 ? "Strong" : settings.userPassword.length >= 8 ? "Medium" : "Weak"}
           </span>
           <button
-            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-slate-700"
+            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-white/5"
             onClick={() => {
               const next = createPassword();
               update("userPassword", next);
@@ -193,13 +193,13 @@ export default function PdfProtectPage() {
       }
       renderCenter={({ file }) => (
         <PreviewStage className="mx-auto max-w-3xl">
-          <div className="flex min-h-[420px] items-center justify-center bg-[#F9FAFB] p-8">
-            <div className="w-full max-w-md rounded-2xl border border-[#E5E7EB] bg-white p-8 text-center">
+          <div className="flex min-h-[420px] items-center justify-center bg-slate-50 p-8 dark:bg-slate-950">
+            <div className="w-full max-w-md rounded-2xl border border-[#E5E7EB] bg-white p-8 text-center dark:border-white/10 dark:bg-slate-900">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#2563EB]">
                 <LockIcon className="h-7 w-7" />
               </div>
-              <h2 className="mt-4 text-[24px] text-slate-900">{file.name}</h2>
-              <p className="mt-2 text-[14px] leading-6 text-slate-500">{formatBytes(file.size)}</p>
+              <h2 className="mt-4 text-[24px] text-slate-900 dark:text-slate-100">{file.name}</h2>
+              <p className="mt-2 text-[14px] leading-6 text-slate-500 dark:text-slate-400">{formatBytes(file.size)}</p>
             </div>
           </div>
         </PreviewStage>

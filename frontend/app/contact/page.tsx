@@ -42,13 +42,13 @@ export default function ContactPage() {
               <MailIcon className="h-5 w-5" />
             </span>
             <div>
-              <h2 className="text-lg font-semibold text-[#111827]">Contact PDFTools by WellFriend</h2>
-              <p className="text-sm text-slate-500">Use email for product, API, and partnership questions.</p>
+              <h2 className="text-lg font-semibold text-[#111827] dark:text-slate-100">Contact PDFTools by WellFriend</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Use email for product, API, and partnership questions.</p>
             </div>
           </div>
 
-          <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-5">
-            <ul className="space-y-3 text-[15px] leading-7 text-slate-600">
+          <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-5 dark:border-white/10 dark:bg-slate-900">
+            <ul className="space-y-3 text-[15px] leading-7 text-slate-600 dark:text-slate-300">
               {reasons.map((reason) => (
                 <li className="flex gap-3" key={reason}>
                   <span className="mt-[10px] h-1.5 w-1.5 rounded-full bg-[#2563EB]" />
@@ -74,7 +74,7 @@ export default function ContactPage() {
             ))}
           </div>
 
-          <p className="text-sm leading-7 text-slate-500">
+          <p className="text-sm leading-7 text-slate-500 dark:text-slate-400">
             Include your use case and expected monthly volume for API and enterprise inquiries.
           </p>
         </div>

@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { GitBranch } from "lucide-react";
 
 import { ChevronDownIcon, CloseIcon, MenuIcon } from "@/components/icons/SiteIcons";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { useTheme, type ThemeMode } from "@/components/theme/ThemeProvider";
 import { Logo } from "@/components/ui/Logo";
 
 type ToolSection = {
@@ -93,7 +95,7 @@ function ToolsDropdown() {
     <div className="relative" onBlur={closeMenu} onFocus={openMenu} onMouseEnter={openMenu} onMouseLeave={closeMenu}>
       <button
         aria-expanded={open}
-        className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/20"
+        className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/20 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white dark:focus-visible:ring-blue-400/30"
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
@@ -107,14 +109,14 @@ function ToolsDropdown() {
           open ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
         ].join(" ")}
       >
-        <div className="grid grid-cols-4 gap-5 rounded-xl border border-[#E5E7EB] bg-white p-5 shadow-xl shadow-slate-900/10">
+        <div className="grid grid-cols-4 gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/10 dark:border-white/10 dark:bg-slate-900 dark:shadow-black/30">
           {toolSections.map((section) => (
             <div className="min-w-0" key={section.label}>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{section.label}</p>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">{section.label}</p>
               <div className="grid gap-1">
                 {section.items.map((item) => (
                   <Link
-                    className="rounded-lg px-2 py-2 text-sm font-medium leading-5 text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
+                    className="rounded-xl px-3 py-2 text-sm font-medium leading-5 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-200 dark:hover:bg-white/5 dark:hover:text-white"
                     href={item.href}
                     key={item.href}
                     onClick={() => setOpen(false)}
@@ -126,6 +128,54 @@ function ToolsDropdown() {
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileThemeSelector({ onSelect }: { onSelect?: () => void }) {
+  const { resolvedTheme, setTheme, theme } = useTheme();
+
+  const options: Array<{ label: string; value: ThemeMode }> = [
+    { label: "Light", value: "light" },
+    { label: "Dark", value: "dark" },
+    { label: "System", value: "system" },
+  ];
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-slate-900/70">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Theme</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {theme === "system" ? `Following system (${resolvedTheme})` : `Using ${theme}`}
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-2">
+        {options.map((option) => {
+          const selected = theme === option.value;
+          return (
+            <button
+              aria-pressed={selected}
+              className={[
+                "flex min-h-11 items-center justify-between rounded-xl border px-3 text-sm font-medium transition",
+                selected
+                  ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-400/40 dark:bg-blue-500/10 dark:text-blue-300"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-white/5",
+              ].join(" ")}
+              key={option.value}
+              onClick={() => {
+                setTheme(option.value);
+                onSelect?.();
+              }}
+              type="button"
+            >
+              <span>{option.label}</span>
+              <span className="text-xs font-semibold">{selected ? "Selected" : ""}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -153,26 +203,27 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[#E5E7EB] bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-slate-950/85">
       <div className="mx-auto flex h-16 max-w-[1560px] items-center justify-between px-4 sm:px-6 xl:px-8">
         <Logo />
 
         <nav className="hidden items-center gap-1 md:flex">
           <ToolsDropdown />
-          <Link className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]" href="/pricing">
+          <Link className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white" href="/pricing">
             Pricing
           </Link>
-          <Link className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]" href="/about">
+          <Link className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white" href="/about">
             About
           </Link>
-          <Link className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]" href="/contact">
+          <Link className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white" href="/contact">
             Contact
           </Link>
         </nav>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <Link
-            className="hidden h-9 items-center gap-2 rounded-lg border border-[#D1D5DB] px-3 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-[#F9FAFB] hover:text-[#111827] md:inline-flex"
+            className="hidden h-10 items-center gap-2 rounded-xl border border-slate-300 px-3 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:bg-slate-100 hover:text-slate-950 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5 dark:hover:text-white md:inline-flex"
             href="https://github.com/demisuga01-lab/pdftool"
             rel="noreferrer"
             target="_blank"
@@ -183,7 +234,7 @@ export function Header() {
           <button
             aria-expanded={mobileOpen}
             aria-label="Toggle navigation menu"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#D1D5DB] text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827] md:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5 dark:hover:text-white md:hidden"
             onClick={() => setMobileOpen((current) => !current)}
             type="button"
           >
@@ -195,22 +246,22 @@ export function Header() {
       {mobileOpen ? (
         <>
           <div
-            className="fixed inset-0 top-16 z-40 bg-slate-900/30 md:hidden"
+            className="fixed inset-0 top-16 z-40 bg-black/55 backdrop-blur-sm md:hidden"
             onClick={closeMobile}
           />
-          <div className="fixed inset-x-0 top-16 z-50 max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-[#E5E7EB] bg-white md:hidden">
-            <div className="px-4 py-3">
+          <div className="fixed inset-x-0 top-16 z-50 max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-slate-200 bg-white md:hidden dark:border-white/10 dark:bg-slate-950">
+            <div className="space-y-4 px-4 py-4">
               {mobileGroups.map((group) => (
-                <div className="border-b border-[#F3F4F6] last:border-b-0" key={group.label}>
+                <div className="border-b border-slate-100 dark:border-white/10 last:border-b-0" key={group.label}>
                   <button
-                    className="flex w-full items-center justify-between px-1 py-3 text-sm font-semibold text-slate-700"
+                    className="flex min-h-11 w-full items-center justify-between px-1 py-3 text-sm font-semibold text-slate-700 dark:text-slate-100"
                     onClick={() => setOpenGroup(openGroup === group.label ? null : group.label)}
                     type="button"
                   >
                     {group.label}
                     <ChevronDownIcon
                       className={[
-                        "h-4 w-4 text-slate-400 transition-transform",
+                        "h-4 w-4 text-slate-400 transition-transform dark:text-slate-500",
                         openGroup === group.label ? "rotate-180" : "",
                       ].join(" ")}
                     />
@@ -219,7 +270,7 @@ export function Header() {
                     <div className="pb-3">
                       {group.items.map((tool) => (
                         <Link
-                          className="block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827] active:bg-[#F3F4F6]"
+                          className="block rounded-xl px-3 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 active:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white dark:active:bg-white/5"
                           href={tool.href}
                           key={tool.href}
                           onClick={closeMobile}
@@ -232,14 +283,16 @@ export function Header() {
                 </div>
               ))}
 
-              <div className="border-t border-[#E5E7EB] py-3">
+              <MobileThemeSelector />
+
+              <div className="border-t border-slate-200 py-3 dark:border-white/10">
                 {[
                   { href: "/pricing", name: "Pricing" },
                   { href: "/about", name: "About" },
                   { href: "/contact", name: "Contact" },
                 ].map((item) => (
                   <Link
-                    className="block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
+                    className="block rounded-xl px-3 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
                     href={item.href}
                     key={item.href}
                     onClick={closeMobile}
@@ -248,7 +301,7 @@ export function Header() {
                   </Link>
                 ))}
                 <Link
-                  className="mt-1 inline-flex h-10 items-center gap-2 rounded-lg border border-[#D1D5DB] px-3 text-sm font-semibold text-slate-600 transition hover:bg-[#F9FAFB] hover:text-[#111827]"
+                  className="mt-1 inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5 dark:hover:text-white"
                   href="https://github.com/demisuga01-lab/pdftool"
                   rel="noreferrer"
                   target="_blank"

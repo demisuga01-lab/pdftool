@@ -99,14 +99,14 @@ function SortableCard({
     >
       <div
         className={[
-          "group relative overflow-hidden rounded-xl border bg-white transition hover:shadow-sm",
-          selected ? "border-2 border-[#2563EB]" : "border-[#E5E7EB]",
+          "group relative overflow-hidden rounded-xl border bg-white transition hover:shadow-sm dark:bg-slate-900",
+          selected ? "border-2 border-[#2563EB] dark:border-blue-400" : "border-[#E5E7EB] dark:border-white/10",
           isDragging ? "shadow-lg shadow-slate-900/10 ring-2 ring-[#2563EB]/20" : "",
         ].join(" ")}
       >
         {badge ? <div className="absolute left-3 top-3 z-20">{badge}</div> : null}
         <button
-          className="absolute right-3 top-3 z-20 rounded-md bg-white/90 p-1.5 text-slate-400 transition hover:text-slate-700"
+          className="absolute right-3 top-3 z-20 rounded-md bg-white/90 p-1.5 text-slate-400 transition hover:text-slate-700 dark:bg-slate-900/90 dark:text-slate-500 dark:hover:text-white"
           type="button"
           {...attributes}
           {...listeners}
@@ -173,7 +173,7 @@ export function PDFThumbnailGrid({
                 <button
                   className={[
                     "flex h-6 w-6 items-center justify-center rounded-md border bg-white/95",
-                    item.selected ? "border-[#2563EB] text-[#2563EB]" : "border-slate-200 text-transparent",
+                    item.selected ? "border-[#2563EB] text-[#2563EB] dark:border-blue-400 dark:text-blue-300" : "border-slate-200 text-transparent dark:border-white/10",
                   ].join(" ")}
                   onClick={() => onToggleSelect(item.id)}
                   type="button"
@@ -187,10 +187,10 @@ export function PDFThumbnailGrid({
               selected={item.selected}
               title={`Page ${item.pageNumber}`}
             >
-              <div className="aspect-[1/1.4] bg-white p-3">
+              <div className="aspect-[1/1.4] bg-white p-3 dark:bg-slate-900">
                 <img
                   alt={`Page ${item.pageNumber}`}
-                  className="h-full w-full rounded-lg border border-[#E5E7EB] object-cover"
+                  className="h-full w-full rounded-lg border border-[#E5E7EB] object-cover dark:border-white/10"
                   src={item.thumbnail}
                 />
                 {item.rotation ? (
@@ -251,21 +251,21 @@ export function PDFFileGrid({
               key={item.id}
             >
               <div className="flex items-center gap-4 p-4">
-                <button className="rounded-lg border border-slate-200 bg-white p-2 text-slate-400" type="button">
+                <button className="rounded-lg border border-slate-200 bg-white p-2 text-slate-400 dark:border-white/10 dark:bg-slate-900 dark:text-slate-500" type="button">
                   <DragHandleIcon className="h-4 w-4" />
                 </button>
-                <div className="flex h-20 w-16 shrink-0 items-center justify-center rounded-lg border border-[#E5E7EB] bg-[#F8FAFC]">
+                <div className="flex h-20 w-16 shrink-0 items-center justify-center rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] dark:border-white/10 dark:bg-slate-950">
                   {item.thumbnail ? (
                     <img alt={item.fileName} className="h-full w-full rounded-lg object-cover" src={item.thumbnail} />
                   ) : (
-                    <PageIcon className="h-10 w-10 text-slate-300" />
+                    <PageIcon className="h-10 w-10 text-slate-300 dark:text-slate-600" />
                   )}
                 </div>
                 <div className="min-w-0 flex-1 space-y-1">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">File {index + 1}</p>
-                  <p className="truncate font-mono text-[13px] font-medium text-slate-700">{item.fileName}</p>
-                  <p className="text-sm font-medium text-slate-500">{item.pageCount} pages</p>
-                  <p className="text-sm font-medium text-slate-500">{item.sizeLabel}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">File {index + 1}</p>
+                  <p className="truncate font-mono text-[13px] font-medium text-slate-700 dark:text-slate-100">{item.fileName}</p>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{item.pageCount} pages</p>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{item.sizeLabel}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <button
@@ -335,7 +335,7 @@ export function PDFWorkspace({
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
 
   return (
-    <main className="flex min-h-[calc(100vh-60px)] flex-col bg-white lg:h-[calc(100vh-60px)]">
+    <main className="flex min-h-[calc(100vh-60px)] flex-col bg-white dark:bg-slate-950 lg:h-[calc(100vh-60px)]">
       <WorkspaceHeader
         countLabel={countLabel}
         fileInfo={fileInfo}
@@ -348,28 +348,28 @@ export function PDFWorkspace({
       />
 
       <div className="relative flex min-h-0 flex-1 flex-col lg:flex-row">
-        <div className="flex min-w-0 flex-1 flex-col bg-[#F3F4F6]">
+        <div className="flex min-w-0 flex-1 flex-col bg-[#F3F4F6] dark:bg-slate-950">
           {hasContent ? (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] bg-white px-4 py-2.5 sm:px-6">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] bg-white px-4 py-2.5 dark:border-white/10 dark:bg-slate-950 sm:px-6">
                 <div className="flex items-center gap-3">
                   {showSelectionBar ? (
                     <>
-                      <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-600">
+                      <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
                         <input
                           checked={Boolean(selectAllChecked)}
-                          className="h-4 w-4 rounded border-slate-300"
+                          className="h-4 w-4 rounded border-slate-300 dark:border-white/10"
                           onChange={() => (selectAllChecked ? onDeselectAll?.() : onSelectAll?.())}
                           type="checkbox"
                         />
                         <span>{countLabel}</span>
                       </label>
-                      <button className="text-sm font-medium text-slate-400 hover:text-slate-700" onClick={onDeselectAll} type="button">
+                      <button className="text-sm font-medium text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-white" onClick={onDeselectAll} type="button">
                         Deselect all
                       </button>
                     </>
                   ) : (
-                    <p className="text-sm font-medium text-slate-500">{countLabel}</p>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{countLabel}</p>
                   )}
                 </div>
 
@@ -388,8 +388,8 @@ export function PDFWorkspace({
                             className={[
                               "inline-flex h-8 w-8 items-center justify-center rounded-lg border",
                               size === option.key
-                                ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
-                                : "border-slate-200 bg-white text-slate-500",
+                                ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB] dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300"
+                                : "border-slate-200 bg-white text-slate-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-400",
                             ].join(" ")}
                             key={option.key}
                             onClick={() => setSize(option.key)}
@@ -421,16 +421,16 @@ export function PDFWorkspace({
           )}
         </div>
 
-        <aside className="hidden w-full shrink-0 flex-col border-l border-[#E5E7EB] bg-white lg:flex lg:w-[360px]">
+        <aside className="hidden w-full shrink-0 flex-col border-l border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-slate-950 lg:flex lg:w-[360px]">
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
             <div className="mb-5 space-y-1">
-              <h1 className="text-[22px] font-bold leading-tight text-slate-900">{breadcrumbTitle}</h1>
-              <p className="text-[13px] font-medium leading-5 text-slate-500">{description}</p>
+              <h1 className="text-[22px] font-bold leading-tight text-slate-900 dark:text-slate-100">{breadcrumbTitle}</h1>
+              <p className="text-[13px] font-medium leading-5 text-slate-500 dark:text-slate-400">{description}</p>
             </div>
             {rightPanel}
           </div>
 
-          <div className="border-t border-[#E5E7EB] bg-white p-5">
+          <div className="border-t border-[#E5E7EB] bg-white p-5 dark:border-white/10 dark:bg-slate-950">
             <button
               className="primary-button h-11 w-full text-[15px]"
               disabled={processButtonDisabled}
@@ -439,7 +439,7 @@ export function PDFWorkspace({
             >
               {processButtonLabel}
             </button>
-            <div className="mt-2 space-y-0.5 text-center text-xs text-slate-400">
+            <div className="mt-2 space-y-0.5 text-center text-xs text-slate-400 dark:text-slate-500">
               <p>{estimatedTime ?? "Estimated time updates after upload"}</p>
               <p>Files deleted after 24 hours</p>
             </div>
@@ -448,7 +448,7 @@ export function PDFWorkspace({
 
         {hasContent ? (
           <>
-            <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E5E7EB] bg-white/95 p-3 backdrop-blur lg:hidden">
+            <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E5E7EB] bg-white/95 p-3 backdrop-blur dark:border-white/10 dark:bg-slate-950/95 lg:hidden">
               <button className="primary-button h-11 w-full" disabled={processButtonDisabled} onClick={onProcess} type="button">
                 {processButtonLabel}
               </button>
@@ -473,14 +473,14 @@ export function PDFWorkspace({
         />
         <div
           className={[
-            "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] rounded-t-[24px] bg-white transition lg:hidden",
+            "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] rounded-t-[24px] bg-white transition dark:bg-slate-900 lg:hidden",
             mobileSettingsOpen ? "translate-y-0" : "translate-y-full",
           ].join(" ")}
         >
-          <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4">
+          <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4 dark:border-white/10">
             <div>
-              <h2 className="text-base font-bold text-slate-900">{breadcrumbTitle}</h2>
-              <p className="text-[13px] font-medium text-slate-500">{description}</p>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">{breadcrumbTitle}</h2>
+              <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400">{description}</p>
             </div>
             <button
               aria-label="Close settings"
@@ -527,8 +527,8 @@ export function EmptyPdfWorkspaceState({
   return (
     <label
       className={[
-        "flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed bg-white px-6 py-14 text-center transition",
-        dragging ? "border-[#2563EB] bg-[#EFF6FF]" : "border-slate-300",
+        "flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed bg-white px-6 py-14 text-center transition dark:bg-slate-900",
+        dragging ? "border-[#2563EB] bg-[#EFF6FF] dark:bg-blue-500/10" : "border-slate-300 dark:border-white/15",
       ].join(" ")}
       onDragLeave={() => setDragging(false)}
       onDragOver={(event) => {
@@ -551,9 +551,9 @@ export function EmptyPdfWorkspaceState({
       <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#2563EB]">
         <PageIcon className="h-7 w-7" />
       </span>
-      <h2 className="text-[18px] text-slate-900">{multiple ? "Upload PDF files" : "Upload a PDF"}</h2>
-      <p className="mt-2 max-w-xl text-[14px] leading-7 text-slate-500">{description}</p>
-      <span className="mt-5 inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-[14px] text-slate-700">
+      <h2 className="text-[18px] text-slate-900 dark:text-slate-100">{multiple ? "Upload PDF files" : "Upload a PDF"}</h2>
+      <p className="mt-2 max-w-xl text-[14px] leading-7 text-slate-500 dark:text-slate-400">{description}</p>
+      <span className="mt-5 inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-[14px] text-slate-700 dark:border-white/10 dark:text-slate-200">
         <UploadIcon className="h-4 w-4" />
         Browse files
       </span>

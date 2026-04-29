@@ -21,7 +21,7 @@ const supportLinks = [
 
 export function Footer() {
   return (
-    <footer className="bg-[#111827] text-white">
+    <footer className="border-t border-slate-200 bg-slate-950 text-white dark:border-white/10">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="grid gap-10 lg:grid-cols-3">
           <div className="space-y-4">

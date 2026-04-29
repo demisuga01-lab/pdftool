@@ -144,7 +144,7 @@ export default function PdfRotatePage() {
             renderHoverActions={(item) => (
               <div className="flex gap-2">
                 <button
-                  className="rounded-lg border border-white/80 bg-white/90 px-3 py-2 text-sm text-slate-700"
+                  className="rounded-lg border border-white/80 bg-white/90 px-3 py-2 text-sm text-slate-700 shadow-sm transition hover:bg-white dark:border-white/15 dark:bg-slate-900/90 dark:text-slate-200 dark:hover:bg-slate-900"
                   onClick={() =>
                     setItems(items.map((entry) =>
                       entry.id === item.id
@@ -157,7 +157,7 @@ export default function PdfRotatePage() {
                   <RotateCcwIcon className="h-4 w-4" />
                 </button>
                 <button
-                  className="rounded-lg border border-white/80 bg-white/90 px-3 py-2 text-sm text-slate-700"
+                  className="rounded-lg border border-white/80 bg-white/90 px-3 py-2 text-sm text-slate-700 shadow-sm transition hover:bg-white dark:border-white/15 dark:bg-slate-900/90 dark:text-slate-200 dark:hover:bg-slate-900"
                   onClick={() =>
                     setItems(items.map((entry) =>
                       entry.id === item.id
@@ -177,7 +177,7 @@ export default function PdfRotatePage() {
       }
       rightPanel={
         <div className="space-y-6">
-          <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] leading-6 text-slate-500">
+          <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] leading-6 text-slate-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-300">
             {job.state === "failure"
               ? job.error ?? "Rotation failed."
               : uniqueAngles.length > 1
@@ -187,8 +187,8 @@ export default function PdfRotatePage() {
 
           <WorkspaceControls sections={sections} state={settings} update={update} />
 
-          <div className="space-y-4 border-t border-[#E5E7EB] pt-6">
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
+          <div className="space-y-4 border-t border-[#E5E7EB] pt-6 dark:border-white/10">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
               Rotate Selection
             </p>
             <div className="grid grid-cols-3 gap-2">
@@ -203,8 +203,8 @@ export default function PdfRotatePage() {
                     className={[
                       "flex h-11 items-center justify-center gap-2 rounded-lg border text-[14px] transition",
                       settings.angle === option.angle
-                        ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300",
+                        ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB] dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:bg-white/5",
                     ].join(" ")}
                     key={option.label}
                     onClick={() => {
@@ -221,39 +221,39 @@ export default function PdfRotatePage() {
             </div>
           </div>
 
-          <div className="space-y-4 border-t border-[#E5E7EB] pt-6">
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
+          <div className="space-y-4 border-t border-[#E5E7EB] pt-6 dark:border-white/10">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
               Page Selection
             </p>
             <div className="grid grid-cols-2 gap-2">
-              <button className="rounded-lg border border-slate-200 px-3 py-2 text-[14px] text-slate-700" onClick={selectAll} type="button">
+              <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5" onClick={selectAll} type="button">
                 Select all
               </button>
               <button
-                className="rounded-lg border border-slate-200 px-3 py-2 text-[14px] text-slate-700"
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5"
                 onClick={() => setItems(items.map((item) => ({ ...item, selected: item.pageNumber % 2 === 0 })))}
                 type="button"
               >
                 Select even
               </button>
               <button
-                className="rounded-lg border border-slate-200 px-3 py-2 text-[14px] text-slate-700"
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5"
                 onClick={() => setItems(items.map((item) => ({ ...item, selected: item.pageNumber % 2 === 1 })))}
                 type="button"
               >
                 Select odd
               </button>
-              <button className="rounded-lg border border-slate-200 px-3 py-2 text-[14px] text-slate-700" onClick={deselectAll} type="button">
+              <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5" onClick={deselectAll} type="button">
                 Clear
               </button>
             </div>
           </div>
 
-          <div className="space-y-3 border-t border-[#E5E7EB] pt-6">
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
+          <div className="space-y-3 border-t border-[#E5E7EB] pt-6 dark:border-white/10">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
               Preview
             </p>
-            <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] leading-6 text-slate-600">
+            <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] leading-6 text-slate-600 dark:border-white/10 dark:bg-slate-950 dark:text-slate-300">
               {targetCount} pages will be rotated {settings.angle} degrees.
             </div>
           </div>

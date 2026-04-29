@@ -121,6 +121,7 @@ export function WatermarkEditor({
     | null
   >(null);
   const [selected, setSelected] = useState(true);
+  const [naturalSize, setNaturalSize] = useState<{ height: number; width: number } | null>(null);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -217,7 +218,77 @@ export function WatermarkEditor({
   const tilePreview = state.positionPreset === "tiled";
 
   return (
+    <WatermarkEditorCanvas
+      asset={asset}
+      baseAlt={baseAlt}
+      baseSrc={baseSrc}
+      currentPage={currentPage}
+      frameRef={frameRef}
+      naturalSize={naturalSize}
+      onAssetSelected={onAssetSelected}
+      onChange={onChange}
+      onPageChange={onPageChange}
+      onRemoveAsset={onRemoveAsset}
+      pageCount={pageCount}
+      selected={selected}
+      setNaturalSize={setNaturalSize}
+      setSelected={setSelected}
+      startMove={startMove}
+      startResize={startResize}
+      state={state}
+      tilePreview={tilePreview}
+      overlayCommon={overlayCommon}
+      nudge={nudge}
+    />
+  );
+}
+
+function WatermarkEditorCanvas({
+  asset,
+  baseAlt,
+  baseSrc,
+  currentPage,
+  frameRef,
+  naturalSize,
+  nudge,
+  onAssetSelected,
+  onChange,
+  onPageChange,
+  onRemoveAsset,
+  overlayCommon,
+  pageCount,
+  selected,
+  setNaturalSize,
+  setSelected,
+  startMove,
+  startResize,
+  state,
+  tilePreview,
+}: {
+  asset?: UploadedWatermarkAsset | null;
+  baseAlt: string;
+  baseSrc: string;
+  currentPage?: number;
+  frameRef: React.MutableRefObject<HTMLDivElement | null>;
+  naturalSize: { height: number; width: number } | null;
+  nudge: (event: KeyboardEvent<HTMLDivElement>) => void;
+  onAssetSelected: (files: File[]) => void;
+  onChange: (patch: Partial<WatermarkEditorState>) => void;
+  onPageChange?: (page: number) => void;
+  onRemoveAsset?: () => void;
+  overlayCommon: { left: string; opacity: number; top: string; transform: string };
+  pageCount?: number;
+  selected: boolean;
+  setNaturalSize: (size: { height: number; width: number } | null) => void;
+  setSelected: (selected: boolean) => void;
+  startMove: (event: ReactPointerEvent<HTMLElement>) => void;
+  startResize: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+  state: WatermarkEditorState;
+  tilePreview: boolean;
+}) {
+  return (
     <EditorCanvas
+      contentSize={naturalSize}
       footer={
         pageCount && pageCount > 1 && onPageChange ? (
           <div className="flex gap-3 overflow-x-auto py-1">
@@ -225,7 +296,9 @@ export function WatermarkEditor({
               <button
                 className={[
                   "h-10 min-w-10 rounded-lg border px-3 text-sm font-semibold",
-                  currentPage === page ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-slate-200 bg-white text-slate-600",
+                  currentPage === page
+                    ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB] dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300"
+                    : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300",
                 ].join(" ")}
                 key={page}
                 onClick={() => onPageChange(page)}
@@ -250,139 +323,167 @@ export function WatermarkEditor({
         </label>
       }
     >
-      {({ effectiveZoom, mode }) => (
-        <div
-          className="relative inline-block touch-none"
-          ref={frameRef}
-          style={mode === "fit" ? { maxHeight: "100%", maxWidth: "100%" } : { maxWidth: "none", width: `${effectiveZoom}%` }}
-        >
-          <img
-            alt={baseAlt}
-            className="block max-h-[68vh] max-w-full rounded-lg border border-[#D1D5DB] bg-white object-contain shadow-sm"
-            draggable={false}
-            src={baseSrc}
-            style={mode === "fit" ? { maxHeight: "68vh", maxWidth: "100%" } : { maxHeight: "none", maxWidth: "none", width: "100%" }}
-          />
+      {({ effectiveZoom, mode }) => {
+        const displayWidth = naturalSize ? (naturalSize.width * effectiveZoom) / 100 : undefined;
+        const displayHeight = naturalSize ? (naturalSize.height * effectiveZoom) / 100 : undefined;
 
-          {tilePreview ? (
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              {Array.from({ length: 12 }, (_, index) => {
-                const x = 18 + (index % 4) * 22;
-                const y = 18 + Math.floor(index / 4) * 32;
-                return state.type === "image" && asset ? (
+        return (
+          <div
+            className="preview-checkerboard relative shrink-0 overflow-visible rounded-lg"
+            ref={frameRef}
+            style={
+              displayWidth && displayHeight
+                ? { height: displayHeight, width: displayWidth }
+                : mode === "fit"
+                  ? { maxHeight: "100%", maxWidth: "100%" }
+                  : undefined
+            }
+          >
+            <img
+              alt={baseAlt}
+              className="block rounded-lg border border-slate-300 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.12)]"
+              draggable={false}
+              onLoad={(event) => {
+                if (event.currentTarget.naturalWidth > 0 && event.currentTarget.naturalHeight > 0) {
+                  setNaturalSize({
+                    height: event.currentTarget.naturalHeight,
+                    width: event.currentTarget.naturalWidth,
+                  });
+                }
+              }}
+              src={baseSrc}
+              style={
+                displayWidth && displayHeight
+                  ? {
+                      height: displayHeight,
+                      maxHeight: "none",
+                      maxWidth: "none",
+                      width: displayWidth,
+                    }
+                  : { maxHeight: "100%", maxWidth: "100%" }
+              }
+            />
+
+            {tilePreview ? (
+              <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                {Array.from({ length: 12 }, (_, index) => {
+                  const x = 18 + (index % 4) * 22;
+                  const y = 18 + Math.floor(index / 4) * 32;
+                  return state.type === "image" && asset ? (
+                    <img
+                      alt=""
+                      className="absolute max-w-none"
+                      key={index}
+                      src={asset.src}
+                      style={{
+                        left: `${x}%`,
+                        opacity: state.opacity / 100,
+                        top: `${y}%`,
+                        transform: `translate(-50%, -50%) rotate(${state.rotation}deg)`,
+                        width: `${Math.max(5, state.widthPercent * 0.7)}%`,
+                      }}
+                    />
+                  ) : (
+                    <span
+                      className="absolute whitespace-nowrap font-semibold"
+                      key={index}
+                      style={{
+                        color: state.color,
+                        fontFamily: state.fontFamily,
+                        fontSize: `${Math.max(12, state.fontSize * 0.65)}px`,
+                        fontStyle: state.italic ? "italic" : "normal",
+                        fontWeight: state.bold ? 800 : 600,
+                        left: `${x}%`,
+                        opacity: state.opacity / 100,
+                        top: `${y}%`,
+                        transform: `translate(-50%, -50%) rotate(${state.rotation}deg)`,
+                      }}
+                    >
+                      {state.text || "Watermark"}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            <div
+              className={[
+                "absolute touch-none outline-none",
+                selected ? "ring-2 ring-[#2563EB] ring-offset-2 ring-offset-white dark:ring-blue-400 dark:ring-offset-slate-950" : "",
+              ].join(" ")}
+              onKeyDown={nudge}
+              onPointerDown={startMove}
+              role="button"
+              style={state.type === "image" ? { ...overlayCommon, width: `${state.widthPercent}%` } : overlayCommon}
+              tabIndex={0}
+            >
+              {state.type === "image" ? (
+                asset ? (
                   <img
-                    alt=""
-                    className="absolute max-w-none"
-                    key={index}
+                    alt={asset.name}
+                    className="block max-w-none rounded-sm"
+                    draggable={false}
                     src={asset.src}
-                    style={{
-                      left: `${x}%`,
-                      opacity: state.opacity / 100,
-                      top: `${y}%`,
-                      transform: `translate(-50%, -50%) rotate(${state.rotation}deg)`,
-                      width: `${Math.max(5, state.widthPercent * 0.7)}%`,
-                    }}
+                    style={{ width: "100%" }}
                   />
                 ) : (
-                  <span
-                    className="absolute whitespace-nowrap font-semibold"
-                    key={index}
-                    style={{
-                      color: state.color,
-                      fontFamily: state.fontFamily,
-                      fontSize: `${Math.max(12, state.fontSize * 0.65)}px`,
-                      fontStyle: state.italic ? "italic" : "normal",
-                      fontWeight: state.bold ? 800 : 600,
-                      left: `${x}%`,
-                      opacity: state.opacity / 100,
-                      top: `${y}%`,
-                      transform: `translate(-50%, -50%) rotate(${state.rotation}deg)`,
-                    }}
-                  >
-                    {state.text || "Watermark"}
-                  </span>
-                );
-              })}
-            </div>
-          ) : null}
-
-          <div
-            className={[
-              "absolute touch-none outline-none",
-              selected ? "ring-2 ring-[#2563EB] ring-offset-2 ring-offset-white" : "",
-            ].join(" ")}
-            onKeyDown={nudge}
-            onPointerDown={startMove}
-            role="button"
-            style={state.type === "image" ? { ...overlayCommon, width: `${state.widthPercent}%` } : overlayCommon}
-            tabIndex={0}
-          >
-            {state.type === "image" ? (
-              asset ? (
-                <img
-                  alt={asset.name}
-                  className="block max-w-none rounded-sm"
-                  draggable={false}
-                  src={asset.src}
-                  style={{ width: "100%" }}
-                />
+                  <label className="flex min-h-24 min-w-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[#2563EB] bg-white/90 px-4 py-3 text-sm font-semibold text-[#2563EB] dark:bg-slate-900/90 dark:text-blue-300">
+                    <ImageIcon className="h-5 w-5" />
+                    Upload logo
+                    <input
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(event) => onAssetSelected(Array.from(event.target.files ?? []))}
+                      type="file"
+                    />
+                  </label>
+                )
               ) : (
-                <label className="flex min-h-24 min-w-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[#2563EB] bg-white/90 px-4 py-3 text-sm font-semibold text-[#2563EB]">
-                  <ImageIcon className="h-5 w-5" />
-                  Upload logo
-                  <input
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(event) => onAssetSelected(Array.from(event.target.files ?? []))}
-                    type="file"
-                  />
-                </label>
-              )
-            ) : (
-              <textarea
-                aria-label="Watermark text"
-                className="min-h-[54px] min-w-[180px] resize-none overflow-hidden rounded-sm border border-white/60 bg-black/10 px-2 py-1 text-center leading-tight outline-none"
-                onChange={(event) => onChange({ text: event.target.value })}
-                onFocus={() => setSelected(true)}
-                spellCheck={false}
-                style={{
-                  color: state.color,
-                  fontFamily: state.fontFamily,
-                  fontSize: `${state.fontSize}px`,
-                  fontStyle: state.italic ? "italic" : "normal",
-                  fontWeight: state.bold ? 800 : 600,
-                  textShadow: "0 2px 12px rgba(0,0,0,0.25)",
-                }}
-                value={state.text}
-              />
-            )}
-
-            {selected ? (
-              <>
-                <span className="absolute -left-3 -top-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#2563EB] text-white shadow">
-                  <Move className="h-3.5 w-3.5" />
-                </span>
-                <button
-                  aria-label="Resize watermark"
-                  className="absolute -bottom-3 -right-3 h-7 w-7 rounded-full border-2 border-[#2563EB] bg-white shadow"
-                  onPointerDown={startResize}
-                  type="button"
+                <textarea
+                  aria-label="Watermark text"
+                  className="min-h-[54px] min-w-[180px] resize-none overflow-hidden rounded-sm border border-white/50 bg-black/10 px-2 py-1 text-center leading-tight outline-none dark:border-white/20"
+                  onChange={(event) => onChange({ text: event.target.value })}
+                  onFocus={() => setSelected(true)}
+                  spellCheck={false}
+                  style={{
+                    color: state.color,
+                    fontFamily: state.fontFamily,
+                    fontSize: `${state.fontSize}px`,
+                    fontStyle: state.italic ? "italic" : "normal",
+                    fontWeight: state.bold ? 800 : 600,
+                    textShadow: "0 2px 12px rgba(0,0,0,0.25)",
+                  }}
+                  value={state.text}
                 />
-                {state.type === "image" && asset && onRemoveAsset ? (
+              )}
+
+              {selected ? (
+                <>
+                  <span className="absolute -left-3 -top-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#2563EB] text-white shadow">
+                    <Move className="h-3.5 w-3.5" />
+                  </span>
                   <button
-                    aria-label="Remove watermark image"
-                    className="absolute -right-3 -top-3 inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 bg-white text-rose-600 shadow"
-                    onClick={onRemoveAsset}
+                    aria-label="Resize watermark"
+                    className="absolute -bottom-3 -right-3 h-7 w-7 rounded-full border-2 border-[#2563EB] bg-white shadow dark:bg-slate-900"
+                    onPointerDown={startResize}
                     type="button"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                ) : null}
-              </>
-            ) : null}
+                  />
+                  {state.type === "image" && asset && onRemoveAsset ? (
+                    <button
+                      aria-label="Remove watermark image"
+                      className="absolute -right-3 -top-3 inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 bg-white text-rose-600 shadow dark:border-rose-400/30 dark:bg-slate-900"
+                      onClick={onRemoveAsset}
+                      type="button"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      }}
     </EditorCanvas>
   );
 }
@@ -397,7 +498,7 @@ export function WatermarkPresetControls({
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Watermark type</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Watermark type</p>
         <div className="grid grid-cols-2 gap-2">
           {[
             { icon: Type, label: "Text", value: "text" as const },
@@ -408,7 +509,7 @@ export function WatermarkPresetControls({
               <button
                 className={[
                   "flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-semibold",
-                  state.type === option.value ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-slate-200 bg-white text-slate-600",
+                  state.type === option.value ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB] dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300" : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300",
                 ].join(" ")}
                 key={option.value}
                 onClick={() => onChange({ type: option.value })}
@@ -424,11 +525,11 @@ export function WatermarkPresetControls({
 
       {state.type === "text" ? (
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Text presets</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Text presets</p>
           <div className="flex flex-wrap gap-2">
             {textWatermarkPresets.map((preset) => (
               <button
-                className="min-h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600"
+                className="min-h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300"
                 key={preset}
                 onClick={() => onChange({ text: preset === "Custom" ? state.text : preset })}
                 type="button"
@@ -441,13 +542,13 @@ export function WatermarkPresetControls({
       ) : null}
 
       <div className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Position presets</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Position presets</p>
         <div className="grid grid-cols-2 gap-2">
           {positionPresets.map((preset) => (
             <button
               className={[
                 "min-h-10 rounded-lg border px-3 text-sm font-medium",
-                state.positionPreset === preset.value ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-slate-200 bg-white text-slate-600",
+                state.positionPreset === preset.value ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB] dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300" : "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300",
               ].join(" ")}
               key={preset.value}
               onClick={() => applyWatermarkPositionPreset(preset.value, onChange)}

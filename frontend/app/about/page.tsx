@@ -35,9 +35,9 @@ export default function AboutPage() {
               <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#2563EB]/10 text-[#2563EB]">
                 <StackIcon className="h-5 w-5" />
               </span>
-              <h2 className="text-xl font-semibold text-[#111827]">What we built</h2>
+              <h2 className="text-xl font-semibold text-[#111827] dark:text-slate-100">What we built</h2>
             </div>
-            <div className="space-y-4 text-[15px] leading-8 text-slate-600">
+            <div className="space-y-4 text-[15px] leading-8 text-slate-600 dark:text-slate-300">
               <p>20 tools across PDF and image processing.</p>
               <p>Built with Next.js 16 and FastAPI.</p>
               <p>Runs on open source software including {techList.join(", ")}.</p>
@@ -59,9 +59,9 @@ export default function AboutPage() {
               <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#2563EB]/10 text-[#2563EB]">
                 <DocumentIcon className="h-5 w-5" />
               </span>
-              <h2 className="text-xl font-semibold text-[#111827]">Why we built it</h2>
+              <h2 className="text-xl font-semibold text-[#111827] dark:text-slate-100">Why we built it</h2>
             </div>
-            <div className="space-y-4 text-[15px] leading-8 text-slate-600">
+            <div className="space-y-4 text-[15px] leading-8 text-slate-600 dark:text-slate-300">
               <p>Most PDF tools are paywalled, ad-heavy, or require accounts.</p>
               <p>We believe file processing should be fast, private, and free.</p>
               <p>Your files stay on our server for processing and are deleted within 24 hours.</p>
@@ -75,9 +75,9 @@ export default function AboutPage() {
               <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#2563EB]/10 text-[#2563EB]">
                 <GlobeIcon className="h-5 w-5" />
               </span>
-              <h2 className="text-xl font-semibold text-[#111827]">API</h2>
+              <h2 className="text-xl font-semibold text-[#111827] dark:text-slate-100">API</h2>
             </div>
-            <div className="space-y-4 text-[15px] leading-8 text-slate-600">
+            <div className="space-y-4 text-[15px] leading-8 text-slate-600 dark:text-slate-300">
               <p>API integration is currently in development.</p>
               <p>
                 Developers will be able to integrate our processing tools directly into their
@@ -98,9 +98,9 @@ export default function AboutPage() {
               <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#2563EB]/10 text-[#2563EB]">
                 <MailIcon className="h-5 w-5" />
               </span>
-              <h2 className="text-xl font-semibold text-[#111827]">Contact</h2>
+              <h2 className="text-xl font-semibold text-[#111827] dark:text-slate-100">Contact</h2>
             </div>
-            <div className="space-y-4 text-[15px] leading-8 text-slate-600">
+            <div className="space-y-4 text-[15px] leading-8 text-slate-600 dark:text-slate-300">
               <p>Email: contact@wellfriend.online</p>
               <p>Response time: within 48 hours</p>
               <p>For bug reports, feature requests, enterprise pricing, and API early access.</p>

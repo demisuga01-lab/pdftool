@@ -82,21 +82,21 @@ export function WorkspaceHeader({
 
   return (
     <>
-      <div className="border-b border-[#E5E7EB] bg-white px-4 py-3 sm:px-6">
+      <div className="border-b border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-slate-950 sm:px-6">
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
               PDFTools / {title}
             </p>
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
               {fileName ? (
-                <span className="min-w-0 max-w-[240px] truncate font-mono text-[13px] font-medium text-slate-800 sm:max-w-[360px] md:max-w-none">
+                <span className="min-w-0 max-w-[240px] truncate font-mono text-[13px] font-medium text-slate-800 dark:text-slate-100 sm:max-w-[360px] md:max-w-none">
                   {fileName}
                 </span>
               ) : null}
               {metaParts.map((part) => (
                 <span
-                  className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500"
+                  className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-400"
                   key={part}
                 >
                   {part}
@@ -120,7 +120,7 @@ export function WorkspaceHeader({
             {infoContent ? (
               <button
                 aria-label="File details"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
                 onClick={() => setInfoOpen(true)}
                 type="button"
               >
@@ -129,7 +129,7 @@ export function WorkspaceHeader({
             ) : null}
             {onDownload ? (
               <button
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"
                 onClick={onDownload}
                 type="button"
               >
@@ -140,7 +140,7 @@ export function WorkspaceHeader({
             ) : null}
             {onReset ? (
               <button
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"
                 onClick={onReset}
                 type="button"
               >
@@ -158,21 +158,21 @@ export function WorkspaceHeader({
           onClick={() => setInfoOpen(false)}
         >
           <div
-            className="w-full max-w-lg rounded-2xl border border-[#E5E7EB] bg-white shadow-xl"
+            className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4">
-              <h2 className="text-base font-semibold text-slate-900">File details</h2>
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-white/10">
+              <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">File details</h2>
               <button
                 aria-label="Close"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-white"
                 onClick={() => setInfoOpen(false)}
                 type="button"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="max-h-[65vh] overflow-y-auto p-5 text-sm text-slate-700">{infoContent}</div>
+            <div className="max-h-[65vh] overflow-y-auto p-5 text-sm text-slate-700 dark:text-slate-300">{infoContent}</div>
           </div>
         </div>
       ) : null}

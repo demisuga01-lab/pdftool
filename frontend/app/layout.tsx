@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 
 import { AppShell } from "@/components/layout/AppShell";
+import { ThemeProvider, THEME_STORAGE_KEY } from "@/components/theme/ThemeProvider";
 import { GlobalSettingsProvider } from "@/lib/settings";
 
 import "./globals.css";
@@ -43,12 +44,31 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const themeInitScript = `
+    (function () {
+      try {
+        var stored = localStorage.getItem("${THEME_STORAGE_KEY}");
+        var theme = stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+        var systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var resolved = theme === "system" ? (systemDark ? "dark" : "light") : theme;
+        document.documentElement.classList.toggle("dark", resolved === "dark");
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.style.colorScheme = resolved;
+      } catch (error) {}
+    })();
+  `;
+
   return (
     <html className="h-full" lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} min-h-screen bg-white text-[#111827] antialiased`}>
-        <GlobalSettingsProvider>
-          <AppShell>{children}</AppShell>
-        </GlobalSettingsProvider>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
+      <body className={`${inter.className} min-h-screen bg-white text-[#111827] antialiased dark:bg-slate-950 dark:text-slate-100`}>
+        <ThemeProvider>
+          <GlobalSettingsProvider>
+            <AppShell>{children}</AppShell>
+          </GlobalSettingsProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

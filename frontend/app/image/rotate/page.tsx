@@ -35,7 +35,7 @@ const sections: Array<ControlSection<RotateSettings>> = [
             const Icon = option.icon;
             return (
               <button
-                className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5"
                 key={option.label}
                 onClick={() => update("angle", settings.angle + option.delta)}
                 type="button"
@@ -169,7 +169,7 @@ export default function ImageRotatePage() {
             <div className="flex items-center gap-1">
               <button
                 aria-label="Rotate 90° counter-clockwise"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5"
                 onClick={() => update("angle", settings.angle - 90)}
                 type="button"
               >
@@ -177,7 +177,7 @@ export default function ImageRotatePage() {
               </button>
               <button
                 aria-label="Rotate 90° clockwise"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5"
                 onClick={() => update("angle", settings.angle + 90)}
                 type="button"
               >
@@ -187,7 +187,7 @@ export default function ImageRotatePage() {
                 aria-label="Flip horizontal"
                 className={[
                   "inline-flex h-9 w-9 items-center justify-center rounded-lg border text-slate-600",
-                  settings.flipHorizontal ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-slate-200 hover:bg-slate-50",
+                  settings.flipHorizontal ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB] dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300" : "border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5",
                 ].join(" ")}
                 onClick={() => update("flipHorizontal", !settings.flipHorizontal)}
                 type="button"
@@ -198,7 +198,7 @@ export default function ImageRotatePage() {
                 aria-label="Flip vertical"
                 className={[
                   "inline-flex h-9 w-9 items-center justify-center rounded-lg border text-slate-600",
-                  settings.flipVertical ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-slate-200 hover:bg-slate-50",
+                  settings.flipVertical ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB] dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300" : "border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5",
                 ].join(" ")}
                 onClick={() => update("flipVertical", !settings.flipVertical)}
                 type="button"
@@ -207,11 +207,11 @@ export default function ImageRotatePage() {
               </button>
             </div>
           </div>
-          <div className="flex min-h-[min(55vh,420px)] items-center justify-center overflow-hidden bg-[#F3F4F6] p-4">
+          <div className="flex min-h-[min(55vh,420px)] items-center justify-center overflow-hidden bg-[#F3F4F6] p-4 dark:bg-slate-950">
             {preview ? (
               <img
                 alt={file.name}
-                className="max-h-[min(52vh,400px)] max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain transition duration-150"
+                className="max-h-[min(52vh,400px)] max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain transition duration-150 dark:border-white/10"
                 src={preview.dataUrl}
                 style={{
                   transform: `rotate(${settings.angle}deg) scaleX(${settings.flipHorizontal ? -1 : 1}) scaleY(${settings.flipVertical ? -1 : 1})`,

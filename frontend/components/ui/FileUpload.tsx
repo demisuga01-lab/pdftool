@@ -177,9 +177,11 @@ export function FileUpload({
         aria-describedby={error ? `${inputId}-error` : undefined}
         aria-invalid={Boolean(error)}
         className={[
-          "group relative rounded-lg border-2 border-dashed bg-[#F9FAFB] p-8 transition",
-          isDragging ? "border-[#2563EB] bg-[#EFF6FF]" : "border-[#D1D5DB] hover:border-slate-400",
-          error ? "border-rose-400 bg-rose-50" : "",
+          "group relative rounded-lg border-2 border-dashed bg-[#F9FAFB] p-8 transition dark:bg-slate-900",
+          isDragging
+            ? "border-[#2563EB] bg-[#EFF6FF] dark:bg-blue-500/10"
+            : "border-[#D1D5DB] hover:border-slate-400 dark:border-white/15 dark:hover:border-blue-400/40",
+          error ? "border-rose-400 bg-rose-50 dark:bg-rose-500/10" : "",
         ].join(" ")}
         onClick={() => inputRef.current?.click()}
         onDragEnter={(event) => {
@@ -212,19 +214,19 @@ export function FileUpload({
         />
 
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-slate-500 shadow-sm shadow-slate-900/5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-slate-500 shadow-sm shadow-slate-900/5 dark:bg-slate-950 dark:text-slate-300">
             <Upload className="h-4 w-4" />
           </div>
           <div className="space-y-1">
-            <p className="text-sm font-medium text-slate-500">{helperText}</p>
-            <p className="text-xs text-slate-400">
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-300">{helperText}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
               {accept ? `Accepted: ${accept}` : "All file types accepted"} | Max {maxSizeMB} MB
             </p>
           </div>
         </div>
 
         {files.length > 0 ? (
-          <div className="absolute inset-x-0 bottom-0 h-1 overflow-hidden rounded-b-lg bg-slate-200">
+          <div className="absolute inset-x-0 bottom-0 h-1 overflow-hidden rounded-b-lg bg-slate-200 dark:bg-slate-800">
             <div
               className="h-full rounded-b-lg bg-[#2563EB] transition-all duration-200"
               style={{ width: `${progress}%` }}
@@ -235,7 +237,7 @@ export function FileUpload({
 
       {error ? (
         <div
-          className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600"
+          className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-300"
           id={`${inputId}-error`}
         >
           <X className="mt-0.5 h-4 w-4 shrink-0" />
@@ -244,29 +246,29 @@ export function FileUpload({
       ) : null}
 
       {files.length > 0 ? (
-        <div className="space-y-3 rounded-lg border border-[#E5E7EB] bg-white p-4">
+        <div className="space-y-3 rounded-lg border border-[#E5E7EB] bg-white p-4 dark:border-white/10 dark:bg-slate-900">
           <div className="space-y-2">
             {files.map((file) => {
               const Icon = getFileIcon(file);
 
               return (
                 <div
-                  className="flex items-center justify-between gap-3 rounded-md border border-[#E5E7EB] px-3 py-2"
+                  className="flex items-center justify-between gap-3 rounded-md border border-[#E5E7EB] px-3 py-2 dark:border-white/10 dark:bg-slate-950/60"
                   key={`${file.name}-${file.size}`}
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#F9FAFB] text-slate-500">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#F9FAFB] text-slate-500 dark:bg-slate-950 dark:text-slate-300">
                       <Icon className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-[#111827]">{file.name}</p>
-                      <p className="truncate text-xs text-slate-400">
+                      <p className="truncate text-sm font-medium text-[#111827] dark:text-slate-100">{file.name}</p>
+                      <p className="truncate text-xs text-slate-400 dark:text-slate-500">
                         {file.type || "Unknown type"} | {formatBytes(file.size)}
                       </p>
                     </div>
                   </div>
                   <button
-                    className="ghost-button p-0 text-slate-400 hover:bg-transparent hover:text-slate-600"
+                    className="ghost-button p-0 text-slate-400 hover:bg-transparent hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-200"
                     onClick={() => void handleRemove(file)}
                     type="button"
                   >

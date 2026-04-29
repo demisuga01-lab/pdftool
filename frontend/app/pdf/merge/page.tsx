@@ -144,7 +144,7 @@ export default function PdfMergePage() {
         {details.map((detail) => (
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0" key={detail.label}>
             <span className="text-slate-500">{detail.label}</span>
-            <span className="max-w-[60%] text-right font-medium text-slate-900">{detail.value}</span>
+            <span className="max-w-[60%] text-right font-medium text-slate-900 dark:text-slate-100">{detail.value}</span>
           </div>
         ))}
       </div>
@@ -345,7 +345,7 @@ export default function PdfMergePage() {
                 ? "border-rose-200 bg-rose-50 text-rose-700"
                 : job.state === "success"
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-500",
+                  : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300",
             ].join(" ")}
           >
             {uploadState === "failure"
@@ -366,19 +366,19 @@ export default function PdfMergePage() {
             <div className="space-y-1.5">
               {fileMetas.map((file, index) => (
                 <div
-                  className="flex min-w-0 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5"
+                  className="flex min-w-0 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 dark:border-white/10 dark:bg-slate-900"
                   key={file.file_id}
                 >
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-500">
                     {index + 1}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-700">
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-700 dark:text-slate-100">
                     {file.original_name}
                   </span>
                   <div className="flex shrink-0 items-center gap-1">
                     <button
                       aria-label="Move up"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-500 disabled:opacity-30 hover:bg-slate-50"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-500 disabled:opacity-30 hover:bg-slate-50 dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/5"
                       disabled={index === 0}
                       onClick={() =>
                         setFileMetas((current) => {
@@ -395,7 +395,7 @@ export default function PdfMergePage() {
                     </button>
                     <button
                       aria-label="Move down"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-500 disabled:opacity-30 hover:bg-slate-50"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-500 disabled:opacity-30 hover:bg-slate-50 dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/5"
                       disabled={index === fileMetas.length - 1}
                       onClick={() =>
                         setFileMetas((current) => {

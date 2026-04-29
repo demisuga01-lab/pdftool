@@ -9,15 +9,15 @@ export default function PrivacyPage() {
       title="Privacy Policy"
     >
       <div className="space-y-10">
-        <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-5">
+        <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-5 dark:border-white/10 dark:bg-slate-900">
           <div className="flex items-start gap-3">
             <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-md bg-[#2563EB]/10 text-[#2563EB]">
               <ShieldIcon className="h-5 w-5" />
             </span>
-            <div className="space-y-1 text-[15px] leading-7 text-slate-600">
-              <p><span className="font-semibold text-[#111827]">Effective date:</span> April 25, 2026</p>
-              <p><span className="font-semibold text-[#111827]">Company:</span> WellFriend, India</p>
-              <p><span className="font-semibold text-[#111827]">Contact:</span> contact@wellfriend.online</p>
+            <div className="space-y-1 text-[15px] leading-7 text-slate-600 dark:text-slate-300">
+              <p><span className="font-semibold text-[#111827] dark:text-slate-100">Effective date:</span> April 25, 2026</p>
+              <p><span className="font-semibold text-[#111827] dark:text-slate-100">Company:</span> WellFriend, India</p>
+              <p><span className="font-semibold text-[#111827] dark:text-slate-100">Contact:</span> contact@wellfriend.online</p>
             </div>
           </div>
         </div>

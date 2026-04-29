@@ -65,7 +65,7 @@ function StatusCard({
           ? "border-rose-200 bg-rose-50 text-rose-700"
           : success
             ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-            : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-500",
+            : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300",
       ].join(" ")}
     >
       {failure
@@ -118,7 +118,7 @@ export default function ImageWatermarkPage() {
         {details.map((detail) => (
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0" key={detail.label}>
             <span className="text-slate-500">{detail.label}</span>
-            <span className="max-w-[60%] text-right font-medium text-slate-900">{detail.value}</span>
+            <span className="max-w-[60%] text-right font-medium text-slate-900 dark:text-slate-100">{detail.value}</span>
           </div>
         ))}
       </div>
@@ -309,7 +309,7 @@ export default function ImageWatermarkPage() {
           <WatermarkPresetControls onChange={updateSettings} state={settings} />
 
           {settings.type === "image" ? (
-            <div className="space-y-3 border-t border-[#E5E7EB] pt-6">
+            <div className="space-y-3 border-t border-[#E5E7EB] pt-6 dark:border-white/10">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Watermark image</p>
               <label className="secondary-button min-h-11 w-full cursor-pointer gap-2">
                 <Upload className="h-4 w-4" />
@@ -317,18 +317,18 @@ export default function ImageWatermarkPage() {
                 <input accept="image/*" className="hidden" onChange={(event) => void handleAssetSelected(Array.from(event.target.files ?? []))} type="file" />
               </label>
               {asset ? (
-                <div className="flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white p-3">
-                  <img alt="" className="h-12 w-12 rounded-lg border border-slate-200 object-contain" src={asset.src} />
+                <div className="flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white p-3 dark:border-white/10 dark:bg-slate-900">
+                  <img alt="" className="h-12 w-12 rounded-lg border border-slate-200 object-contain dark:border-white/10" src={asset.src} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-800">{asset.name}</p>
-                    <p className="text-xs text-slate-500">{asset.fileId ? "Uploaded for this job" : "Uploading watermark image"}</p>
+                    <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{asset.name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{asset.fileId ? "Uploaded for this job" : "Uploading watermark image"}</p>
                   </div>
                 </div>
               ) : null}
             </div>
           ) : null}
 
-          <div className="space-y-4 border-t border-[#E5E7EB] pt-6">
+          <div className="space-y-4 border-t border-[#E5E7EB] pt-6 dark:border-white/10">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Text and style</p>
             {settings.type === "text" ? (
               <textarea
@@ -339,27 +339,27 @@ export default function ImageWatermarkPage() {
             ) : null}
             <div className="grid grid-cols-2 gap-3">
               <label className="space-y-1.5">
-                <span className="block text-[13px] font-medium text-slate-700">Opacity</span>
+                <span className="block text-[13px] font-medium text-slate-700 dark:text-slate-200">Opacity</span>
                 <input className="field-range" max={100} min={5} onChange={(event) => updateSettings({ opacity: Number(event.target.value) })} type="range" value={settings.opacity} />
               </label>
               <label className="space-y-1.5">
-                <span className="block text-[13px] font-medium text-slate-700">Rotation</span>
+                <span className="block text-[13px] font-medium text-slate-700 dark:text-slate-200">Rotation</span>
                 <input className="field-input" max={360} min={-360} onChange={(event) => updateSettings({ rotation: Number(event.target.value) })} type="number" value={settings.rotation} />
               </label>
               {settings.type === "text" ? (
                 <>
                   <label className="space-y-1.5">
-                    <span className="block text-[13px] font-medium text-slate-700">Size</span>
+                    <span className="block text-[13px] font-medium text-slate-700 dark:text-slate-200">Size</span>
                     <input className="field-input" min={10} onChange={(event) => updateSettings({ fontSize: Number(event.target.value) })} type="number" value={settings.fontSize} />
                   </label>
                   <label className="space-y-1.5">
-                    <span className="block text-[13px] font-medium text-slate-700">Color</span>
-                    <input className="h-10 w-full rounded-lg border border-gray-300 bg-white p-1" onChange={(event) => updateSettings({ color: event.target.value })} type="color" value={settings.color} />
+                    <span className="block text-[13px] font-medium text-slate-700 dark:text-slate-200">Color</span>
+                    <input className="h-10 w-full rounded-lg border border-gray-300 bg-white p-1 dark:border-white/10 dark:bg-slate-950" onChange={(event) => updateSettings({ color: event.target.value })} type="color" value={settings.color} />
                   </label>
                 </>
               ) : (
                 <label className="col-span-2 space-y-1.5">
-                  <span className="block text-[13px] font-medium text-slate-700">Logo width</span>
+                  <span className="block text-[13px] font-medium text-slate-700 dark:text-slate-200">Logo width</span>
                   <input className="field-range" max={80} min={4} onChange={(event) => updateSettings({ widthPercent: Number(event.target.value) })} type="range" value={settings.widthPercent} />
                 </label>
               )}
@@ -376,21 +376,21 @@ export default function ImageWatermarkPage() {
             ) : null}
           </div>
 
-          <div className="space-y-4 border-t border-[#E5E7EB] pt-6">
+          <div className="space-y-4 border-t border-[#E5E7EB] pt-6 dark:border-white/10">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Position</p>
             <div className="grid grid-cols-2 gap-3">
               <label className="space-y-1.5">
-                <span className="block text-[13px] font-medium text-slate-700">X percent</span>
+                <span className="block text-[13px] font-medium text-slate-700 dark:text-slate-200">X percent</span>
                 <input className="field-input" max={100} min={0} onChange={(event) => updateSettings({ xPercent: Number(event.target.value), positionPreset: "custom" })} step={0.1} type="number" value={settings.xPercent} />
               </label>
               <label className="space-y-1.5">
-                <span className="block text-[13px] font-medium text-slate-700">Y percent</span>
+                <span className="block text-[13px] font-medium text-slate-700 dark:text-slate-200">Y percent</span>
                 <input className="field-input" max={100} min={0} onChange={(event) => updateSettings({ yPercent: Number(event.target.value), positionPreset: "custom" })} step={0.1} type="number" value={settings.yPercent} />
               </label>
             </div>
           </div>
 
-          <div className="space-y-3 border-t border-[#E5E7EB] pt-6">
+          <div className="space-y-3 border-t border-[#E5E7EB] pt-6 dark:border-white/10">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Output</p>
             <input
               className="field-input"
@@ -398,7 +398,7 @@ export default function ImageWatermarkPage() {
               placeholder="watermarked-image"
               value={settings.outputFilename}
             />
-            <div className="flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-3 py-3 text-sm text-slate-600">
+            <div className="flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-3 py-3 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">
               <ImageIcon className="h-4 w-4 text-slate-400" />
               Applies to the current image.
             </div>

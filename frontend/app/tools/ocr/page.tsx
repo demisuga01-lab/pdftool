@@ -112,7 +112,7 @@ export default function OcrPage() {
         {details.map((detail) => (
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0" key={detail.label}>
             <span className="text-slate-500">{detail.label}</span>
-            <span className="max-w-[60%] text-right font-medium text-slate-900">{detail.value}</span>
+            <span className="max-w-[60%] text-right font-medium text-slate-900 dark:text-slate-100">{detail.value}</span>
           </div>
         ))}
       </div>
@@ -379,13 +379,13 @@ export default function OcrPage() {
       {isPdf ? (
         <img
           alt={`Preview of ${fileMeta.original_name}`}
-          className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm"
+          className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm dark:border-white/10"
           src={getPdfPagePreviewUrl(fileMeta.file_id, 1, 100)}
         />
       ) : preview ? (
         <img
           alt={fileMeta.original_name}
-          className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm"
+          className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm dark:border-white/10"
           src={preview.dataUrl}
         />
       ) : null}
@@ -455,7 +455,7 @@ export default function OcrPage() {
       processingLabel={processingLabel}
       settingsPanel={
         <div className="space-y-6">
-          <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] font-medium leading-6 text-slate-500">
+          <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] font-medium leading-6 text-slate-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">
             {pdfNeedsPassword && !settings.pdfPassword
               ? "This PDF is password-protected. Enter the password before running OCR."
               : uploadState === "failure"

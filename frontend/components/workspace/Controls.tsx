@@ -73,7 +73,7 @@ export type ControlSection<T> = {
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
       {children}
     </p>
   );
@@ -91,7 +91,7 @@ function Toggle({
       aria-pressed={checked}
       className={[
         "relative inline-flex h-6 w-11 items-center rounded-full transition",
-        checked ? "bg-[#2563EB]" : "bg-slate-200",
+        checked ? "bg-[#2563EB]" : "bg-slate-300 dark:bg-slate-700",
       ].join(" ")}
       onClick={() => onChange(!checked)}
       type="button"
@@ -126,6 +126,7 @@ export function WorkspaceControls<T extends Record<string, any>>({
           className={[
             "space-y-4",
             sectionIndex > 0 ? "border-t border-[#E5E7EB] pt-6" : "",
+            sectionIndex > 0 ? "dark:border-white/10" : "",
           ].join(" ")}
           key={section.key}
         >
@@ -144,8 +145,8 @@ export function WorkspaceControls<T extends Record<string, any>>({
               return (
                 <div className="flex items-center justify-between gap-4" key={field.key}>
                   <div className="space-y-1.5">
-                    <label className="block text-[13px] font-medium text-slate-700">{field.label}</label>
-                    {field.helpText ? <p className="text-sm font-medium text-slate-500">{field.helpText}</p> : null}
+                    <label className="block text-[13px] font-medium text-slate-700 dark:text-slate-200">{field.label}</label>
+                    {field.helpText ? <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{field.helpText}</p> : null}
                   </div>
                   <Toggle checked={Boolean(value)} onChange={(next) => update(field.key, next as T[keyof T])} />
                 </div>
@@ -155,7 +156,7 @@ export function WorkspaceControls<T extends Record<string, any>>({
             if (field.type === "radioCards") {
               return (
                 <div className="space-y-1.5" key={field.key}>
-                  <label className="block text-[13px] font-medium text-slate-700">{field.label}</label>
+                  <label className="block text-[13px] font-medium text-slate-700 dark:text-slate-200">{field.label}</label>
                   <div className="grid gap-2">
                     {field.options.map((option) => {
                       const isSelected = value === option.value;
@@ -164,8 +165,8 @@ export function WorkspaceControls<T extends Record<string, any>>({
                           className={[
                             "rounded-lg border px-3 py-3 text-left transition",
                             isSelected
-                              ? "border-[#2563EB] bg-[#2563EB]/[0.05]"
-                              : "border-slate-200 bg-white hover:border-slate-300",
+                              ? "border-[#2563EB] bg-[#2563EB]/[0.05] dark:border-blue-400 dark:bg-blue-500/10"
+                              : "border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-slate-900 dark:hover:border-slate-500",
                           ].join(" ")}
                           key={String(option.value)}
                           onClick={() => update(field.key, option.value as T[keyof T])}
@@ -176,9 +177,9 @@ export function WorkspaceControls<T extends Record<string, any>>({
                               <span className="mt-0.5 text-[#2563EB]">{option.icon}</span>
                             ) : null}
                             <div className="space-y-1">
-                              <p className="text-[15px] font-semibold text-slate-900">{option.label}</p>
+                              <p className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{option.label}</p>
                               {option.description ? (
-                                <p className="text-sm font-medium text-slate-500">{option.description}</p>
+                                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{option.description}</p>
                               ) : null}
                             </div>
                           </div>
@@ -193,15 +194,15 @@ export function WorkspaceControls<T extends Record<string, any>>({
             if (field.type === "buttonGroup") {
               return (
                 <div className="space-y-1.5" key={field.key}>
-                  <label className="block text-[13px] font-medium text-slate-700">{field.label}</label>
+                  <label className="block text-[13px] font-medium text-slate-700 dark:text-slate-200">{field.label}</label>
                   <div className="grid grid-cols-3 gap-2">
                     {field.options.map((option) => (
                       <button
                         className={[
                           "rounded-lg border px-3 py-2 text-sm font-medium transition",
                           value === option.value
-                            ? "border-[#2563EB] bg-[#2563EB]/[0.05] text-[#2563EB]"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300",
+                            ? "border-[#2563EB] bg-[#2563EB]/[0.05] text-[#2563EB] dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-300"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500",
                         ].join(" ")}
                         key={String(option.value)}
                         onClick={() => update(field.key, option.value as T[keyof T])}
@@ -219,8 +220,8 @@ export function WorkspaceControls<T extends Record<string, any>>({
               return (
                 <div className="space-y-1.5" key={field.key}>
                   <div className="flex items-center justify-between gap-3">
-                    <label className="block text-[13px] font-medium text-slate-700">{field.label}</label>
-                    <span className="text-sm font-medium text-slate-500">
+                    <label className="block text-[13px] font-medium text-slate-700 dark:text-slate-200">{field.label}</label>
+                    <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
                       {value}
                       {field.valueSuffix ?? ""}
                     </span>
@@ -234,7 +235,7 @@ export function WorkspaceControls<T extends Record<string, any>>({
                     type="range"
                     value={Number(value)}
                   />
-                  {field.helpText ? <p className="text-sm font-medium text-slate-500">{field.helpText}</p> : null}
+                  {field.helpText ? <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{field.helpText}</p> : null}
                 </div>
               );
             }
@@ -242,7 +243,7 @@ export function WorkspaceControls<T extends Record<string, any>>({
             if (field.type === "select") {
               return (
                 <div className="space-y-1.5" key={field.key}>
-                  <label className="block text-[13px] font-medium text-slate-700">{field.label}</label>
+                  <label className="block text-[13px] font-medium text-slate-700 dark:text-slate-200">{field.label}</label>
                   <select
                     className="field-input"
                     onChange={(event) => {
@@ -258,7 +259,7 @@ export function WorkspaceControls<T extends Record<string, any>>({
                         </option>
                       ))}
                   </select>
-                  {field.helpText ? <p className="text-sm font-medium text-slate-500">{field.helpText}</p> : null}
+                  {field.helpText ? <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{field.helpText}</p> : null}
                 </div>
               );
             }
@@ -266,24 +267,24 @@ export function WorkspaceControls<T extends Record<string, any>>({
             if (field.type === "textarea") {
               return (
                 <div className="space-y-1.5" key={field.key}>
-                  <label className="block text-[13px] font-medium text-slate-700">{field.label}</label>
+                  <label className="block text-[13px] font-medium text-slate-700 dark:text-slate-200">{field.label}</label>
                   <textarea
                     className="field-textarea min-h-[96px]"
                     onChange={(event) => update(field.key, event.target.value as T[keyof T])}
                     placeholder={field.placeholder}
                     value={String(value ?? "")}
                   />
-                  {field.helpText ? <p className="text-sm font-medium text-slate-500">{field.helpText}</p> : null}
+                  {field.helpText ? <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{field.helpText}</p> : null}
                 </div>
               );
             }
 
             return (
               <div className="space-y-1.5" key={field.key}>
-                <label className="block text-[13px] font-medium text-slate-700">{field.label}</label>
+                <label className="block text-[13px] font-medium text-slate-700 dark:text-slate-200">{field.label}</label>
                 <input
                   className={[
-                    field.type === "color" ? "h-10 w-full rounded-lg border border-gray-300 bg-white p-1" : "field-input",
+                    field.type === "color" ? "h-10 w-full rounded-lg border border-gray-300 bg-white p-1 dark:border-white/10 dark:bg-slate-950" : "field-input",
                   ].join(" ")}
                   max={field.type === "number" ? field.max : undefined}
                   min={field.type === "number" ? field.min : undefined}
@@ -297,7 +298,7 @@ export function WorkspaceControls<T extends Record<string, any>>({
                   type={field.type}
                   value={String(value ?? "")}
                 />
-                {field.helpText ? <p className="text-sm font-medium text-slate-500">{field.helpText}</p> : null}
+                {field.helpText ? <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{field.helpText}</p> : null}
               </div>
             );
           })}

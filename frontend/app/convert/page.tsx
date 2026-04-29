@@ -198,7 +198,7 @@ export default function ConvertPage() {
         {details.map((detail) => (
           <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0" key={detail.label}>
             <span className="text-slate-500">{detail.label}</span>
-            <span className="max-w-[60%] text-right font-medium text-slate-900">{detail.value}</span>
+            <span className="max-w-[60%] text-right font-medium text-slate-900 dark:text-slate-100">{detail.value}</span>
           </div>
         ))}
       </div>
@@ -372,13 +372,13 @@ export default function ConvertPage() {
                     "relative rounded-lg border px-3 py-3 text-left transition",
                     active
                       ? "border-[#2563EB] bg-[#2563EB]/[0.06] ring-2 ring-[#2563EB]/15"
-                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
+                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:hover:bg-white/5",
                   ].join(" ")}
                   key={option.value}
                   onClick={() => selectOutput(option.value)}
                   type="button"
                 >
-                  <span className={["block text-[15px] font-semibold", active ? "text-[#2563EB]" : "text-slate-900"].join(" ")}>
+                  <span className={["block text-[15px] font-semibold", active ? "text-[#2563EB] dark:text-blue-300" : "text-slate-900 dark:text-slate-100"].join(" ")}>
                     {option.label}
                   </span>
                   <span className="mt-1 block text-sm font-medium text-slate-500">{option.description}</span>
@@ -391,7 +391,7 @@ export default function ConvertPage() {
               );
             })}
             {process.env.NODE_ENV !== "production" ? (
-              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
+              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-400">
                 Selected output: {selectedOutput || "(none)"}
               </p>
             ) : null}
@@ -465,7 +465,7 @@ export default function ConvertPage() {
         <PreviewCard badges={badges} description="Compact preview for this conversion." title={fileMeta.original_name}>
           <img
             alt={`Preview of ${fileMeta.original_name}`}
-            className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm"
+            className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm dark:border-white/10"
             src={getPdfPagePreviewUrl(fileMeta.file_id, 1, 100)}
           />
         </PreviewCard>
@@ -477,7 +477,7 @@ export default function ConvertPage() {
         <PreviewCard badges={badges} description="Compact preview for this conversion." title={fileMeta.original_name}>
           <img
             alt={fileMeta.original_name}
-            className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm"
+            className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm dark:border-white/10"
             src={fileMeta.preview_url}
           />
         </PreviewCard>
@@ -584,7 +584,7 @@ export default function ConvertPage() {
                 ? "border-rose-200 bg-rose-50 text-rose-700"
                 : job.state === "success"
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-500",
+                  : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300",
             ].join(" ")}
           >
             {uploadState === "failure"

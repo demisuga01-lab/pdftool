@@ -43,7 +43,7 @@ const sections: Array<ControlSection<BatchResizeSettings>> = [
           [3840, 2160, "4K"],
         ].map(([width, height, label]) => (
           <button
-            className="rounded-lg border border-slate-200 px-3 py-2 text-[13px] text-slate-700"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5"
             key={label}
             onClick={() => {
               update("width", Number(width));
@@ -224,26 +224,26 @@ export default function ImageBatchResizePage() {
         processingLabel={job.processingLabel}
         rightPanel={
           <div className="space-y-6">
-            <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] leading-6 text-slate-500">
+            <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] leading-6 text-slate-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-300">
               {job.state === "failure"
                 ? job.error ?? "Batch resize failed."
                 : "Use the workspace to reorder files before generating a resized ZIP bundle."}
             </div>
 
             <div className="space-y-3">
-              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
+              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                 Input Files
               </p>
               <div className="grid gap-2">
                 <button
-                  className="h-9 rounded-md border border-slate-200 px-3 text-[14px] text-slate-700"
+                  className="h-9 rounded-md border border-slate-200 bg-white px-3 text-[14px] text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5"
                   onClick={() => inputRef.current?.click()}
                   type="button"
                 >
                   Add more files
                 </button>
                 <button
-                  className="h-9 rounded-md border border-slate-200 px-3 text-[14px] text-slate-700"
+                  className="h-9 rounded-md border border-slate-200 bg-white px-3 text-[14px] text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5"
                   onClick={() => setFiles([])}
                   type="button"
                 >
