@@ -24,6 +24,7 @@ type CompressionFileType = "auto" | "pdf" | "image" | "office" | "text" | "archi
 
 type CompressionSettings = {
   archiveLevel: number;
+  archiveOutputMode: "keep_zip" | "best_zip" | "7z" | "maximum";
   brotliOutput: boolean;
   compressEmbeddedImages: boolean;
   convertToGrayscale: boolean;
@@ -52,12 +53,19 @@ type CompressionSettings = {
   recompressAs7z: boolean;
   recompressAsZip: boolean;
   stripMetadata: boolean;
+  targetSizeEnabled: boolean;
+  targetSizeStrategy: "best_effort" | "strict_if_possible";
+  targetSizeUnit: "KB" | "MB";
+  targetSizeValue: number;
   zipOutput: boolean;
 };
 
 type CompressionResult = {
+  output_filename?: string;
   original_size?: number;
   output_size?: number;
+  target_size_bytes?: number | null;
+  reached_target?: boolean;
   saved_bytes?: number;
   saved_percent?: number;
   optimized?: boolean;
@@ -67,6 +75,7 @@ type CompressionResult = {
 
 const initialSettings: CompressionSettings = {
   archiveLevel: 9,
+  archiveOutputMode: "best_zip",
   brotliOutput: false,
   compressEmbeddedImages: true,
   convertToGrayscale: false,
@@ -95,6 +104,10 @@ const initialSettings: CompressionSettings = {
   recompressAs7z: false,
   recompressAsZip: true,
   stripMetadata: true,
+  targetSizeEnabled: false,
+  targetSizeStrategy: "best_effort",
+  targetSizeUnit: "MB",
+  targetSizeValue: 1,
   zipOutput: true,
 };
 
@@ -116,7 +129,7 @@ function detectedFileType(file: UploadedFileMetadata | null, fallback: Compressi
   if (["txt", "csv", "json", "html", "htm", "css", "js", "xml"].includes(extension) || mimeType.startsWith("text/")) {
     return "text";
   }
-  if (extension === "zip" || mimeType === "application/zip") {
+  if (["zip", "7z", "rar", "tar", "gz", "bz2", "xz"].includes(extension) || mimeType === "application/zip") {
     return "archive";
   }
   return "auto";
@@ -128,6 +141,18 @@ function fileFromMetadata(metadata: UploadedFileMetadata): File {
   });
 }
 
+function targetSizeBytes(settings: CompressionSettings): number | null {
+  if (!settings.targetSizeEnabled) {
+    return null;
+  }
+  const value = Number(settings.targetSizeValue);
+  if (!Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  const multiplier = settings.targetSizeUnit === "MB" ? 1024 * 1024 : 1024;
+  return Math.round(value * multiplier);
+}
+
 function downloadName(file: File, settings: CompressionSettings) {
   const base = slugifyBaseName(file.name);
   const sourceExtension = file.name.includes(".") ? file.name.split(".").pop() || "bin" : "bin";
@@ -137,13 +162,14 @@ function downloadName(file: File, settings: CompressionSettings) {
       ? imageExtension
       : settings.fileType === "text" && settings.brotliOutput
         ? "br"
-        : settings.fileType === "text" && settings.gzipOutput
-          ? "gz"
-          : (settings.fileType === "office" && settings.packageAs7z) || (settings.fileType === "archive" && settings.recompressAs7z)
+      : settings.fileType === "text" && settings.gzipOutput
+        ? "gz"
+        : (settings.fileType === "office" && settings.packageAs7z) ||
+            (settings.fileType === "archive" && ["7z", "maximum"].includes(settings.archiveOutputMode))
         ? "7z"
         : (settings.fileType === "office" && settings.packageAsZip) ||
             (settings.fileType === "text" && settings.zipOutput) ||
-            (settings.fileType === "archive" && settings.recompressAsZip)
+            (settings.fileType === "archive" && ["keep_zip", "best_zip"].includes(settings.archiveOutputMode))
           ? "zip"
           : sourceExtension;
   return `${base}${settings.outputSuffix || "-compressed"}.${extension}`;
@@ -157,18 +183,32 @@ function ResultStats({ result }: { result?: CompressionResult }) {
   if (!result) {
     return null;
   }
+
+  const rows: Array<[string, string]> = [
+    ["Original", resultValue(result.original_size, formatBytes)],
+    ["Output", resultValue(result.output_size, formatBytes)],
+    ["Saved", resultValue(result.saved_bytes, (v) => `${formatBytes(v)} (${result.saved_percent ?? 0}%)`)],
+  ];
+  if (result.target_size_bytes != null) {
+    rows.push(["Target", formatBytes(result.target_size_bytes)]);
+    rows.push(["Hit target", typeof result.reached_target === "boolean" ? (result.reached_target ? "Yes" : "No") : "--"]);
+  }
+  if (result.method) {
+    rows.push(["Method", result.method]);
+  }
+
+  const alreadyOptimized = result.optimized === true && (result.saved_bytes ?? 0) <= 0;
+
   return (
-    <section className="rounded-xl border border-[#E5E7EB] bg-white p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Result stats</p>
-      <div className="mt-4 grid gap-3 text-sm">
-        {[
-          ["Original size", resultValue(result.original_size, formatBytes)],
-          ["Output size", resultValue(result.output_size, formatBytes)],
-          ["Saved", resultValue(result.saved_bytes, formatBytes)],
-          ["Saved percent", typeof result.saved_percent === "number" ? `${result.saved_percent}%` : "--"],
-          ["Optimized", typeof result.optimized === "boolean" ? String(result.optimized) : "--"],
-          ["Method", result.method ?? "--"],
-        ].map(([label, value]) => (
+    <section
+      className={[
+        "rounded-xl border p-4",
+        alreadyOptimized ? "border-amber-200 bg-amber-50" : "border-[#E5E7EB] bg-white",
+      ].join(" ")}
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Compression result</p>
+      <div className="mt-3 grid gap-2.5 text-sm">
+        {rows.map(([label, value]) => (
           <div className="flex items-center justify-between gap-4" key={label}>
             <span className="text-slate-500">{label}</span>
             <span className="text-right font-semibold text-slate-800">{value}</span>
@@ -176,7 +216,14 @@ function ResultStats({ result }: { result?: CompressionResult }) {
         ))}
       </div>
       {result.message ? (
-        <p className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] leading-6 text-slate-600">
+        <p
+          className={[
+            "mt-3 rounded-lg border px-3 py-2 text-[13px] leading-6",
+            alreadyOptimized
+              ? "border-amber-200 bg-amber-50 text-amber-800"
+              : "border-slate-200 bg-slate-50 text-slate-600",
+          ].join(" ")}
+        >
           {result.message}
         </p>
       ) : null}
@@ -243,6 +290,47 @@ function sectionsFor(type: CompressionFileType): Array<ControlSection<Compressio
         { key: "forceRecompress", label: "Force recompress", type: "toggle" },
         { key: "keepOriginalIfSmaller", label: "Keep original if smaller", type: "toggle" },
         { key: "outputSuffix", label: "Output suffix", type: "text", placeholder: "-compressed" },
+      ],
+    },
+    {
+      key: "target-size",
+      label: "Target size",
+      fields: [
+        {
+          key: "targetSizeEnabled",
+          label: "Compress to target size",
+          type: "toggle",
+          helpText: "Exact target size is not always possible. PDFTools will get as close as safely possible without corrupting your file.",
+        },
+        {
+          key: "targetSizeValue",
+          label: "Target size value",
+          type: "number",
+          min: 0.01,
+          step: 0.01,
+          show: (settings) => settings.targetSizeEnabled,
+        },
+        {
+          key: "targetSizeUnit",
+          label: "Unit",
+          type: "select",
+          options: [
+            { label: "KB", value: "KB" },
+            { label: "MB", value: "MB" },
+          ],
+          helpText: "Uses binary units to match the size display: 1 MB = 1,048,576 bytes.",
+          show: (settings) => settings.targetSizeEnabled,
+        },
+        {
+          key: "targetSizeStrategy",
+          label: "Strategy",
+          type: "select",
+          options: [
+            { label: "Best effort", value: "best_effort" },
+            { label: "Strict if possible", value: "strict_if_possible" },
+          ],
+          show: (settings) => settings.targetSizeEnabled,
+        },
       ],
     },
     {
@@ -325,8 +413,18 @@ function sectionsFor(type: CompressionFileType): Array<ControlSection<Compressio
       key: "archive",
       label: "Archive settings",
       fields: [
-        { key: "recompressAsZip", label: "Recompress as ZIP", type: "toggle", show: () => type === "archive" },
-        { key: "recompressAs7z", label: "Recompress as 7z", type: "toggle", show: () => type === "archive" },
+        {
+          key: "archiveOutputMode",
+          label: "Archive output mode",
+          type: "select",
+          options: [
+            { label: "Keep as ZIP", value: "keep_zip" },
+            { label: "Best ZIP compatible", value: "best_zip" },
+            { label: "Repack as 7z", value: "7z" },
+            { label: "Maximum compression, slower", value: "maximum" },
+          ],
+          show: () => type === "archive",
+        },
         { key: "archiveLevel", label: "Compression level", type: "slider", min: 1, max: 9, show: () => type === "archive" },
       ],
     },
@@ -334,8 +432,13 @@ function sectionsFor(type: CompressionFileType): Array<ControlSection<Compressio
 }
 
 function toBackendSettings(settings: CompressionSettings, fileType: CompressionFileType) {
+  const archiveAs7z = fileType === "archive" && ["7z", "maximum"].includes(settings.archiveOutputMode);
+  const archiveAsZip = fileType === "archive" && !archiveAs7z;
+  const targetBytes = targetSizeBytes(settings);
+
   return {
     archive_level: settings.archiveLevel,
+    archive_output_mode: settings.archiveOutputMode,
     brotli_output: settings.brotliOutput,
     compress_embedded_images: settings.compressEmbeddedImages,
     convert_to_grayscale: settings.convertToGrayscale,
@@ -359,10 +462,12 @@ function toBackendSettings(settings: CompressionSettings, fileType: CompressionF
     preserve_original_extension: settings.preserveOriginalExtension,
     preserve_transparency: settings.imagePreserveTransparency,
     quality: settings.quality,
-    recompress_as_7z: settings.recompressAs7z,
-    recompress_as_zip: settings.recompressAsZip,
+    recompress_as_7z: fileType === "archive" ? archiveAs7z : settings.recompressAs7z,
+    recompress_as_zip: fileType === "archive" ? archiveAsZip : settings.recompressAsZip,
     seven_zip_output: settings.zipOutput,
     strip_metadata: settings.stripMetadata && !settings.imagePreserveMetadata,
+    target_size_bytes: targetBytes,
+    target_size_strategy: settings.targetSizeStrategy,
     type: fileType === "auto" ? undefined : fileType,
     zip_output: settings.zipOutput,
   };
@@ -540,7 +645,7 @@ export default function CompressPage() {
       breadcrumbTitle="Compress"
       centerContent={centerContent}
       countLabel={activeType === "pdf" && pdfPreview.pageCount > 0 ? `${pdfPreview.pageCount} pages` : activeType === "auto" ? "File" : formatFileType(activeType, activeType)}
-      description="Compress PDFs, images, Office files, text files, and archives from one workspace."
+      description="Compress PDFs, images, Office files, and archives."
       downloadPanel={
         fileMeta && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
           <DownloadPanel
@@ -548,6 +653,8 @@ export default function CompressPage() {
             estimatedTime={estimateProcessingTime(fileMeta.size_bytes, 1)}
             jobId={job.jobId}
             onDownload={job.state === "success" ? job.download : undefined}
+            outputFilename={result?.output_filename}
+            outputSize={typeof result?.output_size === "number" ? formatBytes(result.output_size) : undefined}
             onProcessAnother={() => {
               setFile(null);
               setFileMeta(null);
@@ -561,7 +668,7 @@ export default function CompressPage() {
       }
       emptyState={
         <EmptyWorkspaceState
-          accept=".pdf,image/*,.docx,.xlsx,.pptx,.odt,.ods,.odp,.txt,.csv,.json,.html,.htm,.css,.js,.xml,.svg,.zip"
+          accept=".pdf,image/*,.docx,.xlsx,.pptx,.odt,.ods,.odp,.txt,.csv,.json,.html,.htm,.css,.js,.xml,.svg,.zip,.7z,.rar,.tar,.gz,.bz2,.xz"
           description="Upload a PDF, image, Office document, text/code/data file, or ZIP archive."
           onFilesSelected={(files) => {
             void handleFilesSelected(files);
@@ -609,11 +716,10 @@ export default function CompressPage() {
                 : job.state === "success"
                   ? "Result is ready to download."
                   : fileMeta
-                    ? `Detected: ${activeType === "auto" ? "file" : activeType}`
-                    : "Upload a file to start configuring compression."}
+                    ? `File type: ${activeType === "auto" ? "unknown" : activeType}`
+                    : "Upload a file to configure compression settings."}
           </div>
           <WorkspaceControls sections={sectionsFor(activeType)} state={{ ...settings, fileType: activeType }} update={update} />
-          <ResultStats result={result} />
         </div>
       }
       uploadOverlay={

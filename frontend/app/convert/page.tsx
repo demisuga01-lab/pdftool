@@ -459,12 +459,18 @@ export default function ConvertPage() {
     }
 
     return (
-      <div className="mx-auto max-w-3xl rounded-2xl border border-[#E5E7EB] bg-white p-8">
-        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#2563EB]">Document ready</p>
-        <h2 className="mt-3 text-2xl font-bold text-slate-900">{fileMeta.original_name}</h2>
-        <p className="mt-3 text-sm font-medium leading-6 text-slate-500">
-          This file type does not have a live preview in the browser, but it is uploaded and ready to convert.
-        </p>
+      <div className="mx-auto max-w-3xl rounded-2xl border border-[#E5E7EB] bg-white p-6">
+        <div className="flex items-start gap-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#2563EB] text-sm font-bold">
+            {(fileMeta.extension || "?").toUpperCase().slice(0, 4)}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate font-mono text-sm font-semibold text-slate-900">{fileMeta.original_name}</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Uploaded and ready to convert. No preview for this file type.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }, [fileMeta, inputKind, items, pageCount]);
@@ -491,9 +497,12 @@ export default function ConvertPage() {
                     }
                   : null,
               ) ?? undefined
-            : inputFormat.toUpperCase()
+            : inputFormat
+              ? inputFormat.replace(/load$/i, "").replace(/save$/i, "").toUpperCase()
+              : undefined
       }
-      description="One conversion workspace for PDF, Office files, spreadsheets, text, HTML, CSV, and images."
+      description="Convert PDF, Office files, spreadsheets, text, HTML, CSV, and images."
+      processButtonLabel="Convert"
       downloadPanel={
         fileMeta && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
           <DownloadPanel
@@ -544,14 +553,25 @@ export default function ConvertPage() {
       }
       rightPanel={
         <div className="space-y-6">
-          <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] font-medium leading-6 text-slate-500">
+          <div
+            className={[
+              "rounded-xl border px-4 py-3 text-[13px] leading-6",
+              uploadState === "failure" || job.state === "failure"
+                ? "border-rose-200 bg-rose-50 text-rose-700"
+                : job.state === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-500",
+            ].join(" ")}
+          >
             {uploadState === "failure"
               ? uploadError ?? "Upload failed."
               : job.state === "failure"
                 ? job.error ?? "Conversion failed."
-                : outputOptions.length > 0
-                  ? `Detected ${inputFormat.toUpperCase()} input. Choose the output format and process the uploaded file.`
-                  : "Upload a supported file to see valid conversion targets."}
+                : job.state === "success"
+                  ? "Result is ready to download."
+                  : outputOptions.length > 0
+                    ? "Choose an output format below and click Convert."
+                    : "Upload a file to see available conversion formats."}
           </div>
           <WorkspaceControls sections={sections} state={settings} update={update} />
         </div>

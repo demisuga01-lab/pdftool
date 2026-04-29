@@ -116,7 +116,7 @@ export function DownloadPanel({
           {onProcessAnother ? (
             <button className="secondary-button w-full gap-2" onClick={onProcessAnother} type="button">
               <RotateCcw className="h-4 w-4" />
-              New File
+              Process another file
             </button>
           ) : null}
         </div>

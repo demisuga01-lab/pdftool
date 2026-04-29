@@ -22,84 +22,20 @@ type RotateSettings = {
 
 const sections: Array<ControlSection<RotateSettings>> = [
   {
-    key: "quick-rotate",
-    label: "Quick Rotate",
-    render: (settings, update) => (
-      <div className="grid grid-cols-2 gap-3">
-        {[
-          { icon: RotateCcw, label: "Rotate 90° CCW" },
-          { icon: RotateCw, label: "Rotate 90° CW" },
-          { icon: FlipHorizontal2, label: "Flip Horizontal" },
-          { icon: FlipVertical2, label: "Flip Vertical" },
-        ].map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              className="flex h-20 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-              key={item.label}
-              onClick={() => {
-                if (item.label === "Rotate 90° CCW") {
-                  update("angle", settings.angle - 90);
-                } else if (item.label === "Rotate 90° CW") {
-                  update("angle", settings.angle + 90);
-                } else if (item.label === "Flip Horizontal") {
-                  update("flipHorizontal", !settings.flipHorizontal);
-                } else {
-                  update("flipVertical", !settings.flipVertical);
-                }
-              }}
-              type="button"
-            >
-              <Icon className="h-8 w-8" />
-              <span className="text-[11px] font-medium">{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    ),
-  },
-  {
     key: "rotation",
-    label: "Custom Angle",
+    label: "Rotation",
     render: (settings, update) => (
       <div className="space-y-3">
-        <input
-          className="w-full accent-[#2563EB]"
-          max={360}
-          min={-360}
-          onChange={(event) => update("angle", Number(event.target.value))}
-          step={1}
-          type="range"
-          value={settings.angle}
-        />
-        <div className="space-y-1.5">
-          <label className="block text-[13px] text-slate-700">Angle</label>
-          <input
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
-            max={360}
-            min={-360}
-            onChange={(event) => update("angle", Number(event.target.value))}
-            type="number"
-            value={settings.angle}
-          />
-        </div>
-      </div>
-    ),
-  },
-  {
-    key: "rotation-presets",
-    label: "Presets",
-    render: (settings, update) => (
-      <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {[
-            { delta: 90, label: "90 CW", icon: RotateCwIcon },
-            { delta: 180, label: "180", icon: RotateCwIcon },
-            { delta: -90, label: "90 CCW", icon: RotateCcwIcon },
+            { delta: -90, label: "90° CCW", icon: RotateCcwIcon },
+            { delta: 180, label: "180°", icon: RotateCwIcon },
+            { delta: 90, label: "90° CW", icon: RotateCwIcon },
           ].map((option) => {
             const Icon = option.icon;
             return (
               <button
-                className="flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 text-[14px] text-slate-700"
+                className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
                 key={option.label}
                 onClick={() => update("angle", settings.angle + option.delta)}
                 type="button"
@@ -109,6 +45,30 @@ const sections: Array<ControlSection<RotateSettings>> = [
               </button>
             );
           })}
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-3">
+            <label className="block text-[13px] font-medium text-slate-700">Custom angle</label>
+            <span className="text-sm font-medium text-slate-500">{settings.angle}°</span>
+          </div>
+          <input
+            className="field-range"
+            max={360}
+            min={-360}
+            onChange={(event) => update("angle", Number(event.target.value))}
+            step={1}
+            type="range"
+            value={settings.angle}
+          />
+          <input
+            className="field-input"
+            max={360}
+            min={-360}
+            onChange={(event) => update("angle", Number(event.target.value))}
+            type="number"
+            value={settings.angle}
+          />
+        </div>
       </div>
     ),
   },
@@ -176,14 +136,14 @@ export default function ImageRotatePage() {
         formData.append("output_filename", settings.outputFilename.trim());
         return formData;
       }}
-      description="Rotate and flip images with a live preview, then export in the format that fits the output."
+      description="Rotate, flip, and choose a background color. Preview updates in real time."
       downloadFilename={(file, settings) => {
         const base = settings.outputFilename.trim() || slugifyBaseName(file.name);
         const extension =
           settings.format === "same" ? file.name.split(".").pop() ?? "png" : settings.format === "jpeg" ? "jpg" : settings.format;
         return `${base}-rotated.${extension}`;
       }}
-      emptyDescription="Upload an image to rotate it with a live workspace preview."
+      emptyDescription="Upload an image to rotate or flip it."
       endpoint="image/rotate"
       initialSettings={{
         angle: 0,
@@ -199,40 +159,64 @@ export default function ImageRotatePage() {
       }}
       renderCenter={({ file, preview, settings, update }) => (
         <PreviewStage className="mx-auto max-w-[760px]">
-          <div className="p-4 sm:p-6">
-            <div className="flex min-h-[520px] items-center justify-center rounded-2xl bg-[#F9FAFB] p-4 sm:p-8">
-              {preview ? (
-                <div className="relative">
-                  <div className="absolute inset-x-0 top-0 z-10 flex justify-center">
-                    <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/90 px-2 py-2 shadow-sm backdrop-blur">
-                      <button className="rounded-full p-2 text-slate-700 hover:bg-slate-100" onClick={() => update("angle", settings.angle - 90)} type="button">
-                        <RotateCcw className="h-4 w-4" />
-                      </button>
-                      <button className="rounded-full p-2 text-slate-700 hover:bg-slate-100" onClick={() => update("angle", settings.angle + 90)} type="button">
-                        <RotateCw className="h-4 w-4" />
-                      </button>
-                      <button className="rounded-full p-2 text-slate-700 hover:bg-slate-100" onClick={() => update("flipHorizontal", !settings.flipHorizontal)} type="button">
-                        <FlipHorizontal2 className="h-4 w-4" />
-                      </button>
-                      <button className="rounded-full p-2 text-slate-700 hover:bg-slate-100" onClick={() => update("flipVertical", !settings.flipVertical)} type="button">
-                        <FlipVertical2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                  <img
-                    alt={file.name}
-                    className="max-h-[420px] max-w-full rounded-xl border border-[#E5E7EB] bg-white object-contain transition"
-                    src={preview.dataUrl}
-                    style={{
-                      transform: `rotate(${settings.angle}deg) scaleX(${settings.flipHorizontal ? -1 : 1}) scaleY(${settings.flipVertical ? -1 : 1})`,
-                    }}
-                  />
-                  <div className="absolute bottom-4 left-4 rounded-full bg-slate-900/80 px-3 py-1 text-[12px] text-white">
-                    {settings.angle} deg
-                  </div>
-                </div>
-              ) : null}
+          <div className="flex items-center justify-between gap-3 border-b border-[#E5E7EB] px-4 py-3">
+            <span className="text-sm font-medium text-slate-500">
+              {settings.angle !== 0 ? `${settings.angle}°` : "No rotation"}
+              {settings.flipHorizontal ? " · Flip H" : ""}
+              {settings.flipVertical ? " · Flip V" : ""}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                aria-label="Rotate 90° counter-clockwise"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                onClick={() => update("angle", settings.angle - 90)}
+                type="button"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+              <button
+                aria-label="Rotate 90° clockwise"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                onClick={() => update("angle", settings.angle + 90)}
+                type="button"
+              >
+                <RotateCw className="h-4 w-4" />
+              </button>
+              <button
+                aria-label="Flip horizontal"
+                className={[
+                  "inline-flex h-9 w-9 items-center justify-center rounded-lg border text-slate-600",
+                  settings.flipHorizontal ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-slate-200 hover:bg-slate-50",
+                ].join(" ")}
+                onClick={() => update("flipHorizontal", !settings.flipHorizontal)}
+                type="button"
+              >
+                <FlipHorizontal2 className="h-4 w-4" />
+              </button>
+              <button
+                aria-label="Flip vertical"
+                className={[
+                  "inline-flex h-9 w-9 items-center justify-center rounded-lg border text-slate-600",
+                  settings.flipVertical ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-slate-200 hover:bg-slate-50",
+                ].join(" ")}
+                onClick={() => update("flipVertical", !settings.flipVertical)}
+                type="button"
+              >
+                <FlipVertical2 className="h-4 w-4" />
+              </button>
             </div>
+          </div>
+          <div className="flex min-h-[min(55vh,420px)] items-center justify-center overflow-hidden bg-[#F3F4F6] p-4">
+            {preview ? (
+              <img
+                alt={file.name}
+                className="max-h-[min(52vh,400px)] max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain transition duration-150"
+                src={preview.dataUrl}
+                style={{
+                  transform: `rotate(${settings.angle}deg) scaleX(${settings.flipHorizontal ? -1 : 1}) scaleY(${settings.flipVertical ? -1 : 1})`,
+                }}
+              />
+            ) : null}
           </div>
         </PreviewStage>
       )}

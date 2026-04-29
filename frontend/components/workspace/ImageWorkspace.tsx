@@ -203,7 +203,7 @@ export function ImageWorkspace({
   uploadOverlay?: ReactNode;
 }) {
   return (
-    <main className="flex min-h-[calc(100vh-60px)] flex-col bg-white xl:h-[calc(100vh-60px)]">
+    <main className="flex min-h-[calc(100vh-60px)] flex-col bg-white lg:h-[calc(100vh-60px)]">
       <WorkspaceHeader
         countLabel={countLabel}
         fileInfo={fileInfo}
@@ -215,55 +215,62 @@ export function ImageWorkspace({
         title={breadcrumbTitle}
       />
 
-      <div className="relative flex min-h-0 flex-1 flex-col xl:flex-row">
+      <div className="relative flex min-h-0 flex-1 flex-col lg:flex-row">
         <div className="flex min-w-0 flex-1 flex-col bg-[#F3F4F6]">
           {hasContent ? (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-4 py-3 sm:px-6">
-                <p className="text-sm font-medium text-slate-600">{countLabel}</p>
-                <div className="flex items-center gap-2">
-                  {showSizeToggle && setSize ? (
-                    <>
-                      {([
-                        { key: "small", icon: GridDenseIcon },
-                        { key: "medium", icon: GridIcon },
-                        { key: "large", icon: GridIcon },
-                      ] as const).map((option) => {
-                        const Icon = option.icon;
-                        return (
-                          <button
-                            className={[
-                              "inline-flex h-9 w-9 items-center justify-center rounded-lg border",
-                              size === option.key
-                                ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
-                                : "border-slate-200 bg-white text-slate-500",
-                            ].join(" ")}
-                            key={option.key}
-                            onClick={() => setSize(option.key)}
-                            type="button"
-                          >
-                            <Icon className="h-4 w-4" />
-                          </button>
-                        );
-                      })}
-                    </>
-                  ) : null}
-                  <div className="inline-flex items-center gap-2 rounded-lg bg-[#EFF6FF] px-3 py-2 text-sm font-semibold text-[#2563EB] xl:hidden">
-                    <Settings2 className="h-4 w-4" />
-                    Controls below
+              {(showSizeToggle && setSize) ? (
+                <div className="flex items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-4 py-2.5 sm:px-6">
+                  <p className="text-sm font-medium text-slate-500">{countLabel}</p>
+                  <div className="flex items-center gap-2">
+                    {([
+                      { key: "small", icon: GridDenseIcon },
+                      { key: "medium", icon: GridIcon },
+                      { key: "large", icon: GridIcon },
+                    ] as const).map((option) => {
+                      const Icon = option.icon;
+                      return (
+                        <button
+                          aria-label={`${option.key} grid`}
+                          className={[
+                            "inline-flex h-8 w-8 items-center justify-center rounded-lg border",
+                            size === option.key
+                              ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
+                              : "border-slate-200 bg-white text-slate-500",
+                          ].join(" ")}
+                          key={option.key}
+                          onClick={() => setSize(option.key)}
+                          type="button"
+                        >
+                          <Icon className="h-4 w-4" />
+                        </button>
+                      );
+                    })}
                   </div>
-                  <p className="hidden text-sm font-medium text-slate-500 xl:block">PDFTools / {breadcrumbTitle}</p>
                 </div>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-28 sm:px-6 sm:py-6 xl:pb-6">
+              ) : null}
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-24 sm:px-6 sm:py-6 lg:pb-6">
                 <div className="space-y-5">
                   {centerContent}
-                  <section className="rounded-2xl border border-[#E5E7EB] bg-white p-4 xl:hidden">
-                    <div className="space-y-1.5 pb-5">
-                      <h1 className="text-[22px] font-bold leading-none text-slate-900">{breadcrumbTitle}</h1>
-                      <p className="text-[14px] font-medium leading-6 text-slate-500">{description}</p>
+                  <section className="rounded-2xl border border-[#E5E7EB] bg-white p-4 pb-6 lg:hidden">
+                    <div className="mb-4 space-y-1">
+                      <h2 className="text-[18px] font-bold text-slate-900">{breadcrumbTitle}</h2>
+                      <p className="text-[13px] font-medium leading-5 text-slate-500">{description}</p>
                     </div>
-                    <div className="max-h-[45vh] overflow-y-auto pr-1">{rightPanel}</div>
+                    {rightPanel}
+                    <div className="mt-6">
+                      <button
+                        className="primary-button h-11 w-full text-[15px]"
+                        disabled={processButtonDisabled}
+                        onClick={onProcess}
+                        type="button"
+                      >
+                        {processButtonLabel}
+                      </button>
+                      <p className="mt-2 text-center text-xs text-slate-400">
+                        {estimatedTime ?? "Files deleted after 24 hours"}
+                      </p>
+                    </div>
                   </section>
                 </div>
               </div>
@@ -273,16 +280,16 @@ export function ImageWorkspace({
           )}
         </div>
 
-        <aside className="hidden w-full shrink-0 flex-col border-t border-[#E5E7EB] bg-white xl:flex xl:w-[340px] xl:border-l xl:border-t-0">
+        <aside className="hidden w-full shrink-0 flex-col border-l border-[#E5E7EB] bg-white lg:flex lg:w-[360px]">
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
-            <div className="space-y-1.5 pb-6">
-              <h1 className="text-[24px] font-bold leading-none text-slate-900">{breadcrumbTitle}</h1>
-              <p className="text-[14px] font-medium leading-6 text-slate-500">{description}</p>
+            <div className="mb-5 space-y-1">
+              <h1 className="text-[22px] font-bold leading-tight text-slate-900">{breadcrumbTitle}</h1>
+              <p className="text-[13px] font-medium leading-5 text-slate-500">{description}</p>
             </div>
             {rightPanel}
           </div>
 
-          <div className="sticky bottom-0 border-t border-[#E5E7EB] bg-white p-5">
+          <div className="border-t border-[#E5E7EB] bg-white p-5">
             <button
               className="primary-button h-11 w-full text-[15px]"
               disabled={processButtonDisabled}
@@ -291,16 +298,16 @@ export function ImageWorkspace({
             >
               {processButtonLabel}
             </button>
-            <div className="mt-3 space-y-1 text-center text-xs text-slate-500">
-              <p>{estimatedTime ?? "Estimated processing time updates after upload"}</p>
+            <div className="mt-2 space-y-0.5 text-center text-xs text-slate-400">
+              <p>{estimatedTime ?? "Estimated time updates after upload"}</p>
               <p>Files deleted after 24 hours</p>
             </div>
           </div>
         </aside>
 
         {hasContent ? (
-          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E5E7EB] bg-white/95 p-4 backdrop-blur xl:hidden">
-            <button className="primary-button h-12 w-full" disabled={processButtonDisabled} onClick={onProcess} type="button">
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E5E7EB] bg-white/95 p-3 backdrop-blur lg:hidden">
+            <button className="primary-button h-11 w-full" disabled={processButtonDisabled} onClick={onProcess} type="button">
               {processButtonLabel}
             </button>
           </div>
@@ -308,7 +315,7 @@ export function ImageWorkspace({
       </div>
 
       {uploadOverlay ? <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4">{uploadOverlay}</div> : null}
-      {downloadPanel ? <div className="fixed inset-x-4 bottom-24 z-40 xl:inset-x-auto xl:bottom-6 xl:right-6 xl:w-[360px]">{downloadPanel}</div> : null}
+      {downloadPanel ? <div className="fixed inset-x-4 bottom-20 z-40 lg:inset-x-auto lg:bottom-6 lg:right-6 lg:w-[360px]">{downloadPanel}</div> : null}
     </main>
   );
 }

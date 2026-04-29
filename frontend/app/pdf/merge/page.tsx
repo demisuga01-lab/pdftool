@@ -272,8 +272,8 @@ export default function PdfMergePage() {
   return (
     <PDFWorkspace
       breadcrumbTitle="Merge PDFs"
-      countLabel={files.length > 0 ? `${files.length} files` : undefined}
-      description="Arrange PDF files in the order you want, fine-tune the merged document, and export a single package."
+      countLabel={fileMetas.length > 0 ? `${fileMetas.length} files` : files.length > 0 ? `${files.length} files` : undefined}
+      description="Upload two or more PDFs, set the order, and merge them into one file."
       downloadPanel={
         job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
           <DownloadPanel
@@ -294,7 +294,7 @@ export default function PdfMergePage() {
       }
       emptyState={
         <EmptyPdfWorkspaceState
-          description="Upload at least two PDFs to merge them in one ordered workspace."
+          description="Upload two or more PDFs to merge them."
           multiple
           onFilesSelected={(nextFiles) => {
             void handleFilesSelected(nextFiles);
@@ -315,6 +315,7 @@ export default function PdfMergePage() {
         syncFileQuery([]);
       }}
       processButtonDisabled={fileMetas.length < 2}
+      processButtonLabel="Merge PDFs"
       processingLabel={
         uploadState === "uploading"
           ? "Uploading files"
@@ -337,30 +338,47 @@ export default function PdfMergePage() {
       }
       rightPanel={
         <div className="space-y-6">
-          <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] font-medium leading-6 text-slate-500">
+          <div
+            className={[
+              "rounded-xl border px-4 py-3 text-[13px] leading-6",
+              uploadState === "failure" || job.state === "failure"
+                ? "border-rose-200 bg-rose-50 text-rose-700"
+                : job.state === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-500",
+            ].join(" ")}
+          >
             {uploadState === "failure"
               ? uploadError ?? "Upload failed."
               : job.state === "failure"
                 ? job.error ?? "Merge failed."
-              : "Drag files in the center canvas to define the final merge order."}
+                : job.state === "success"
+                  ? "Merged PDF is ready to download."
+                  : fileMetas.length >= 2
+                    ? "Drag to reorder, then click Merge PDFs."
+                    : "Upload two or more PDFs to merge them."}
           </div>
 
-          <div className="space-y-3">
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
-              File Order
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Merge order
             </p>
-            <div className="space-y-2 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-3">
+            <div className="space-y-1.5">
               {fileMetas.map((file, index) => (
                 <div
-                  className="flex items-center justify-between gap-3 rounded-lg border border-white bg-white px-3 py-2 text-[13px]"
+                  className="flex min-w-0 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5"
                   key={file.file_id}
                 >
-                  <span className="truncate text-slate-700">
-                    {index + 1}. {file.original_name}
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-500">
+                    {index + 1}
                   </span>
-                  <div className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-700">
+                    {file.original_name}
+                  </span>
+                  <div className="flex shrink-0 items-center gap-1">
                     <button
-                      className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40"
+                      aria-label="Move up"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-500 disabled:opacity-30 hover:bg-slate-50"
                       disabled={index === 0}
                       onClick={() =>
                         setFileMetas((current) => {
@@ -373,10 +391,11 @@ export default function PdfMergePage() {
                       }
                       type="button"
                     >
-                      Up
+                      ↑
                     </button>
                     <button
-                      className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:opacity-40"
+                      aria-label="Move down"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-500 disabled:opacity-30 hover:bg-slate-50"
                       disabled={index === fileMetas.length - 1}
                       onClick={() =>
                         setFileMetas((current) => {
@@ -389,10 +408,11 @@ export default function PdfMergePage() {
                       }
                       type="button"
                     >
-                      Down
+                      ↓
                     </button>
                     <button
-                      className="text-slate-400 transition hover:text-rose-500"
+                      aria-label="Remove file"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
                       onClick={() =>
                         setFileMetas((current) => {
                           const next = current.filter((_, fileIndex) => fileIndex !== index);
@@ -402,7 +422,7 @@ export default function PdfMergePage() {
                       }
                       type="button"
                     >
-                      Remove
+                      ✕
                     </button>
                   </div>
                 </div>

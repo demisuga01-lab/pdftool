@@ -15,7 +15,8 @@ type ResizeSettings = {
   height: number;
   kernel: "lanczos3" | "lanczos2" | "cubic" | "linear" | "nearest";
   lockAspect: boolean;
-  outputFormat: "same" | "jpeg" | "png" | "webp";
+  outputFilename: string;
+  outputFormat: "auto" | "jpg" | "png" | "webp";
   percentage: number;
   presetSize: "640x480" | "800x600" | "1024x768" | "1280x720" | "1280x1024" | "1366x768" | "1600x900" | "1920x1080" | "2560x1440" | "3840x2160" | "instagram-post" | "instagram-story" | "youtube-thumbnail" | "x-post" | "facebook-cover" | "linkedin-cover" | "a4-300" | "a4-150" | "a3-300" | "letter-300" | "custom";
   quality: number;
@@ -272,8 +273,8 @@ const sections: Array<ControlSection<ResizeSettings>> = [
         label: "Output format",
         type: "select",
         options: [
-          { label: "Same as input", value: "same" },
-          { label: "JPEG", value: "jpeg" },
+          { label: "Same as input", value: "auto" },
+          { label: "JPEG", value: "jpg" },
           { label: "PNG", value: "png" },
           { label: "WebP", value: "webp" },
         ],
@@ -284,7 +285,13 @@ const sections: Array<ControlSection<ResizeSettings>> = [
         type: "slider",
         min: 1,
         max: 100,
-        show: (settings) => settings.outputFormat === "jpeg" || settings.outputFormat === "webp",
+        show: (settings) => settings.outputFormat === "jpg" || settings.outputFormat === "webp",
+      },
+      {
+        key: "outputFilename",
+        label: "Output filename",
+        type: "text",
+        placeholder: "certificate-small",
       },
     ],
   },
@@ -307,20 +314,20 @@ export default function ImageResizePage() {
         formData.append("background", settings.background === "custom" ? settings.backgroundColor : settings.background === "transparent" ? "#00000000" : "#ffffff");
         formData.append("quality", String(settings.quality));
         formData.append("output_format", settings.outputFormat);
+        formData.append("output_filename", settings.outputFilename.trim());
         return formData;
       }}
-      description="Resize with explicit dimensions, fit rules, and resampling choices while keeping the preview in view."
+      description="Set exact dimensions, fit rules, and output format."
       downloadFilename={(file, settings) => {
-        const base = slugifyBaseName(file.name);
+        const requestedBase = settings.outputFilename.trim();
+        const base = requestedBase || slugifyBaseName(file.name);
         const extension =
-          settings.outputFormat === "same"
+          settings.outputFormat === "auto"
             ? file.name.split(".").pop() ?? "png"
-            : settings.outputFormat === "jpeg"
-              ? "jpg"
-              : settings.outputFormat;
-        return `${base}-${settings.width}x${settings.height}.${extension}`;
+            : settings.outputFormat;
+        return requestedBase ? `${base}.${extension}` : `${base}-${settings.width}x${settings.height}.${extension}`;
       }}
-      emptyDescription="Upload an image to preview the resize result and adjust dimensions before processing."
+      emptyDescription="Upload an image to set new dimensions and download the resized file."
       endpoint="image/resize"
       initialSettings={{
         allowUpscale: false,
@@ -333,7 +340,8 @@ export default function ImageResizePage() {
         height: 1080,
         kernel: "lanczos3",
         lockAspect: true,
-        outputFormat: "same",
+        outputFilename: "",
+        outputFormat: "auto",
         percentage: 100,
         presetSize: "custom",
         quality: 85,
@@ -350,36 +358,33 @@ export default function ImageResizePage() {
         { label: "A4 300 DPI", values: { width: 2480, height: 3508, fit: "contain" } },
       ]}
       renderCenter={({ file, preview, settings }) => (
-        <PreviewStage className="mx-auto max-w-4xl">
-          <div className="grid gap-4 p-6 lg:grid-cols-[1fr_220px]">
-            <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-6">
-              {preview ? (
-                <div className="relative flex min-h-[420px] items-center justify-center">
-                  <img
-                    alt={file.name}
-                    className="max-h-[420px] max-w-full rounded-xl border border-[#E5E7EB] bg-white object-contain"
-                    src={preview.dataUrl}
-                  />
-                  <div className="absolute bottom-4 left-4 rounded-full bg-slate-900/80 px-3 py-1 text-[12px] text-white">
-                    New: {settings.width} x {settings.height} px
-                  </div>
-                </div>
-              ) : null}
+        <div className="space-y-3">
+          <PreviewStage className="mx-auto max-w-3xl">
+            {preview ? (
+              <div className="relative flex items-center justify-center bg-[#F3F4F6] p-4">
+                <img
+                  alt={file.name}
+                  className="max-h-[min(55vh,480px)] max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain"
+                  src={preview.dataUrl}
+                />
+              </div>
+            ) : null}
+          </PreviewStage>
+          <div className="mx-auto flex max-w-3xl flex-wrap gap-3">
+            <div className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Original</p>
+              <p className="mt-1 text-sm font-semibold text-slate-800">
+                {preview ? formatDimensions(preview.width, preview.height) : "--"}
+              </p>
             </div>
-            <div className="space-y-3 rounded-2xl border border-[#E5E7EB] bg-white p-4">
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">Current size</p>
-                <p className="mt-2 text-[15px] text-slate-900">
-                  {preview ? formatDimensions(preview.width, preview.height) : "--"}
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">New size</p>
-                <p className="mt-2 text-[15px] text-slate-900">{settings.width} x {settings.height} px</p>
-              </div>
+            <div className="rounded-xl border border-[#2563EB]/30 bg-[#EFF6FF] px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#2563EB]">Output</p>
+              <p className="mt-1 text-sm font-semibold text-[#1D4ED8]">
+                {settings.width} × {settings.height} px
+              </p>
             </div>
           </div>
-        </PreviewStage>
+        </div>
       )}
       sections={sections}
       title="Resize Image"

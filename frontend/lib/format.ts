@@ -17,7 +17,7 @@ export function formatBytes(bytes: number): string {
 }
 
 export function formatDimensions(width: number, height: number): string {
-  return `${width} x ${height} px`;
+  return `${width} × ${height} px`;
 }
 
 export function formatFileType(type: string, fallback: string): string {
@@ -25,7 +25,13 @@ export function formatFileType(type: string, fallback: string): string {
     return fallback.toUpperCase();
   }
 
-  return type.replace(/^image\//, "").replace(/^application\//, "").toUpperCase();
+  const cleaned = type
+    .replace(/^image\//, "")
+    .replace(/^application\//, "")
+    .replace(/load$/i, "")
+    .replace(/save$/i, "")
+    .trim();
+  return (cleaned || fallback).toUpperCase();
 }
 
 export function estimateProcessingTime(bytes: number, units: number): string {

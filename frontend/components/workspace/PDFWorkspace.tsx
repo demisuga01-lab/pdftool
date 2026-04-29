@@ -51,6 +51,7 @@ type WorkspaceShellProps = {
   onReset?: () => void;
   onSelectAll?: () => void;
   processButtonDisabled?: boolean;
+  processButtonLabel?: string;
   processingLabel?: string | null;
   renderCenter: ReactNode;
   rightPanel: ReactNode;
@@ -299,6 +300,7 @@ export function PDFWorkspace({
   onReset,
   onSelectAll,
   processButtonDisabled,
+  processButtonLabel = "Process",
   processingLabel,
   renderCenter,
   rightPanel,
@@ -312,7 +314,7 @@ export function PDFWorkspace({
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
 
   return (
-    <main className="flex min-h-[calc(100vh-60px)] flex-col bg-white xl:h-[calc(100vh-60px)]">
+    <main className="flex min-h-[calc(100vh-60px)] flex-col bg-white lg:h-[calc(100vh-60px)]">
       <WorkspaceHeader
         countLabel={countLabel}
         fileInfo={fileInfo}
@@ -324,12 +326,12 @@ export function PDFWorkspace({
         title={breadcrumbTitle}
       />
 
-      <div className="relative flex min-h-0 flex-1 flex-col xl:flex-row">
+      <div className="relative flex min-h-0 flex-1 flex-col lg:flex-row">
         <div className="flex min-w-0 flex-1 flex-col bg-[#F3F4F6]">
           {hasContent ? (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-4 py-3 sm:px-6">
-                <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] bg-white px-4 py-2.5 sm:px-6">
+                <div className="flex items-center gap-3">
                   {showSelectionBar ? (
                     <>
                       <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-600">
@@ -341,12 +343,12 @@ export function PDFWorkspace({
                         />
                         <span>{countLabel}</span>
                       </label>
-                      <button className="text-sm font-medium text-slate-500 hover:text-slate-700" onClick={onDeselectAll} type="button">
-                        Deselect All
+                      <button className="text-sm font-medium text-slate-400 hover:text-slate-700" onClick={onDeselectAll} type="button">
+                        Deselect all
                       </button>
                     </>
                   ) : (
-                    <p className="text-sm font-medium text-slate-600">{countLabel}</p>
+                    <p className="text-sm font-medium text-slate-500">{countLabel}</p>
                   )}
                 </div>
 
@@ -361,8 +363,9 @@ export function PDFWorkspace({
                         const Icon = option.icon;
                         return (
                           <button
+                            aria-label={`${option.key} grid`}
                             className={[
-                              "inline-flex h-9 w-9 items-center justify-center rounded-lg border",
+                              "inline-flex h-8 w-8 items-center justify-center rounded-lg border",
                               size === option.key
                                 ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
                                 : "border-slate-200 bg-white text-slate-500",
@@ -378,32 +381,17 @@ export function PDFWorkspace({
                     </>
                   ) : null}
                   <button
-                    className="secondary-button h-9 gap-2 xl:hidden"
+                    className="secondary-button h-9 gap-2 lg:hidden"
                     onClick={() => setMobileSettingsOpen(true)}
                     type="button"
                   >
                     <Settings2 className="h-4 w-4" />
                     Settings
                   </button>
-                  <p className="hidden text-sm font-medium text-slate-500 xl:block">PDFTools / {breadcrumbTitle}</p>
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-28 sm:px-6 sm:py-6 sm:pb-28 xl:pb-6">
-                <div className="xl:hidden">
-                  <div className="mb-4 rounded-2xl border border-[#E5E7EB] bg-white p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">Tool controls</p>
-                        <p className="text-sm font-medium leading-6 text-slate-500">Open settings to adjust pages and export options.</p>
-                      </div>
-                      <button className="secondary-button h-10 gap-2" onClick={() => setMobileSettingsOpen(true)} type="button">
-                        <Settings2 className="h-4 w-4" />
-                        Open
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-24 sm:px-6 sm:py-6 lg:pb-6">
                 {renderCenter}
               </div>
             </>
@@ -412,26 +400,26 @@ export function PDFWorkspace({
           )}
         </div>
 
-        <aside className="hidden w-full shrink-0 flex-col border-t border-[#E5E7EB] bg-white xl:flex xl:w-[340px] xl:border-l xl:border-t-0">
+        <aside className="hidden w-full shrink-0 flex-col border-l border-[#E5E7EB] bg-white lg:flex lg:w-[360px]">
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
-            <div className="space-y-1.5 pb-6">
-              <h1 className="text-[24px] font-bold leading-none text-slate-900">{breadcrumbTitle}</h1>
-              <p className="text-[14px] font-medium leading-6 text-slate-500">{description}</p>
+            <div className="mb-5 space-y-1">
+              <h1 className="text-[22px] font-bold leading-tight text-slate-900">{breadcrumbTitle}</h1>
+              <p className="text-[13px] font-medium leading-5 text-slate-500">{description}</p>
             </div>
             {rightPanel}
           </div>
 
-          <div className="sticky bottom-0 border-t border-[#E5E7EB] bg-white p-5">
+          <div className="border-t border-[#E5E7EB] bg-white p-5">
             <button
               className="primary-button h-11 w-full text-[15px]"
               disabled={processButtonDisabled}
               onClick={onProcess}
               type="button"
             >
-              Process
+              {processButtonLabel}
             </button>
-            <div className="mt-3 space-y-1 text-center text-xs text-slate-500">
-              <p>{estimatedTime ?? "Estimated processing time updates after upload"}</p>
+            <div className="mt-2 space-y-0.5 text-center text-xs text-slate-400">
+              <p>{estimatedTime ?? "Estimated time updates after upload"}</p>
               <p>Files deleted after 24 hours</p>
             </div>
           </div>
@@ -439,14 +427,14 @@ export function PDFWorkspace({
 
         {hasContent ? (
           <>
-            <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E5E7EB] bg-white/95 p-4 backdrop-blur xl:hidden">
-              <button className="primary-button h-12 w-full" disabled={processButtonDisabled} onClick={onProcess} type="button">
-                Process
+            <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E5E7EB] bg-white/95 p-3 backdrop-blur lg:hidden">
+              <button className="primary-button h-11 w-full" disabled={processButtonDisabled} onClick={onProcess} type="button">
+                {processButtonLabel}
               </button>
             </div>
             <button
               aria-label="Open settings"
-              className="fixed bottom-20 right-4 z-30 inline-flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-600/30 xl:hidden"
+              className="fixed bottom-16 right-4 z-30 inline-flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-600/30 lg:hidden"
               onClick={() => setMobileSettingsOpen(true)}
               type="button"
             >
@@ -457,32 +445,49 @@ export function PDFWorkspace({
 
         <div
           className={[
-            "fixed inset-0 z-40 bg-slate-900/35 transition xl:hidden",
+            "fixed inset-0 z-40 bg-slate-900/35 transition lg:hidden",
             mobileSettingsOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
           ].join(" ")}
           onClick={() => setMobileSettingsOpen(false)}
         />
         <div
           className={[
-            "fixed inset-x-0 bottom-0 z-50 max-h-[82vh] rounded-t-[28px] bg-white transition xl:hidden",
+            "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] rounded-t-[24px] bg-white transition lg:hidden",
             mobileSettingsOpen ? "translate-y-0" : "translate-y-full",
           ].join(" ")}
         >
-          <div className="flex items-center justify-between border-b border-[#E5E7EB] px-4 py-4">
+          <div className="flex items-center justify-between border-b border-[#E5E7EB] px-5 py-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">{breadcrumbTitle} settings</h2>
-              <p className="text-sm font-medium text-slate-500">{description}</p>
+              <h2 className="text-base font-bold text-slate-900">{breadcrumbTitle}</h2>
+              <p className="text-[13px] font-medium text-slate-500">{description}</p>
             </div>
-            <button className="secondary-button h-10 w-10 p-0" onClick={() => setMobileSettingsOpen(false)} type="button">
+            <button
+              aria-label="Close settings"
+              className="secondary-button h-9 w-9 p-0"
+              onClick={() => setMobileSettingsOpen(false)}
+              type="button"
+            >
               <CloseIcon className="h-4 w-4" />
             </button>
           </div>
-          <div className="overflow-y-auto px-4 py-4 pb-28">{rightPanel}</div>
+          <div className="overflow-y-auto px-5 py-4 pb-24">
+            {rightPanel}
+            <div className="pt-5">
+              <button
+                className="primary-button h-11 w-full"
+                disabled={processButtonDisabled}
+                onClick={() => { onProcess?.(); setMobileSettingsOpen(false); }}
+                type="button"
+              >
+                {processButtonLabel}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       {uploadOverlay ? <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4">{uploadOverlay}</div> : null}
-      {downloadPanel ? <div className="fixed inset-x-4 bottom-24 z-40 xl:inset-x-auto xl:bottom-6 xl:right-6 xl:w-[360px]">{downloadPanel}</div> : null}
+      {downloadPanel ? <div className="fixed inset-x-4 bottom-20 z-40 lg:inset-x-auto lg:bottom-6 lg:right-6 lg:w-[360px]">{downloadPanel}</div> : null}
     </main>
   );
 }

@@ -8,7 +8,12 @@ import { Header } from "@/components/layout/Header";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isWorkspacePage = pathname.startsWith("/pdf/") || pathname.startsWith("/image/");
+  const isWorkspacePage =
+    pathname.startsWith("/pdf/") ||
+    pathname.startsWith("/image/") ||
+    pathname === "/convert" ||
+    pathname === "/compress" ||
+    pathname.startsWith("/tools/");
 
   return (
     <div className="flex min-h-screen flex-col bg-white">

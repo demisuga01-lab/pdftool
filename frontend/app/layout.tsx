@@ -31,6 +31,11 @@ export const metadata: Metadata = {
     description:
       "Free open-source PDF and image processing tools. Compress, merge, split, convert, OCR and more. No signup required. Files deleted within 24 hours.",
   },
+  icons: {
+    icon: [{ url: "/logo.png", type: "image/png" }],
+    shortcut: ["/logo.png"],
+    apple: [{ url: "/logo.png", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({

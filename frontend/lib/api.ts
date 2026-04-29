@@ -5,6 +5,9 @@ export type JobStatus = {
   progress?: number;
   output_path?: string;
   output_paths?: string[];
+  output_filename?: string;
+  media_type?: string;
+  extension?: string;
   queue_position?: number;
   estimated_seconds_remaining?: number;
   result?: any;
@@ -156,6 +159,7 @@ export async function getJobStatus(
   const normalizedStatus = normalizeStatus(String(data.status ?? "queued"));
   const outputPath = typeof data.output_path === "string" ? data.output_path : undefined;
   const outputPaths = Array.isArray(data.output_paths) ? data.output_paths.map((path) => String(path)) : undefined;
+  const outputFilename = typeof data.output_filename === "string" ? data.output_filename : undefined;
   const error = typeof data.error === "string" ? data.error : undefined;
 
   return {
@@ -165,6 +169,9 @@ export async function getJobStatus(
     progress: typeof data.progress === "number" ? data.progress : undefined,
     output_path: outputPath,
     output_paths: outputPaths,
+    output_filename: outputFilename,
+    media_type: typeof data.media_type === "string" ? data.media_type : undefined,
+    extension: typeof data.extension === "string" ? data.extension : undefined,
     queue_position: typeof data.queue_position === "number" ? data.queue_position : undefined,
     estimated_seconds_remaining:
       typeof data.estimated_seconds_remaining === "number" ? data.estimated_seconds_remaining : undefined,
