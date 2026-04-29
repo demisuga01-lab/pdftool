@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { ImageWorkspace, EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
+import { EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
+import { CompactWorkspaceShell, PreviewCard } from "@/components/workspace/WorkspaceShells";
 import { formatBytes, formatDimensions, joinMeta } from "@/lib/format";
 import { useSingleImagePreview } from "@/lib/workspace-data";
 
@@ -56,19 +57,21 @@ export default function ImageInfoPage() {
   const jsonValue = result ? JSON.stringify(result, null, 2) : "";
 
   return (
-    <ImageWorkspace
-      breadcrumbTitle="Image Info"
-      centerContent={
+    <CompactWorkspaceShell
+      title="Image Info"
+      preview={
         preview ? (
-          <div className="mx-auto max-w-4xl rounded-2xl border border-[#E5E7EB] bg-white p-6">
-            <div className="flex min-h-[520px] items-center justify-center rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-6">
-              <img
-                alt={file?.name ?? "Preview"}
-                className="max-h-[460px] max-w-full rounded-xl border border-[#E5E7EB] bg-white object-contain"
-                src={preview.dataUrl}
-              />
-            </div>
-          </div>
+          <PreviewCard
+            badges={[formatDimensions(preview.width, preview.height), formatBytes(preview.size), preview.format]}
+            description="Compact preview for metadata inspection."
+            title={file?.name ?? "Image"}
+          >
+            <img
+              alt={file?.name ?? "Preview"}
+              className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm"
+              src={preview.dataUrl}
+            />
+          </PreviewCard>
         ) : null
       }
       countLabel={preview ? formatDimensions(preview.width, preview.height) : undefined}
@@ -87,10 +90,16 @@ export default function ImageInfoPage() {
       fileInfo={preview ? joinMeta([formatBytes(preview.size), preview.format]) : undefined}
       fileName={file?.name}
       hasContent={Boolean(file)}
+      onFilesDropped={(files) => {
+        setFile(files[0] ?? null);
+        setResult(null);
+        setError(null);
+      }}
       onProcess={handleProcess}
       processButtonDisabled={!file || loading}
+      processButtonLabel="Inspect image"
       processingLabel={loading ? "Inspecting image" : null}
-      rightPanel={
+      settingsPanel={
         <div className="space-y-6">
           <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] leading-6 text-slate-500">
             {error ?? "Process the image to populate the metadata panel."}

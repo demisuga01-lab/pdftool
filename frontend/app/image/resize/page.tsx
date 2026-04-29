@@ -350,6 +350,7 @@ export default function ImageResizePage() {
         width: 1920,
         withoutEnlargement: true,
       }}
+      layoutKind="editor"
       presets={[
         { label: "1920x1080", values: { width: 1920, height: 1080 } },
         { label: "Fit 1280", values: { width: 1280, height: 720, fit: "inside", resizeMode: "fit-box" } },

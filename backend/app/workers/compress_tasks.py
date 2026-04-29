@@ -1,6 +1,8 @@
 import asyncio
 import logging
+import mimetypes
 import traceback
+from pathlib import Path
 from typing import Any, Awaitable
 
 from fastapi import HTTPException
@@ -16,6 +18,12 @@ def _task_id(task: Any) -> str:
 
 
 def _success(task: Any, **result: Any) -> dict[str, Any]:
+    output_path = result.get("output_path")
+    if output_path and not result.get("output_filename"):
+        path = Path(str(output_path))
+        result["output_filename"] = path.name
+        result["media_type"] = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        result["extension"] = path.suffix.lstrip(".")
     return {
         "task_id": _task_id(task),
         "status": "success",

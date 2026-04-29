@@ -1,89 +1,82 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Image as ImageIcon, Upload } from "lucide-react";
+import { FileText, Upload } from "lucide-react";
 
 import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
-import { EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
+import { EmptyPdfWorkspaceState } from "@/components/workspace/PDFWorkspace";
 import {
   WatermarkEditor,
   WatermarkPresetControls,
   type UploadedWatermarkAsset,
+  type WatermarkApplyMode,
   type WatermarkEditorState,
 } from "@/components/workspace/WatermarkEditor";
 import { VisualEditorWorkspaceShell } from "@/components/workspace/WorkspaceShells";
 import { estimateProcessingTime, formatBytes, slugifyBaseName } from "@/lib/format";
 import {
+  getPdfPagePreviewUrl,
   uploadFileToWorkspace,
   type UploadedFileMetadata,
   type UploadProgressHandler,
 } from "@/lib/files";
 import { useWorkspaceJob } from "@/lib/workspace-job";
-import { uploadedFileDetails, uploadedFileSummary, useObjectState } from "@/lib/workspace-data";
+import { uploadedFileDetails, uploadedFileSummary, useObjectState, useUploadedPdfPageItems } from "@/lib/workspace-data";
 
-type ImageWatermarkSettings = WatermarkEditorState & {
+type PdfWatermarkSettings = WatermarkEditorState & {
   outputFilename: string;
 };
 
-const initialSettings: ImageWatermarkSettings = {
-  applyMode: "current",
+const initialSettings: PdfWatermarkSettings = {
+  applyMode: "all",
   bold: true,
-  color: "#ffffff",
-  fontFamily: "Arial",
-  fontSize: 48,
+  color: "#64748b",
+  fontFamily: "Helvetica",
+  fontSize: 54,
   italic: false,
-  opacity: 70,
+  opacity: 35,
   outputFilename: "",
   pageRange: "",
-  positionPreset: "bottom-right",
-  rotation: 0,
+  positionPreset: "diagonal-center",
+  rotation: -35,
   selectedPages: "",
-  text: "PDFTools by WellFriend",
+  text: "Confidential",
   type: "text",
-  widthPercent: 22,
-  xPercent: 82,
-  yPercent: 84,
+  widthPercent: 26,
+  xPercent: 50,
+  yPercent: 50,
 };
 
-function StatusCard({
-  error,
-  fileReady,
-  jobState,
+function ApplyModeButton({
+  active,
+  label,
+  onClick,
 }: {
-  error?: string | null;
-  fileReady: boolean;
-  jobState: "idle" | "uploading" | "queued" | "processing" | "success" | "failure";
+  active: boolean;
+  label: string;
+  onClick: () => void;
 }) {
-  const failure = Boolean(error) || jobState === "failure";
-  const success = jobState === "success";
   return (
-    <div
+    <button
       className={[
-        "rounded-xl border px-4 py-3 text-[13px] font-medium leading-6",
-        failure
-          ? "border-rose-200 bg-rose-50 text-rose-700"
-          : success
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-            : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-500",
+        "min-h-10 rounded-lg border px-3 text-sm font-semibold",
+        active ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]" : "border-slate-200 bg-white text-slate-600",
       ].join(" ")}
+      onClick={onClick}
+      type="button"
     >
-      {failure
-        ? error ?? "Watermark failed."
-        : success
-          ? "Watermarked image is ready to download."
-          : fileReady
-            ? "Drag the watermark on the image or tune the controls below."
-            : "Upload an image to start watermarking."}
-    </div>
+      {label}
+    </button>
   );
 }
 
-export default function ImageWatermarkPage() {
+export default function PdfWatermarkPage() {
   const uploadAbortRef = useRef<AbortController | null>(null);
   const assetAbortRef = useRef<AbortController | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [fileMeta, setFileMeta] = useState<UploadedFileMetadata | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [uploadState, setUploadState] = useState<"idle" | "uploading" | "failure">("idle");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadPercent, setUploadPercent] = useState(0);
@@ -93,16 +86,17 @@ export default function ImageWatermarkPage() {
   const [uploadTotalBytes, setUploadTotalBytes] = useState(0);
   const [asset, setAsset] = useState<UploadedWatermarkAsset | null>(null);
   const [assetError, setAssetError] = useState<string | null>(null);
-  const { state: settings, setState } = useObjectState<ImageWatermarkSettings>(initialSettings);
+  const { state: settings, setState } = useObjectState<PdfWatermarkSettings>(initialSettings);
+  const { pageCount } = useUploadedPdfPageItems(fileMeta?.file_id ?? null, Number(fileMeta?.metadata?.page_count ?? fileMeta?.pages ?? 0));
 
-  const outputExtension = fileMeta?.extension || file?.name.split(".").pop() || "png";
+  const outputName = file ? `${settings.outputFilename.trim() || `${slugifyBaseName(file.name)}-watermarked`}.pdf` : "watermarked.pdf";
   const job = useWorkspaceJob({
-    filename: file ? `${settings.outputFilename.trim() || `${slugifyBaseName(file.name)}-watermarked`}.${outputExtension}` : "watermarked.png",
-    prefix: "image",
+    filename: outputName,
+    prefix: "pdf",
   });
 
   const updateSettings = useCallback(
-    (patch: Partial<WatermarkEditorState> | Partial<ImageWatermarkSettings>) => {
+    (patch: Partial<WatermarkEditorState> | Partial<PdfWatermarkSettings>) => {
       setState((current) => ({ ...current, ...patch }));
     },
     [setState],
@@ -144,6 +138,7 @@ export default function ImageWatermarkPage() {
       uploadAbortRef.current = controller;
       setFile(nextFile);
       setFileMeta(null);
+      setCurrentPage(1);
       setUploadState("uploading");
       setUploadError(null);
       setUploadPercent(0);
@@ -211,38 +206,39 @@ export default function ImageWatermarkPage() {
       formData.append("uploaded_watermark_file_id", asset.fileId);
     }
     formData.append("opacity", String(settings.opacity / 100));
-    formData.append("position_preset", settings.positionPreset);
-    formData.append("position", settings.positionPreset);
+    formData.append("rotation", String(settings.rotation));
     formData.append("x_percent", String(settings.xPercent));
     formData.append("y_percent", String(settings.yPercent));
     formData.append("width_percent", String(settings.widthPercent));
     formData.append("font_size", String(settings.fontSize));
     formData.append("font_color", settings.color);
-    formData.append("font_weight", settings.bold ? "bold" : "normal");
     formData.append("font_family", settings.fontFamily);
+    formData.append("bold", String(settings.bold));
     formData.append("italic", String(settings.italic));
-    formData.append("rotation", String(settings.rotation));
+    formData.append("apply_to", settings.applyMode);
+    formData.append("selected_pages", settings.selectedPages);
+    formData.append("page_range", settings.pageRange);
+    formData.append("current_page", String(currentPage));
+    formData.append("position_preset", settings.positionPreset);
     formData.append("tile", String(settings.positionPreset === "tiled"));
     formData.append("output_filename", settings.outputFilename.trim());
-    job.process("image/watermark", formData);
+    job.process("pdf/watermark", formData);
   };
 
   const fileReady = Boolean(fileMeta);
-  const baseSrc = fileMeta?.preview_url ?? "";
+  const totalPages = Math.max(pageCount || Number(fileMeta?.metadata?.page_count ?? fileMeta?.pages ?? 1), 1);
+  const baseSrc = fileMeta ? getPdfPagePreviewUrl(fileMeta.file_id, currentPage, 100) : "";
+  const statusError = uploadError ?? assetError ?? job.error;
 
   return (
     <VisualEditorWorkspaceShell
-      countLabel={
-        typeof fileMeta?.metadata?.width === "number" && typeof fileMeta?.metadata?.height === "number"
-          ? `${fileMeta.metadata.width} x ${fileMeta.metadata.height} px`
-          : undefined
-      }
-      description="Create a text or image watermark, place it visually, then export the watermarked image."
+      countLabel={fileMeta ? `${totalPages} pages` : undefined}
+      description="Create text or image watermarks, place them visually, and apply them across selected PDF pages."
       downloadPanel={
         fileMeta && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
           <DownloadPanel
             error={job.error}
-            estimatedTime={estimateProcessingTime(fileMeta.size_bytes, 1)}
+            estimatedTime={estimateProcessingTime(fileMeta.size_bytes, totalPages)}
             jobId={job.jobId}
             onDownload={job.state === "success" ? job.download : undefined}
             onProcessAnother={() => {
@@ -262,23 +258,25 @@ export default function ImageWatermarkPage() {
             asset={asset}
             baseAlt={fileMeta.original_name}
             baseSrc={baseSrc}
+            currentPage={currentPage}
             onAssetSelected={handleAssetSelected}
             onChange={updateSettings}
+            onPageChange={setCurrentPage}
             onRemoveAsset={() => setAsset(null)}
+            pageCount={totalPages}
             state={settings}
           />
         ) : null
       }
       emptyState={
-        <EmptyWorkspaceState
-          accept="image/*"
-          description="Upload an image to create a draggable text or logo watermark."
+        <EmptyPdfWorkspaceState
+          description="Upload a PDF to place a draggable text or logo watermark."
           onFilesSelected={(files) => {
             void handleFilesSelected(files);
           }}
         />
       }
-      estimatedTime={fileMeta ? estimateProcessingTime(fileMeta.size_bytes, 1) : undefined}
+      estimatedTime={fileMeta ? estimateProcessingTime(fileMeta.size_bytes, totalPages) : undefined}
       fileInfo={uploadedFileSummary(fileMeta)}
       fileName={fileMeta?.original_name ?? file?.name}
       hasContent={fileReady}
@@ -305,7 +303,25 @@ export default function ImageWatermarkPage() {
       }
       propertiesPanel={
         <div className="space-y-6">
-          <StatusCard error={uploadError ?? assetError ?? job.error} fileReady={fileReady} jobState={uploadState === "uploading" ? "uploading" : job.state} />
+          <div
+            className={[
+              "rounded-xl border px-4 py-3 text-[13px] font-medium leading-6",
+              statusError || job.state === "failure"
+                ? "border-rose-200 bg-rose-50 text-rose-700"
+                : job.state === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-[#E5E7EB] bg-[#F9FAFB] text-slate-500",
+            ].join(" ")}
+          >
+            {statusError
+              ? statusError
+              : job.state === "success"
+                ? "Watermarked PDF is ready to download."
+                : fileReady
+                  ? "Drag the watermark on the preview. Default export applies to all pages."
+                  : "Upload a PDF to start watermarking."}
+          </div>
+
           <WatermarkPresetControls onChange={updateSettings} state={settings} />
 
           {settings.type === "image" ? (
@@ -327,6 +343,41 @@ export default function ImageWatermarkPage() {
               ) : null}
             </div>
           ) : null}
+
+          <div className="space-y-4 border-t border-[#E5E7EB] pt-6">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Apply to pages</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ["all", "All pages"],
+                ["current", "Current page"],
+                ["selected", "Selected pages"],
+                ["range", "Page range"],
+              ].map(([value, label]) => (
+                <ApplyModeButton
+                  active={settings.applyMode === value}
+                  key={value}
+                  label={label}
+                  onClick={() => updateSettings({ applyMode: value as WatermarkApplyMode })}
+                />
+              ))}
+            </div>
+            {settings.applyMode === "selected" ? (
+              <input
+                className="field-input"
+                onChange={(event) => updateSettings({ selectedPages: event.target.value })}
+                placeholder="1,3,5-8"
+                value={settings.selectedPages}
+              />
+            ) : null}
+            {settings.applyMode === "range" ? (
+              <input
+                className="field-input"
+                onChange={(event) => updateSettings({ pageRange: event.target.value })}
+                placeholder="1,3,5-8"
+                value={settings.pageRange}
+              />
+            ) : null}
+          </div>
 
           <div className="space-y-4 border-t border-[#E5E7EB] pt-6">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Text and style</p>
@@ -395,21 +446,21 @@ export default function ImageWatermarkPage() {
             <input
               className="field-input"
               onChange={(event) => updateSettings({ outputFilename: event.target.value })}
-              placeholder="watermarked-image"
+              placeholder="watermarked-pdf"
               value={settings.outputFilename}
             />
             <div className="flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-3 py-3 text-sm text-slate-600">
-              <ImageIcon className="h-4 w-4 text-slate-400" />
-              Applies to the current image.
+              <FileText className="h-4 w-4 text-slate-400" />
+              Default: apply to all pages.
             </div>
           </div>
         </div>
       }
-      title="Watermark Image"
+      title="Watermark PDF"
       uploadOverlay={
         file && uploadState === "uploading" ? (
           <UploadProgress
-            fileLabel="Uploading image"
+            fileLabel="Uploading PDF"
             fileName={file.name}
             fileSize={file.size}
             onCancel={() => uploadAbortRef.current?.abort()}

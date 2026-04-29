@@ -14,7 +14,7 @@ from app.core.config import Settings
 from app.core.dependencies import get_app_settings, validate_upload_file_size
 from app.core.dependencies import validate_upload_files_size
 from app.services.file_store import resolve_upload_path
-from app.services.image_service import ImageService
+from app.services.image_service import IMAGE_OUTPUT_FORMAT_ERROR, ImageService, normalize_image_output_format
 from app.workers.celery_app import celery_app
 from app.workers.image_tasks import (
     batch_resize_task,
@@ -42,17 +42,13 @@ def _queued_response(job_id: str, message: str) -> dict[str, str]:
 
 
 def _extension_from_format(format: str | None, fallback: str | None = None) -> str:
-    normalized = (format or "").lower().lstrip(".")
+    normalized = normalize_image_output_format(format)
     if normalized in {"", "auto"}:
-        normalized = (fallback or "jpg").lower().lstrip(".")
-    if normalized == "jpeg":
-        normalized = "jpg"
-    if normalized == "tif":
-        normalized = "tiff"
+        normalized = normalize_image_output_format(fallback or "jpg")
     if normalized not in {"jpg", "png", "webp", "tiff", "avif", "bmp", "pdf", "eps"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="format must be one of: auto, jpg, png, webp, tiff, avif, bmp, pdf, eps",
+            detail=IMAGE_OUTPUT_FORMAT_ERROR,
         )
     return f".{normalized}"
 
@@ -62,21 +58,24 @@ def _safe_suffix(filename: str | None, fallback: str = ".jpg") -> str:
     return suffix if suffix else fallback
 
 
+def _safe_stem(value: str | None, fallback_stem: str) -> str:
+    stem = Path(str(value or "").strip()).stem
+    safe = "".join(char if char.isalnum() or char in "._-" else "-" for char in stem).strip(".-")
+    fallback = "".join(char if char.isalnum() or char in "._-" else "-" for char in fallback_stem).strip(".-")
+    return safe or fallback or "output"
+
+
 def _output_path(settings: Settings, suffix: str = ".jpg", requested_name: str | None = None, fallback_stem: str = "output") -> Path:
     settings.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     if requested_name and requested_name.strip():
-        candidate = Path(requested_name.strip()).name
-        stem = Path(candidate).stem or fallback_stem
-        return settings.OUTPUT_DIR / f"{stem}{suffix}"
+        return settings.OUTPUT_DIR / f"{_safe_stem(requested_name, fallback_stem)}{suffix}"
     return settings.OUTPUT_DIR / f"{uuid4().hex}{suffix}"
 
 
 def _safe_output_name(value: str, fallback_stem: str, suffix: str) -> Path:
     if not value.strip():
         return Path(f"{uuid4().hex}{suffix}")
-    candidate = Path(value.strip()).name
-    stem = Path(candidate).stem or fallback_stem
-    return Path(f"{stem}{suffix}")
+    return Path(f"{_safe_stem(value, fallback_stem)}{suffix}")
 
 
 def _output_dir(settings: Settings) -> Path:
@@ -405,32 +404,60 @@ async def rotate_image(
 @router.post("/watermark")
 async def watermark_image(
     settings: AppSettings,
-    text: Annotated[str, Form()],
+    text: Annotated[str, Form()] = "",
     file: Annotated[UploadFile | None, File()] = None,
     file_id: Annotated[str | None, Form()] = None,
+    watermark_file: Annotated[UploadFile | None, File()] = None,
+    uploaded_watermark_file_id: Annotated[str | None, Form()] = None,
+    watermark_file_id: Annotated[str | None, Form()] = None,
+    watermark_type: Annotated[str, Form()] = "text",
     opacity: Annotated[float, Form()] = 0.5,
     position: Annotated[str, Form()] = "bottom-right",
+    position_preset: Annotated[str, Form()] = "",
     x_percent: Annotated[float | None, Form()] = None,
     y_percent: Annotated[float | None, Form()] = None,
+    width_percent: Annotated[float, Form()] = 22,
+    height_percent: Annotated[float | None, Form()] = None,
+    scale: Annotated[float | None, Form()] = None,
+    rotation: Annotated[float, Form()] = 0,
     font_size: Annotated[int, Form()] = 36,
     font_color: Annotated[str, Form()] = "#ffffff",
     font_weight: Annotated[str, Form()] = "bold",
+    font_family: Annotated[str, Form()] = "Arial",
+    italic: Annotated[bool, Form()] = False,
+    tile: Annotated[bool, Form()] = False,
+    output_filename: Annotated[str, Form()] = "",
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
     original_name = file.filename if file is not None else input_path.name
-    output_path = _output_path(settings, _safe_suffix(original_name))
+    output_path = _output_path(settings, _safe_suffix(original_name), output_filename, Path(original_name).stem)
+    watermark_path: Path | None = None
+    asset_id = uploaded_watermark_file_id or watermark_file_id
+    if asset_id:
+        watermark_path = resolve_upload_path(asset_id, settings)
+    elif watermark_file is not None:
+        _validate_optional_upload_size(watermark_file, settings)
+        watermark_path = await _save_upload(watermark_file, settings)
     task = watermark_image_task.apply_async(
         args=[
             str(input_path),
             str(output_path),
+            watermark_type,
             text,
+            str(watermark_path) if watermark_path else None,
             opacity,
-            position,
+            position_preset or position,
             x_percent,
             y_percent,
+            width_percent if scale is None else width_percent * scale,
+            height_percent,
             font_size,
             font_color,
             font_weight,
+            font_family,
+            italic,
+            rotation,
+            tile,
         ],
         queue="fast",
     )
@@ -529,6 +556,9 @@ async def get_status(job_id: str) -> dict[str, Any]:
             response["progress"] = result.get("progress", 100)
             response["output_path"] = result.get("output_path")
             response["output_paths"] = result.get("output_paths")
+            response["output_filename"] = result.get("output_filename")
+            response["media_type"] = result.get("media_type")
+            response["extension"] = result.get("extension")
             response["result"] = result.get("result")
             response["error"] = result.get("error")
             response["traceback"] = result.get("traceback")

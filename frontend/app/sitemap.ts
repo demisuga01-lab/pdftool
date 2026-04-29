@@ -14,6 +14,7 @@ const routes = [
   "/pdf/merge",
   "/pdf/split",
   "/pdf/rotate",
+  "/pdf/watermark",
   "/pdf/extract-text",
   "/pdf/to-images",
   "/pdf/images-to-pdf",

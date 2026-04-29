@@ -9,6 +9,7 @@ import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
 import { EmptyWorkspaceState, ImageWorkspace } from "@/components/workspace/ImageWorkspace";
 import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
+import { CompactWorkspaceShell, PreviewCard } from "@/components/workspace/WorkspaceShells";
 import {
   EmptyPdfWorkspaceState,
   PDFWorkspace,
@@ -364,6 +365,7 @@ type SinglePdfWorkspacePageProps<T extends Record<string, unknown>> = {
   endpoint: string;
   idleStatusText?: string;
   initialSettings: T;
+  layoutKind?: "compact" | "editor";
   presets?: Array<PresetButton<T>>;
   processDisabled?: (args: { file: File | null; items: PdfPageCard[]; settings: T }) => boolean;
   renderCenter?: (args: {
@@ -418,6 +420,7 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
   endpoint,
   idleStatusText = "Upload a PDF to start configuring this workspace.",
   initialSettings,
+  layoutKind = "compact",
   presets = [],
   processDisabled,
   renderCenter,
@@ -581,39 +584,139 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
 
   const disabled = processDisabled?.({ file: currentFile, items, settings }) ?? !fileMeta;
   const selectedPages = selectedPagesLabel(items);
+  const downloadPanelContent =
+    fileMeta && currentFile && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
+      <DownloadPanel
+        error={job.error}
+        estimatedTime={estimateProcessingTime(fileMeta.size_bytes, pageCount)}
+        jobId={job.jobId}
+        onDownload={job.state === "success" ? job.download : undefined}
+        onProcessAnother={() => {
+          setFile(null);
+          setFileMeta(null);
+          setItems([]);
+          job.reset();
+          syncFileQuery(null);
+        }}
+        onReedit={job.dismissPanel}
+        state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
+      />
+    ) : null;
+  const emptyStateContent = (
+    <EmptyPdfWorkspaceState
+      description={emptyDescription}
+      onFilesSelected={(files) => {
+        void handleFilesSelected(files);
+      }}
+    />
+  );
+  const rightPanelContent = (
+    <div className="space-y-6">
+      <SidebarStatus
+        error={uploadError ?? job.error}
+        idleText={previewError ?? idleStatusText}
+        state={uploadState === "failure" ? "failure" : job.state}
+      />
+      <PresetRow onApply={merge} presets={presets} />
+      <WorkspaceControls sections={sections} state={settings} update={update} />
+      {rightPanelFooter}
+    </div>
+  );
+  const processingLabel =
+    uploadState === "uploading"
+      ? "Uploading file"
+      : uploadState === "failure"
+        ? uploadError ?? "Upload failed"
+        : job.processingLabel;
+  const uploadOverlayContent =
+    file && uploadState === "uploading" ? (
+      <UploadProgress
+        fileLabel="Uploading file"
+        fileName={file.name}
+        fileSize={file.size}
+        onCancel={() => uploadAbortRef.current?.abort()}
+        percent={uploadPercent}
+        remainingSecs={uploadRemainingSecs}
+        speedKBs={uploadSpeedKBs}
+        totalBytes={uploadTotalBytes}
+        uploadedBytes={uploadedBytes}
+      />
+    ) : null;
+
+  if (layoutKind === "compact") {
+    const compactPreview = fileMeta ? (
+      renderCenter ? (
+        renderCenter({
+          file: currentFile ?? fileFromMetadata(fileMeta),
+          items,
+          pageCount,
+          selectedPages,
+          setItems,
+          settings,
+          update,
+        })
+      ) : (
+        <PreviewCard
+          badges={[
+            pageCount > 0 ? `${pageCount} pages` : "PDF",
+            formatBytes(fileMeta.size_bytes),
+            fileMeta.metadata?.encrypted ? "Encrypted" : undefined,
+          ].filter(Boolean) as string[]}
+          description="Compact preview for this PDF job."
+          title={fileMeta.original_name ?? currentFile?.name ?? "Uploaded PDF"}
+        >
+          <img
+            alt={`Preview of ${fileMeta.original_name}`}
+            className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm"
+            onError={(event) => {
+              event.currentTarget.style.display = "none";
+            }}
+            src={getPdfPagePreviewUrl(fileMeta.file_id, 1, 100)}
+          />
+        </PreviewCard>
+      )
+    ) : null;
+
+    return (
+      <CompactWorkspaceShell
+        countLabel={pageCount > 0 ? `${pageCount} pages` : undefined}
+        description={description}
+        downloadPanel={downloadPanelContent}
+        emptyState={emptyStateContent}
+        estimatedTime={fileMeta ? estimateProcessingTime(fileMeta.size_bytes, pageCount) : undefined}
+        fileInfo={uploadedFileSummary(fileMeta, previewError ?? undefined)}
+        fileName={fileMeta?.original_name ?? file?.name}
+        hasContent={Boolean(fileMeta)}
+        infoContent={fileInfoContent(fileMeta)}
+        onDownload={job.state === "success" ? job.download : undefined}
+        onFilesDropped={(files) => {
+          void handleFilesSelected(files);
+        }}
+        onProcess={handleProcess}
+        onReset={() => {
+          setFile(null);
+          setFileMeta(null);
+          setItems([]);
+          job.reset();
+          syncFileQuery(null);
+        }}
+        preview={compactPreview}
+        processButtonDisabled={disabled}
+        processingLabel={processingLabel}
+        settingsPanel={rightPanelContent}
+        title={title}
+        uploadOverlay={uploadOverlayContent}
+      />
+    );
+  }
 
   return (
     <PDFWorkspace
       breadcrumbTitle={title}
       countLabel={pageCount > 0 ? `${pageCount} pages` : undefined}
       description={description}
-      downloadPanel={
-        fileMeta && currentFile && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
-          <DownloadPanel
-            error={job.error}
-            estimatedTime={estimateProcessingTime(fileMeta.size_bytes, pageCount)}
-            jobId={job.jobId}
-            onDownload={job.state === "success" ? job.download : undefined}
-            onProcessAnother={() => {
-              setFile(null);
-              setFileMeta(null);
-              setItems([]);
-              job.reset();
-              syncFileQuery(null);
-            }}
-            onReedit={job.dismissPanel}
-            state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
-          />
-        ) : null
-      }
-      emptyState={
-        <EmptyPdfWorkspaceState
-          description={emptyDescription}
-          onFilesSelected={(files) => {
-            void handleFilesSelected(files);
-          }}
-        />
-      }
+      downloadPanel={downloadPanelContent}
+      emptyState={emptyStateContent}
       estimatedTime={fileMeta ? estimateProcessingTime(fileMeta.size_bytes, pageCount) : undefined}
       fileInfo={uploadedFileSummary(fileMeta, previewError ?? undefined)}
       fileName={fileMeta?.original_name ?? file?.name}
@@ -631,13 +734,7 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
       }}
       onSelectAll={selectAll}
       processButtonDisabled={disabled}
-      processingLabel={
-        uploadState === "uploading"
-          ? "Uploading file"
-          : uploadState === "failure"
-            ? uploadError ?? "Upload failed"
-            : job.processingLabel
-      }
+      processingLabel={processingLabel}
       renderCenter={
         fileMeta ? (
           renderCenter ? (
@@ -655,38 +752,13 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
           )
         ) : null
       }
-      rightPanel={
-        <div className="space-y-6">
-          <SidebarStatus
-            error={uploadError ?? job.error}
-            idleText={previewError ?? idleStatusText}
-            state={uploadState === "failure" ? "failure" : job.state}
-          />
-          <PresetRow onApply={merge} presets={presets} />
-          <WorkspaceControls sections={sections} state={settings} update={update} />
-          {rightPanelFooter}
-        </div>
-      }
+      rightPanel={rightPanelContent}
       selectAllChecked={allSelected}
       setSize={setSize}
       showSelectionBar={showSelectionBar}
       showSizeToggle={showSizeToggle}
       size={size}
-      uploadOverlay={
-        file && uploadState === "uploading" ? (
-          <UploadProgress
-            fileLabel="Uploading file"
-            fileName={file.name}
-            fileSize={file.size}
-            onCancel={() => uploadAbortRef.current?.abort()}
-            percent={uploadPercent}
-            remainingSecs={uploadRemainingSecs}
-            speedKBs={uploadSpeedKBs}
-            totalBytes={uploadTotalBytes}
-            uploadedBytes={uploadedBytes}
-          />
-        ) : null
-      }
+      uploadOverlay={uploadOverlayContent}
     />
   );
 }
@@ -700,6 +772,7 @@ type SingleImageWorkspacePageProps<T extends Record<string, unknown>> = {
   endpoint: string;
   idleStatusText?: string;
   initialSettings: T;
+  layoutKind?: "compact" | "editor";
   presets?: Array<PresetButton<T>>;
   processDisabled?: (args: { file: File | null; settings: T }) => boolean;
   renderCenter?: (args: {
@@ -722,6 +795,7 @@ export function SingleImageWorkspacePage<T extends Record<string, unknown>>({
   endpoint,
   idleStatusText = "Upload an image to start configuring this workspace.",
   initialSettings,
+  layoutKind = "compact",
   presets = [],
   processDisabled,
   renderCenter,
@@ -889,6 +963,121 @@ export function SingleImageWorkspacePage<T extends Record<string, unknown>>({
     window.localStorage.setItem(workspaceSettingsKey(endpoint, fileMeta.file_id), JSON.stringify(settings));
   }, [endpoint, fileMeta?.file_id, settings]);
 
+  const downloadPanelContent =
+    fileMeta && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
+      <DownloadPanel
+        error={job.error}
+        estimatedTime={estimateProcessingTime(fileMeta.size_bytes, 1)}
+        jobId={job.jobId}
+        onDownload={job.state === "success" ? job.download : undefined}
+        onProcessAnother={() => {
+          setFile(null);
+          setFileMeta(null);
+          job.reset();
+          syncFileQuery(null);
+        }}
+        onReedit={job.dismissPanel}
+        state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
+      />
+    ) : null;
+  const emptyStateContent = (
+    <EmptyWorkspaceState
+      accept={accept}
+      description={emptyDescription}
+      onFilesSelected={(files) => {
+        void handleFilesSelected(files);
+      }}
+    />
+  );
+  const rightPanelContent = (
+    <div className="space-y-6">
+      <SidebarStatus
+        error={uploadError ?? job.error}
+        idleText={idleStatusText}
+        state={uploadState === "failure" ? "failure" : job.state}
+      />
+      <PresetRow onApply={merge} presets={presets} />
+      <WorkspaceControls sections={sections} state={settings} update={update} />
+      {rightPanelFooter}
+    </div>
+  );
+  const processingLabel =
+    uploadState === "uploading"
+      ? "Uploading file"
+      : uploadState === "failure"
+        ? uploadError ?? "Upload failed"
+        : job.processingLabel;
+  const uploadOverlayContent =
+    file && uploadState === "uploading" ? (
+      <UploadProgress
+        fileLabel="Uploading file"
+        fileName={file.name}
+        fileSize={file.size}
+        onCancel={() => uploadAbortRef.current?.abort()}
+        percent={uploadPercent}
+        remainingSecs={uploadRemainingSecs}
+        speedKBs={uploadSpeedKBs}
+        totalBytes={uploadTotalBytes}
+        uploadedBytes={uploadedBytes}
+      />
+    ) : null;
+
+  if (layoutKind === "compact") {
+    const compactPreview =
+      fileMeta && (
+        renderCenter ? (
+          renderCenter({ file: currentFile ?? fileFromMetadata(fileMeta), preview, settings, update })
+        ) : preview ? (
+          <PreviewCard
+            badges={[
+              preview.width > 0 && preview.height > 0 ? `${preview.width} x ${preview.height} px` : undefined,
+              formatBytes(fileMeta.size_bytes),
+              fileMeta.extension.toUpperCase(),
+            ].filter(Boolean) as string[]}
+            description="Compact preview for this image job."
+            title={fileMeta.original_name ?? currentFile?.name ?? "Uploaded image"}
+          >
+            <img
+              alt={fileMeta.original_name}
+              className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm"
+              src={preview.dataUrl}
+            />
+          </PreviewCard>
+        ) : null
+      );
+
+    return (
+      <CompactWorkspaceShell
+        countLabel={preview && preview.width > 0 && preview.height > 0 ? `${preview.width} x ${preview.height} px` : undefined}
+        description={description}
+        downloadPanel={downloadPanelContent}
+        emptyState={emptyStateContent}
+        estimatedTime={fileMeta ? estimateProcessingTime(fileMeta.size_bytes, 1) : undefined}
+        fileInfo={uploadedFileSummary(fileMeta) ?? imageSummary(preview)}
+        fileName={fileMeta?.original_name ?? file?.name}
+        hasContent={Boolean(fileMeta)}
+        infoContent={fileInfoContent(fileMeta)}
+        onDownload={job.state === "success" ? job.download : undefined}
+        onFilesDropped={(files) => {
+          void handleFilesSelected(files);
+        }}
+        onProcess={handleProcess}
+        onReset={() => {
+          setFile(null);
+          setFileMeta(null);
+          job.reset();
+          syncFileQuery(null);
+        }}
+        preview={compactPreview}
+        processButtonDisabled={processDisabled?.({ file: currentFile, settings }) ?? !fileMeta}
+        processingLabel={processingLabel}
+        settingsPanel={rightPanelContent}
+        title={title}
+        uploadOverlay={uploadOverlayContent}
+      />
+    );
+  }
+
   return (
     <ImageWorkspace
       breadcrumbTitle={title}
@@ -903,33 +1092,8 @@ export function SingleImageWorkspacePage<T extends Record<string, unknown>>({
       }
       countLabel={preview && preview.width > 0 && preview.height > 0 ? `${preview.width} x ${preview.height} px` : undefined}
       description={description}
-      downloadPanel={
-        fileMeta && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
-          <DownloadPanel
-            error={job.error}
-            estimatedTime={estimateProcessingTime(fileMeta.size_bytes, 1)}
-            jobId={job.jobId}
-            onDownload={job.state === "success" ? job.download : undefined}
-            onProcessAnother={() => {
-              setFile(null);
-              setFileMeta(null);
-              job.reset();
-              syncFileQuery(null);
-            }}
-            onReedit={job.dismissPanel}
-            state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
-          />
-        ) : null
-      }
-      emptyState={
-        <EmptyWorkspaceState
-          accept={accept}
-          description={emptyDescription}
-          onFilesSelected={(files) => {
-            void handleFilesSelected(files);
-          }}
-        />
-      }
+      downloadPanel={downloadPanelContent}
+      emptyState={emptyStateContent}
       estimatedTime={fileMeta ? estimateProcessingTime(fileMeta.size_bytes, 1) : undefined}
       fileInfo={uploadedFileSummary(fileMeta) ?? imageSummary(preview)}
       fileName={fileMeta?.original_name ?? file?.name}
@@ -944,40 +1108,9 @@ export function SingleImageWorkspacePage<T extends Record<string, unknown>>({
         syncFileQuery(null);
       }}
       processButtonDisabled={processDisabled?.({ file: currentFile, settings }) ?? !fileMeta}
-      processingLabel={
-        uploadState === "uploading"
-          ? "Uploading file"
-          : uploadState === "failure"
-            ? uploadError ?? "Upload failed"
-            : job.processingLabel
-      }
-      rightPanel={
-        <div className="space-y-6">
-          <SidebarStatus
-            error={uploadError ?? job.error}
-            idleText={idleStatusText}
-            state={uploadState === "failure" ? "failure" : job.state}
-          />
-          <PresetRow onApply={merge} presets={presets} />
-          <WorkspaceControls sections={sections} state={settings} update={update} />
-          {rightPanelFooter}
-        </div>
-      }
-      uploadOverlay={
-        file && uploadState === "uploading" ? (
-          <UploadProgress
-            fileLabel="Uploading file"
-            fileName={file.name}
-            fileSize={file.size}
-            onCancel={() => uploadAbortRef.current?.abort()}
-            percent={uploadPercent}
-            remainingSecs={uploadRemainingSecs}
-            speedKBs={uploadSpeedKBs}
-            totalBytes={uploadTotalBytes}
-            uploadedBytes={uploadedBytes}
-          />
-        ) : null
-      }
+      processingLabel={processingLabel}
+      rightPanel={rightPanelContent}
+      uploadOverlay={uploadOverlayContent}
     />
   );
 }

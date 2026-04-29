@@ -183,6 +183,9 @@ async def get_status(job_id: str) -> dict[str, Any]:
             response["progress"] = result.get("progress", 100)
             response["output_path"] = result.get("output_path")
             response["output_paths"] = result.get("output_paths")
+            response["output_filename"] = result.get("output_filename")
+            response["media_type"] = result.get("media_type")
+            response["extension"] = result.get("extension")
             response["result"] = result.get("result") or {
                 "original_size": result.get("original_size"),
                 "output_size": result.get("output_size"),

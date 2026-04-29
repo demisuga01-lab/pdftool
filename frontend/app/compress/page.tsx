@@ -6,13 +6,14 @@ import { Archive, FileCode2, FileText, Image as ImageIcon, Presentation, Table2 
 
 import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
-import { EmptyWorkspaceState, ImageWorkspace } from "@/components/workspace/ImageWorkspace";
+import { EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
 import type { ControlSection } from "@/components/workspace/Controls";
 import { WorkspaceControls } from "@/components/workspace/Controls";
-import { UploadedImagePreview, UploadedPdfPreview } from "@/components/workspace/WorkspacePageBuilders";
+import { CompactWorkspaceShell, PreviewCard } from "@/components/workspace/WorkspaceShells";
 import { estimateProcessingTime, formatBytes, formatFileType, slugifyBaseName } from "@/lib/format";
 import {
   getFileMetadata,
+  getPdfPagePreviewUrl,
   uploadFileToWorkspace,
   type UploadedFileMetadata,
   type UploadProgressHandler,
@@ -231,7 +232,7 @@ function ResultStats({ result }: { result?: CompressionResult }) {
   );
 }
 
-function InfoPreview({ file, type }: { file: UploadedFileMetadata; type: CompressionFileType }) {
+function FileTypePreview({ file, type }: { file: UploadedFileMetadata; type: CompressionFileType }) {
   const Icon =
     type === "office"
       ? file.extension === "xlsx" || file.extension === "ods"
@@ -239,25 +240,17 @@ function InfoPreview({ file, type }: { file: UploadedFileMetadata; type: Compres
         : Presentation
       : type === "archive"
         ? Archive
-        : type === "text"
-          ? FileCode2
-          : FileText;
+      : type === "text"
+        ? FileCode2
+        : FileText;
   return (
-    <div className="mx-auto max-w-3xl rounded-2xl border border-[#E5E7EB] bg-white p-6">
-      <div className="flex items-start gap-4">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#2563EB]">
+    <div className="flex flex-col items-center justify-center gap-3 text-center">
+      <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#EFF6FF] text-[#2563EB]">
           <Icon className="h-6 w-6" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-mono text-sm font-semibold text-slate-900">{file.original_name}</p>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
-            {formatFileType(file.mime_type, file.extension)} / {formatBytes(file.size_bytes)}
-          </p>
-          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-800">
-            Preview is not available for this file type. Compression will use safe repacking, minification, or ZIP/7z packaging where useful.
-          </p>
-        </div>
-      </div>
+      </span>
+      <p className="max-w-md text-sm font-medium leading-6 text-slate-500">
+        Preview is not available for this file type. Compression will use safe repacking, minification, or ZIP/7z packaging where useful.
+      </p>
     </div>
   );
 }
@@ -627,23 +620,47 @@ export default function CompressPage() {
     job.process("compress", formData);
   };
 
-  const centerContent = fileMeta ? (
-    <div className="space-y-5">
+  const previewBadges = fileMeta
+    ? [
+        formatFileType(fileMeta.mime_type || activeType, fileMeta.extension),
+        formatBytes(fileMeta.size_bytes),
+        activeType === "pdf" && pdfPreview.pageCount > 0
+          ? `${pdfPreview.pageCount} pages`
+          : typeof fileMeta.metadata?.width === "number" && typeof fileMeta.metadata?.height === "number"
+            ? `${fileMeta.metadata.width} x ${fileMeta.metadata.height} px`
+            : undefined,
+      ].filter(Boolean) as string[]
+    : [];
+
+  const compactPreview = fileMeta ? (
+    <PreviewCard
+      badges={previewBadges}
+      description="Compact preview for this compression job."
+      title={fileMeta.original_name}
+    >
       {activeType === "pdf" ? (
-        <UploadedPdfPreview fileId={fileMeta.file_id} items={pdfPreview.items} pageCount={pdfPreview.pageCount || 1} />
+        <img
+          alt={`Preview of ${fileMeta.original_name}`}
+          className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm"
+          src={getPdfPagePreviewUrl(fileMeta.file_id, 1, 100)}
+        />
       ) : activeType === "image" ? (
-        <UploadedImagePreview alt={fileMeta.original_name} src={fileMeta.preview_url} />
+        <img
+          alt={fileMeta.original_name}
+          className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm"
+          src={fileMeta.preview_url}
+        />
       ) : (
-        <InfoPreview file={fileMeta} type={activeType} />
+        <FileTypePreview file={fileMeta} type={activeType} />
       )}
-      <ResultStats result={result} />
-    </div>
+    </PreviewCard>
   ) : null;
 
   return (
-    <ImageWorkspace
-      breadcrumbTitle="Compress"
-      centerContent={centerContent}
+    <CompactWorkspaceShell
+      title="Compress"
+      preview={compactPreview}
+      resultPanel={<ResultStats result={result} />}
       countLabel={activeType === "pdf" && pdfPreview.pageCount > 0 ? `${pdfPreview.pageCount} pages` : activeType === "auto" ? "File" : formatFileType(activeType, activeType)}
       description="Compress PDFs, images, Office files, and archives."
       downloadPanel={
@@ -681,6 +698,9 @@ export default function CompressPage() {
       hasContent={Boolean(fileMeta)}
       infoContent={infoContent}
       onDownload={job.state === "success" ? job.download : undefined}
+      onFilesDropped={(files) => {
+        void handleFilesSelected(files);
+      }}
       onProcess={handleCompress}
       onReset={() => {
         setFile(null);
@@ -697,7 +717,7 @@ export default function CompressPage() {
             ? uploadError ?? "Upload failed"
             : job.processingLabel
       }
-      rightPanel={
+      settingsPanel={
         <div className="space-y-6">
           <div
             className={[

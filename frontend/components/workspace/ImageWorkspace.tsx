@@ -19,7 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Settings2 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import {
   DragHandleIcon,
@@ -72,7 +72,7 @@ function SortableImageCard({
       <div className="group overflow-hidden rounded-xl border border-[#E5E7EB] bg-white transition hover:shadow-sm">
         <div className="relative">
           <button
-            className="absolute right-3 top-3 z-20 rounded-md bg-white/90 p-1.5 text-slate-400 opacity-0 transition group-hover:opacity-100"
+            className="absolute right-3 top-3 z-20 rounded-md bg-white/90 p-1.5 text-slate-400 transition hover:text-slate-700"
             type="button"
             {...attributes}
             {...listeners}
@@ -331,8 +331,25 @@ export function EmptyWorkspaceState({
   multiple?: boolean;
   onFilesSelected: (files: File[]) => void;
 }) {
+  const [dragging, setDragging] = useState(false);
+
   return (
-    <label className="flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
+    <label
+      className={[
+        "flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed bg-white px-6 py-14 text-center transition",
+        dragging ? "border-[#2563EB] bg-[#EFF6FF]" : "border-slate-300",
+      ].join(" ")}
+      onDragLeave={() => setDragging(false)}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setDragging(true);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setDragging(false);
+        onFilesSelected(Array.from(event.dataTransfer.files ?? []));
+      }}
+    >
       <input
         accept={accept}
         className="hidden"

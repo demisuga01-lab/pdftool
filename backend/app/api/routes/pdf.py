@@ -39,6 +39,7 @@ from app.workers.pdf_tasks import (
     pdf_to_images_task,
     rotate_pdf_task,
     split_pdf_task,
+    watermark_pdf_task,
 )
 
 router = APIRouter()
@@ -63,12 +64,17 @@ def _queued_response(job_id: str, message: str) -> dict[str, str]:
     return {"job_id": job_id, "status": "queued", "message": message}
 
 
+def _safe_stem(value: str | None, fallback_stem: str) -> str:
+    stem = Path(str(value or "").strip()).stem
+    safe = "".join(char if char.isalnum() or char in "._-" else "-" for char in stem).strip(".-")
+    fallback = "".join(char if char.isalnum() or char in "._-" else "-" for char in fallback_stem).strip(".-")
+    return safe or fallback or "output"
+
+
 def _output_path(settings: Settings, suffix: str, requested_name: str | None = None, fallback_stem: str = "output") -> Path:
     settings.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     if requested_name and requested_name.strip():
-        candidate = Path(requested_name.strip()).name
-        stem = Path(candidate).stem or fallback_stem
-        return settings.OUTPUT_DIR / f"{stem}{suffix}"
+        return settings.OUTPUT_DIR / f"{_safe_stem(requested_name, fallback_stem)}{suffix}"
     return settings.OUTPUT_DIR / f"{uuid4().hex}{suffix}"
 
 
@@ -350,6 +356,74 @@ async def rotate_pdf(
     return _queued_response(str(task.id), "PDF rotation queued")
 
 
+@router.post("/watermark")
+async def watermark_pdf(
+    settings: AppSettings,
+    file: Annotated[UploadFile | None, File()] = None,
+    file_id: Annotated[str | None, Form()] = None,
+    watermark_file: Annotated[UploadFile | None, File()] = None,
+    uploaded_watermark_file_id: Annotated[str | None, Form()] = None,
+    watermark_file_id: Annotated[str | None, Form()] = None,
+    watermark_type: Annotated[str, Form()] = "text",
+    text: Annotated[str, Form()] = "",
+    opacity: Annotated[float, Form()] = 0.5,
+    rotation: Annotated[float, Form()] = 0,
+    x_percent: Annotated[float, Form()] = 50,
+    y_percent: Annotated[float, Form()] = 50,
+    width_percent: Annotated[float, Form()] = 25,
+    font_size: Annotated[int, Form()] = 48,
+    font_color: Annotated[str, Form()] = "#64748b",
+    font_family: Annotated[str, Form()] = "Helvetica",
+    bold: Annotated[bool, Form()] = True,
+    italic: Annotated[bool, Form()] = False,
+    apply_to: Annotated[str, Form()] = "all",
+    selected_pages: Annotated[str, Form()] = "",
+    page_range: Annotated[str, Form()] = "",
+    current_page: Annotated[int, Form()] = 1,
+    position_preset: Annotated[str, Form()] = "custom",
+    tile: Annotated[bool, Form()] = False,
+    output_filename: Annotated[str, Form()] = "",
+) -> dict[str, str]:
+    input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
+    original_name = file.filename if file is not None else input_path.name
+    output_path = _output_path(settings, ".pdf", output_filename, Path(original_name).stem)
+    watermark_path: Path | None = None
+    asset_id = uploaded_watermark_file_id or watermark_file_id
+    if asset_id:
+        watermark_path = resolve_upload_path(asset_id, settings)
+    elif watermark_file is not None:
+        _validate_optional_upload_size(watermark_file, settings)
+        watermark_path = await _save_upload(watermark_file, settings)
+
+    task = watermark_pdf_task.apply_async(
+        args=[
+            str(input_path),
+            str(output_path),
+            watermark_type,
+            text,
+            str(watermark_path) if watermark_path else None,
+            opacity,
+            rotation,
+            x_percent,
+            y_percent,
+            width_percent,
+            font_size,
+            font_color,
+            font_family,
+            bold,
+            italic,
+            apply_to,
+            selected_pages,
+            page_range,
+            current_page,
+            position_preset,
+            tile,
+        ],
+        queue="fast",
+    )
+    return _queued_response(str(task.id), "PDF watermark queued")
+
+
 @router.post("/extract-text")
 async def extract_text(
     settings: AppSettings,
@@ -565,14 +639,21 @@ async def get_status(job_id: str) -> dict[str, Any]:
             response["progress"] = result.get("progress", 100)
             response["output_path"] = result.get("output_path")
             response["output_paths"] = result.get("output_paths")
+            response["output_filename"] = result.get("output_filename")
+            response["media_type"] = result.get("media_type")
+            response["extension"] = result.get("extension")
             response["result"] = result.get("result")
             response["traceback"] = result.get("traceback")
             if "original_size" in result or "original_size_bytes" in result:
                 response["result"] = {
                     "optimized": result.get("optimized"),
                     "message": result.get("message"),
+                    "method": result.get("method"),
+                    "output_filename": result.get("output_filename"),
                     "original_size": result.get("original_size", result.get("original_size_bytes")),
                     "output_size": result.get("output_size", result.get("compressed_size_bytes")),
+                    "target_size_bytes": result.get("target_size_bytes"),
+                    "reached_target": result.get("reached_target"),
                     "saved_bytes": result.get("saved_bytes"),
                     "saved_percent": result.get("saved_percent", result.get("reduction_percent")),
                     "original_size_bytes": result.get("original_size_bytes"),

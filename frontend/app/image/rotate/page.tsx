@@ -157,6 +157,7 @@ export default function ImageRotatePage() {
         outputFilename: "",
         quality: 85,
       }}
+      layoutKind="editor"
       renderCenter={({ file, preview, settings, update }) => (
         <PreviewStage className="mx-auto max-w-[760px]">
           <div className="flex items-center justify-between gap-3 border-b border-[#E5E7EB] px-4 py-3">

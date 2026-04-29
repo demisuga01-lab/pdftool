@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import mimetypes
 import traceback
 from pathlib import Path
 from typing import Any, Awaitable
@@ -19,6 +20,12 @@ def _task_id(task: Any) -> str:
 
 
 def _success(task: Any, **result: str | list[str] | dict[str, Any]) -> dict[str, Any]:
+    output_path = result.get("output_path")
+    if output_path and not result.get("output_filename"):
+        path = Path(str(output_path))
+        result["output_filename"] = path.name
+        result["media_type"] = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        result["extension"] = path.suffix.lstrip(".")
     return {
         "task_id": _task_id(task),
         "status": "success",
@@ -44,6 +51,13 @@ def _failure(task: Any, exc: Exception) -> dict[str, Any]:
 
 def _run_service(coro: Awaitable[str | list[str] | dict[str, Any]]) -> str | list[str] | dict[str, Any]:
     return asyncio.run(coro)
+
+
+def _safe_stem(value: str | None, fallback: str) -> str:
+    stem = Path(str(value or "").strip()).stem
+    safe = "".join(char if char.isalnum() or char in "._-" else "-" for char in stem).strip(".-")
+    fallback_safe = "".join(char if char.isalnum() or char in "._-" else "-" for char in fallback).strip(".-")
+    return safe or fallback_safe or "output"
 
 
 @celery_app.task(
@@ -240,28 +254,44 @@ def watermark_image_task(
     self: Any,
     input_path: str,
     output_path: str,
-    watermark_text: str,
+    watermark_type: str = "text",
+    watermark_text: str = "",
+    watermark_image_path: str | None = None,
     opacity: float = 0.5,
     position: str = "bottom-right",
     x_percent: float | None = None,
     y_percent: float | None = None,
+    width_percent: float = 22,
+    height_percent: float | None = None,
     font_size: int = 36,
     font_color: str = "#ffffff",
     font_weight: str = "bold",
+    font_family: str = "Arial",
+    italic: bool = False,
+    rotation: float = 0,
+    tile: bool = False,
 ) -> dict[str, Any]:
     try:
         output = _run_service(
             ImageService().watermark_image(
                 input_path,
                 output_path,
+                watermark_type,
                 watermark_text,
+                watermark_image_path,
                 opacity,
                 position,
                 x_percent,
                 y_percent,
+                width_percent,
+                height_percent,
                 font_size,
                 font_color,
                 font_weight,
+                font_family,
+                italic,
+                rotation,
+                tile,
             )
         )
         return _success(self, output_path=str(output))
@@ -309,9 +339,7 @@ def ocr_image_task(
     try:
         output = Path(_run_service(OCRService().ocr(input_path, output_dir, language, output_format, dpi, password=password)))
         if output_filename and output_filename.strip():
-            safe_name = Path(output_filename.strip()).name
-            if not Path(safe_name).suffix:
-                safe_name = f"{Path(safe_name).stem}{output.suffix}"
+            safe_name = f"{_safe_stem(output_filename, output.stem)}{output.suffix}"
             renamed = output.parent / safe_name
             output.replace(renamed)
             output = renamed

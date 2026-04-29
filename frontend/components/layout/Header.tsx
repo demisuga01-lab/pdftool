@@ -28,6 +28,7 @@ const toolSections: ToolSection[] = [
       { href: "/pdf/merge", name: "Merge PDF" },
       { href: "/pdf/split", name: "Split PDF" },
       { href: "/pdf/rotate", name: "Rotate PDF" },
+      { href: "/pdf/watermark", name: "Watermark PDF" },
       { href: "/pdf/protect", name: "Protect PDF" },
       { href: "/pdf/decrypt", name: "Decrypt PDF" },
       { href: "/pdf/images-to-pdf", name: "Images to PDF" },

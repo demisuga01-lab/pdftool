@@ -6,10 +6,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
 import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
-import { EmptyWorkspaceState, ImageWorkspace } from "@/components/workspace/ImageWorkspace";
-import { UploadedImagePreview, UploadedPdfPreview } from "@/components/workspace/WorkspacePageBuilders";
-import { getFileMetadata, type UploadedFileMetadata, type UploadProgressHandler, uploadFileToWorkspace } from "@/lib/files";
-import { estimateProcessingTime, slugifyBaseName } from "@/lib/format";
+import { EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
+import { CompactWorkspaceShell, PreviewCard } from "@/components/workspace/WorkspaceShells";
+import { getFileMetadata, getPdfPagePreviewUrl, type UploadedFileMetadata, type UploadProgressHandler, uploadFileToWorkspace } from "@/lib/files";
+import { estimateProcessingTime, formatBytes, formatFileType, slugifyBaseName } from "@/lib/format";
 import { useWorkspaceJob } from "@/lib/workspace-job";
 import { imageSummary, uploadedFileDetails, uploadedFileSummary, useObjectState, useUploadedPdfPageItems } from "@/lib/workspace-data";
 
@@ -173,7 +173,7 @@ export default function ConvertPage() {
   );
   const queryTo = normalizeFormat(searchParams.get("to"));
   const outputFormat = selectedOutput;
-  const { items, pageCount } = useUploadedPdfPageItems(
+  const { pageCount } = useUploadedPdfPageItems(
     inputKind === "pdf" && fileMeta ? fileMeta.file_id : null,
     Number(fileMeta?.metadata?.page_count ?? fileMeta?.pages ?? 0),
   );
@@ -450,35 +450,56 @@ export default function ConvertPage() {
       return null;
     }
 
+    const badges = [
+      formatFileType(fileMeta.mime_type, fileMeta.extension),
+      formatBytes(fileMeta.size_bytes),
+      inputKind === "pdf" && pageCount > 0
+        ? `${pageCount} pages`
+        : typeof fileMeta.metadata?.width === "number" && typeof fileMeta.metadata?.height === "number"
+          ? `${fileMeta.metadata.width} x ${fileMeta.metadata.height} px`
+          : undefined,
+    ].filter(Boolean) as string[];
+
     if (inputKind === "pdf") {
-      return <UploadedPdfPreview fileId={fileMeta.file_id} items={items} pageCount={pageCount} />;
+      return (
+        <PreviewCard badges={badges} description="Compact preview for this conversion." title={fileMeta.original_name}>
+          <img
+            alt={`Preview of ${fileMeta.original_name}`}
+            className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm"
+            src={getPdfPagePreviewUrl(fileMeta.file_id, 1, 100)}
+          />
+        </PreviewCard>
+      );
     }
 
     if (inputKind === "image" || inputKind === "svg") {
-      return <UploadedImagePreview alt={fileMeta.original_name} src={fileMeta.preview_url} />;
+      return (
+        <PreviewCard badges={badges} description="Compact preview for this conversion." title={fileMeta.original_name}>
+          <img
+            alt={fileMeta.original_name}
+            className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm"
+            src={fileMeta.preview_url}
+          />
+        </PreviewCard>
+      );
     }
 
     return (
-      <div className="mx-auto max-w-3xl rounded-2xl border border-[#E5E7EB] bg-white p-6">
-        <div className="flex items-start gap-4">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#2563EB] text-sm font-bold">
+      <PreviewCard badges={badges} description="Uploaded and ready to convert." title={fileMeta.original_name}>
+        <div className="flex flex-col items-center justify-center gap-3 text-center">
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#EFF6FF] text-sm font-bold text-[#2563EB]">
             {(fileMeta.extension || "?").toUpperCase().slice(0, 4)}
           </span>
-          <div className="min-w-0">
-            <p className="truncate font-mono text-sm font-semibold text-slate-900">{fileMeta.original_name}</p>
-            <p className="mt-1 text-sm text-slate-500">
-              Uploaded and ready to convert. No preview for this file type.
-            </p>
-          </div>
+          <p className="text-sm font-medium text-slate-500">No preview is available for this file type.</p>
         </div>
-      </div>
+      </PreviewCard>
     );
-  }, [fileMeta, inputKind, items, pageCount]);
+  }, [fileMeta, inputKind, pageCount]);
 
   return (
-    <ImageWorkspace
-      breadcrumbTitle="Convert"
-      centerContent={previewContent}
+    <CompactWorkspaceShell
+      title="Convert"
+      preview={previewContent}
       countLabel={
         inputKind === "pdf"
           ? pageCount > 0
@@ -536,6 +557,9 @@ export default function ConvertPage() {
       hasContent={Boolean(fileMeta)}
       infoContent={infoContent}
       onDownload={job.state === "success" ? job.download : undefined}
+      onFilesDropped={(files) => {
+        void handleFilesSelected(files);
+      }}
       onProcess={handleProcess}
       onReset={() => {
         setFile(null);
@@ -551,7 +575,7 @@ export default function ConvertPage() {
             ? uploadError ?? "Upload failed"
             : job.processingLabel
       }
-      rightPanel={
+      settingsPanel={
         <div className="space-y-6">
           <div
             className={[

@@ -18,7 +18,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Settings2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Settings2, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import {
@@ -106,7 +106,7 @@ function SortableCard({
       >
         {badge ? <div className="absolute left-3 top-3 z-20">{badge}</div> : null}
         <button
-          className="absolute right-3 top-3 z-20 rounded-md bg-white/90 p-1.5 text-slate-400 opacity-0 transition group-hover:opacity-100"
+          className="absolute right-3 top-3 z-20 rounded-md bg-white/90 p-1.5 text-slate-400 transition hover:text-slate-700"
           type="button"
           {...attributes}
           {...listeners}
@@ -267,12 +267,33 @@ export function PDFFileGrid({
                   <p className="text-sm font-medium text-slate-500">{item.pageCount} pages</p>
                   <p className="text-sm font-medium text-slate-500">{item.sizeLabel}</p>
                 </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    aria-label="Move file up"
+                    className="secondary-button h-10 w-10 p-0"
+                    disabled={index === 0}
+                    onClick={() => onReorder(arrayMove(items, index, index - 1))}
+                    type="button"
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                  </button>
+                  <button
+                    aria-label="Move file down"
+                    className="secondary-button h-10 w-10 p-0"
+                    disabled={index === items.length - 1}
+                    onClick={() => onReorder(arrayMove(items, index, index + 1))}
+                    type="button"
+                  >
+                    <ArrowDown className="h-4 w-4" />
+                  </button>
+                </div>
                 <button
-                  className="secondary-button h-9 shrink-0 px-3"
+                  aria-label={`Remove ${item.fileName}`}
+                  className="secondary-button h-10 w-10 shrink-0 p-0 text-rose-600"
                   onClick={() => onRemove(item.id)}
                   type="button"
                 >
-                  Remove
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </SortableCard>
@@ -501,8 +522,25 @@ export function EmptyPdfWorkspaceState({
   multiple?: boolean;
   onFilesSelected: (files: File[]) => void;
 }) {
+  const [dragging, setDragging] = useState(false);
+
   return (
-    <label className="flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
+    <label
+      className={[
+        "flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed bg-white px-6 py-14 text-center transition",
+        dragging ? "border-[#2563EB] bg-[#EFF6FF]" : "border-slate-300",
+      ].join(" ")}
+      onDragLeave={() => setDragging(false)}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setDragging(true);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setDragging(false);
+        onFilesSelected(Array.from(event.dataTransfer.files ?? []));
+      }}
+    >
       <input
         accept=".pdf,application/pdf"
         className="hidden"

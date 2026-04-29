@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import mimetypes
 import traceback
 from pathlib import Path
 from typing import Any, Awaitable
@@ -19,6 +20,12 @@ def _task_id(task: Any) -> str:
 
 
 def _success(task: Any, **result: Any) -> dict[str, Any]:
+    output_path = result.get("output_path")
+    if output_path and not result.get("output_filename"):
+        path = Path(str(output_path))
+        result["output_filename"] = path.name
+        result["media_type"] = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        result["extension"] = path.suffix.lstrip(".")
     return {
         "task_id": _task_id(task),
         "status": "success",
@@ -148,6 +155,68 @@ def rotate_pdf_task(
 ) -> dict[str, Any]:
     try:
         output = _run_service(PDFService().rotate_pdf(input_path, output_path, angle, pages))
+        return _success(self, output_path=str(output))
+    except Exception as exc:
+        return _failure(self, exc)
+
+
+@celery_app.task(
+    bind=True,
+    name="app.workers.pdf_tasks.watermark_pdf_task",
+    queue="fast",
+    time_limit=120,
+    soft_time_limit=110,
+)
+def watermark_pdf_task(
+    self: Any,
+    input_path: str,
+    output_path: str,
+    watermark_type: str = "text",
+    text: str = "",
+    watermark_image_path: str | None = None,
+    opacity: float = 0.5,
+    rotation: float = 0,
+    x_percent: float = 50,
+    y_percent: float = 50,
+    width_percent: float = 25,
+    font_size: int = 48,
+    font_color: str = "#64748b",
+    font_family: str = "Helvetica",
+    bold: bool = True,
+    italic: bool = False,
+    apply_to: str = "all",
+    selected_pages: str = "",
+    page_range: str = "",
+    current_page: int = 1,
+    position_preset: str = "custom",
+    tile: bool = False,
+) -> dict[str, Any]:
+    try:
+        output = _run_service(
+            PDFService().watermark_pdf(
+                input_path,
+                output_path,
+                watermark_type,
+                text,
+                watermark_image_path,
+                opacity,
+                rotation,
+                x_percent,
+                y_percent,
+                width_percent,
+                font_size,
+                font_color,
+                font_family,
+                bold,
+                italic,
+                apply_to,
+                selected_pages,
+                page_range,
+                current_page,
+                position_preset,
+                tile,
+            )
+        )
         return _success(self, output_path=str(output))
     except Exception as exc:
         return _failure(self, exc)

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Info } from "lucide-react";
+import { Info, X } from "lucide-react";
 
 import { DownloadIcon, RefreshIcon } from "@/components/icons/SiteIcons";
 
@@ -169,7 +169,7 @@ export function WorkspaceHeader({
                 onClick={() => setInfoOpen(false)}
                 type="button"
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
             <div className="max-h-[65vh] overflow-y-auto p-5 text-sm text-slate-700">{infoContent}</div>

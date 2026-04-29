@@ -586,20 +586,39 @@ class ImageService:
         self,
         input_path: str | Path,
         output_path: str | Path,
-        watermark_text: str,
+        watermark_type: str = "text",
+        watermark_text: str = "",
+        watermark_image_path: str | Path | None = None,
         opacity: float = 0.5,
         position: str = "bottom-right",
         x_percent: float | None = None,
         y_percent: float | None = None,
+        width_percent: float = 22,
+        height_percent: float | None = None,
         font_size: int = 36,
         font_color: str = "#ffffff",
         font_weight: str = "bold",
+        font_family: str = "Arial",
+        italic: bool = False,
+        rotation: float = 0,
+        tile: bool = False,
     ) -> str:
         logger.info("Starting watermark_image for file %s", input_path)
-        if not watermark_text:
+        normalized_type = (watermark_type or "text").strip().lower()
+        if normalized_type not in {"text", "image"}:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="watermark_text is required",
+                detail="watermark_type must be text or image",
+            )
+        if normalized_type == "text" and not watermark_text:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="text is required",
+            )
+        if normalized_type == "image" and not watermark_image_path:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="uploaded_watermark_file_id or watermark_file is required",
             )
         if opacity < 0 or opacity > 1:
             raise HTTPException(
@@ -609,50 +628,123 @@ class ImageService:
 
         output = self._ensure_parent(output_path)
         image = self._load_image(input_path)
-        offset_x = int(((x_percent if x_percent is not None else 82.0) / 100) * image.width)
-        offset_y = int(((y_percent if y_percent is not None else 88.0) / 100) * image.height)
-        fill_color = font_color
-        if font_color.startswith("#") and len(font_color) == 7:
-            red = int(font_color[1:3], 16)
-            green = int(font_color[3:5], 16)
-            blue = int(font_color[5:7], 16)
-            fill_color = f"rgba({red},{green},{blue},{opacity})"
-        gravity = "NorthWest"
-        if x_percent is None or y_percent is None:
-            gravity = {
-                "top-left": "NorthWest",
-                "top": "North",
-                "top-right": "NorthEast",
-                "left": "West",
-                "center": "Center",
-                "right": "East",
-                "bottom-left": "SouthWest",
-                "bottom": "South",
-                "bottom-right": "SouthEast",
-            }.get(position)
+        preset_positions = {
+            "top-left": (18.0, 16.0),
+            "top": (50.0, 16.0),
+            "top-center": (50.0, 16.0),
+            "top-right": (82.0, 16.0),
+            "left": (18.0, 50.0),
+            "middle-left": (18.0, 50.0),
+            "center": (50.0, 50.0),
+            "right": (82.0, 50.0),
+            "middle-right": (82.0, 50.0),
+            "bottom-left": (18.0, 84.0),
+            "bottom": (50.0, 84.0),
+            "bottom-center": (50.0, 84.0),
+            "bottom-right": (82.0, 84.0),
+            "diagonal-center": (50.0, 50.0),
+            "tiled": (50.0, 50.0),
+            "custom": (50.0, 50.0),
+        }
+        preset_x, preset_y = preset_positions.get(position, preset_positions["bottom-right"])
+        center_x = int(((x_percent if x_percent is not None else preset_x) / 100) * image.width)
+        center_y = int(((y_percent if y_percent is not None else preset_y) / 100) * image.height)
+        use_tile = tile or position == "tiled"
 
-            if gravity is None:
+        def alpha_color(value: str) -> str:
+            if value.startswith("#") and len(value) == 7:
+                red = int(value[1:3], 16)
+                green = int(value[3:5], 16)
+                blue = int(value[5:7], 16)
+                return f"rgba({red},{green},{blue},{opacity})"
+            return value
+
+        def escape_draw_text(value: str) -> str:
+            return value.replace("\\", "\\\\").replace("'", "\\'")
+
+        if normalized_type == "image":
+            watermark = Path(str(watermark_image_path))
+            if not watermark.exists():
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="position must be a valid gravity position",
+                    detail="Watermark image was not found",
                 )
+            overlay_width = max(1, int((max(1.0, min(width_percent, 100.0)) / 100) * image.width))
 
+            command = [get_imagemagick_command(), str(input_path)]
+            placements: list[tuple[int, int]]
+            if use_tile:
+                placements = [
+                    (int(image.width * x / 100), int(image.height * y / 100))
+                    for y in (18, 50, 82)
+                    for x in (18, 40, 62, 84)
+                ]
+            else:
+                placements = [(center_x, center_y)]
+
+            for placement_x, placement_y in placements:
+                command.extend(
+                    [
+                        "(",
+                        str(watermark),
+                        "-auto-orient",
+                        "-resize",
+                        f"{overlay_width}x",
+                        "-alpha",
+                        "set",
+                        "-channel",
+                        "A",
+                        "-evaluate",
+                        "multiply",
+                        str(opacity),
+                        "+channel",
+                        "-background",
+                        "none",
+                        "-rotate",
+                        str(rotation),
+                        ")",
+                        "-gravity",
+                        "center",
+                        "-geometry",
+                        f"{placement_x - image.width // 2:+d}{placement_y - image.height // 2:+d}",
+                        "-composite",
+                    ]
+                )
+            command.append(str(output))
+            await self._run_command(command)
+            return str(output)
+
+        fill_color = font_color
+        if font_color.startswith("#") and len(font_color) == 7:
+            fill_color = alpha_color(font_color)
+        font = font_family or "Arial"
+        if font.lower() == "arial":
+            font = "Arial-BoldItalic" if font_weight == "bold" and italic else "Arial-Bold" if font_weight == "bold" else "Arial-Italic" if italic else "Arial"
+        draw_commands: list[str] = []
+        placements = (
+            [(int(image.width * x / 100), int(image.height * y / 100)) for y in (18, 50, 82) for x in (18, 40, 62, 84)]
+            if use_tile
+            else [(center_x, center_y)]
+        )
+        for placement_x, placement_y in placements:
+            draw_commands.append(
+                f"translate {placement_x},{placement_y} rotate {rotation} text 0,0 '{escape_draw_text(watermark_text)}'"
+            )
         command = [
-            "convert",
+            get_imagemagick_command(),
             str(input_path),
             "-pointsize",
             str(font_size),
             "-font",
-            "Arial-Bold" if font_weight == "bold" else "Arial",
+            font,
             "-fill",
             fill_color,
-            "-gravity",
-            gravity,
             "-alpha",
             "on",
-            "-annotate",
-            f"+{offset_x}+{offset_y}" if gravity == "NorthWest" else "+10+10",
-            watermark_text,
+            "-gravity",
+            "NorthWest",
+            "-draw",
+            " ".join(draw_commands),
             str(output),
         ]
         await self._run_command(command)

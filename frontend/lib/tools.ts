@@ -39,6 +39,15 @@ export const tools: ToolDefinition[] = [
     color: "violet",
   },
   {
+    id: "pdf-watermark",
+    name: "Watermark PDF",
+    description: "Place text or logo watermarks across PDF pages.",
+    icon: "Stamp",
+    category: "pdf",
+    href: "/pdf/watermark",
+    color: "amber",
+  },
+  {
     id: "images-to-pdf",
     name: "Images to PDF",
     description: "Create a clean, shareable PDF from one or more images.",

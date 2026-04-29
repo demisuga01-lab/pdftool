@@ -5,17 +5,18 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
-import { EmptyWorkspaceState, ImageWorkspace } from "@/components/workspace/ImageWorkspace";
+import { EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
 import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
-import { UploadedImagePreview, UploadedPdfPreview } from "@/components/workspace/WorkspacePageBuilders";
+import { CompactWorkspaceShell, PreviewCard } from "@/components/workspace/WorkspaceShells";
 import { downloadFile, pollJobStatus, toApiPath, type JobStatus } from "@/lib/api";
 import {
   getFileMetadata,
+  getPdfPagePreviewUrl,
   uploadFileToWorkspace,
   type UploadedFileMetadata,
   type UploadProgressHandler,
 } from "@/lib/files";
-import { estimateProcessingTime, slugifyBaseName } from "@/lib/format";
+import { estimateProcessingTime, formatBytes, formatFileType, slugifyBaseName } from "@/lib/format";
 import {
   imageSummary,
   uploadedFileDetails,
@@ -94,7 +95,7 @@ export default function OcrPage() {
         }
       : null
   );
-  const { items, pageCount } = useUploadedPdfPageItems(
+  const { pageCount } = useUploadedPdfPageItems(
     isPdf && fileMeta ? fileMeta.file_id : null,
     Number(fileMeta?.metadata?.page_count ?? fileMeta?.pages ?? 0),
   );
@@ -356,18 +357,45 @@ export default function OcrPage() {
     [isPdf],
   );
 
+  const previewBadges = fileMeta
+    ? [
+        formatFileType(fileMeta.mime_type, fileMeta.extension),
+        formatBytes(fileMeta.size_bytes),
+        isPdf
+          ? `${pageCount || 1} pages`
+          : preview && preview.width > 0
+            ? `${preview.width} x ${preview.height} px`
+            : undefined,
+        pdfNeedsPassword ? "Encrypted" : undefined,
+      ].filter(Boolean) as string[]
+    : [];
+
+  const compactPreview = fileMeta ? (
+    <PreviewCard
+      badges={previewBadges}
+      description={pdfNeedsPassword ? "Password required before OCR can run." : "Compact preview for this OCR job."}
+      title={fileMeta.original_name}
+    >
+      {isPdf ? (
+        <img
+          alt={`Preview of ${fileMeta.original_name}`}
+          className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm"
+          src={getPdfPagePreviewUrl(fileMeta.file_id, 1, 100)}
+        />
+      ) : preview ? (
+        <img
+          alt={fileMeta.original_name}
+          className="max-h-[320px] w-auto max-w-full rounded-lg border border-[#E5E7EB] bg-white object-contain shadow-sm"
+          src={preview.dataUrl}
+        />
+      ) : null}
+    </PreviewCard>
+  ) : null;
+
   return (
-    <ImageWorkspace
-      breadcrumbTitle="OCR"
-      centerContent={
-        fileMeta ? (
-          isPdf ? (
-            <UploadedPdfPreview fileId={fileMeta.file_id} items={items} pageCount={pageCount} />
-          ) : preview ? (
-            <UploadedImagePreview alt={fileMeta.original_name} src={preview.dataUrl} />
-          ) : null
-        ) : null
-      }
+    <CompactWorkspaceShell
+      title="OCR"
+      preview={compactPreview}
       countLabel={isPdf ? `${pageCount} pages` : preview && preview.width > 0 ? `${preview.width} x ${preview.height} px` : undefined}
       description="Extract text from PDFs and images, including searchable PDF output."
       downloadPanel={
@@ -409,6 +437,9 @@ export default function OcrPage() {
       hasContent={Boolean(fileMeta)}
       infoContent={infoContent}
       onDownload={jobState === "success" && jobId ? () => downloadFile("image", jobId, outputName) : undefined}
+      onFilesDropped={(files) => {
+        void handleFilesSelected(files);
+      }}
       onProcess={handleProcess}
       onReset={() => {
         setFile(null);
@@ -420,8 +451,9 @@ export default function OcrPage() {
         syncQuery({ file_id: null, job_id: null });
       }}
       processButtonDisabled={!fileMeta}
+      processButtonLabel="Run OCR"
       processingLabel={processingLabel}
-      rightPanel={
+      settingsPanel={
         <div className="space-y-6">
           <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] font-medium leading-6 text-slate-500">
             {pdfNeedsPassword && !settings.pdfPassword

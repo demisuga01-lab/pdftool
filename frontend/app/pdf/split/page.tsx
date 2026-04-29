@@ -209,6 +209,7 @@ export default function PdfSplitPage() {
       emptyDescription="Upload a PDF to split it by ranges, pages, equal parts, or size-driven chunks."
       endpoint="pdf/split"
       initialSettings={initialSettings}
+      layoutKind="editor"
       processDisabled={({ file, items, settings }) => {
         if (!file || items.length === 0) {
           return true;

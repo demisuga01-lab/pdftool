@@ -417,6 +417,184 @@ class PDFService:
         await asyncio.to_thread(write_rotated)
         return str(output)
 
+    def _watermark_selected_pages(
+        self,
+        total_pages: int,
+        apply_to: str,
+        selected_pages: str,
+        page_range: str,
+        current_page: int,
+    ) -> set[int]:
+        normalized = (apply_to or "all").strip().lower()
+        if normalized == "all":
+            return set(range(1, total_pages + 1))
+        if normalized == "current":
+            return {max(1, min(total_pages, current_page))}
+        if normalized == "selected":
+            tokens = self._split_page_tokens(selected_pages or "")
+            return {int(page) for page in self._expand_page_tokens(tokens) if 1 <= int(page) <= total_pages}
+        if normalized == "range":
+            tokens = self._split_page_tokens(page_range or "")
+            return {int(page) for page in self._expand_page_tokens(tokens) if 1 <= int(page) <= total_pages}
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="apply_to must be one of: all, current, selected, range",
+        )
+
+    async def watermark_pdf(
+        self,
+        input_path: str | Path,
+        output_path: str | Path,
+        watermark_type: str = "text",
+        text: str = "",
+        watermark_image_path: str | None = None,
+        opacity: float = 0.5,
+        rotation: float = 0,
+        x_percent: float = 50,
+        y_percent: float = 50,
+        width_percent: float = 25,
+        font_size: int = 48,
+        font_color: str = "#64748b",
+        font_family: str = "Helvetica",
+        bold: bool = True,
+        italic: bool = False,
+        apply_to: str = "all",
+        selected_pages: str = "",
+        page_range: str = "",
+        current_page: int = 1,
+        position_preset: str = "custom",
+        tile: bool = False,
+    ) -> str:
+        normalized_type = (watermark_type or "text").strip().lower()
+        if normalized_type not in {"text", "image"}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="watermark_type must be text or image",
+            )
+        if normalized_type == "text" and not text.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="text is required",
+            )
+        if normalized_type == "image" and not watermark_image_path:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="uploaded_watermark_file_id or watermark_file is required",
+            )
+        if opacity < 0 or opacity > 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="opacity must be between 0 and 1",
+            )
+
+        output = self._ensure_parent(output_path)
+
+        def write_watermarked() -> None:
+            from io import BytesIO
+
+            from pypdf import PdfReader, PdfWriter
+            from reportlab.lib.colors import Color
+            from reportlab.lib.utils import ImageReader
+            from reportlab.pdfgen import canvas
+
+            reader = PdfReader(str(input_path))
+            writer = PdfWriter()
+            total_pages = len(reader.pages)
+            selected = self._watermark_selected_pages(total_pages, apply_to, selected_pages, page_range, current_page)
+            use_tile = tile or position_preset == "tiled"
+
+            def parse_color(value: str) -> Color:
+                normalized = (value or "#64748b").strip()
+                if normalized.startswith("#") and len(normalized) == 7:
+                    red = int(normalized[1:3], 16) / 255
+                    green = int(normalized[3:5], 16) / 255
+                    blue = int(normalized[5:7], 16) / 255
+                    return Color(red, green, blue, alpha=opacity)
+                return Color(0.39, 0.45, 0.55, alpha=opacity)
+
+            def reportlab_font() -> str:
+                family = font_family if font_family in {"Helvetica", "Times-Roman", "Courier"} else "Helvetica"
+                if family == "Helvetica":
+                    if bold and italic:
+                        return "Helvetica-BoldOblique"
+                    if bold:
+                        return "Helvetica-Bold"
+                    if italic:
+                        return "Helvetica-Oblique"
+                    return "Helvetica"
+                if family == "Times-Roman":
+                    if bold and italic:
+                        return "Times-BoldItalic"
+                    if bold:
+                        return "Times-Bold"
+                    if italic:
+                        return "Times-Italic"
+                    return "Times-Roman"
+                return "Courier-BoldOblique" if bold and italic else "Courier-Bold" if bold else "Courier-Oblique" if italic else "Courier"
+
+            def overlay_for_page(page_width: float, page_height: float) -> PdfReader:
+                packet = BytesIO()
+                overlay = canvas.Canvas(packet, pagesize=(page_width, page_height))
+                overlay.saveState()
+                if hasattr(overlay, "setFillAlpha"):
+                    overlay.setFillAlpha(opacity)
+                if hasattr(overlay, "setStrokeAlpha"):
+                    overlay.setStrokeAlpha(opacity)
+
+                positions = (
+                    [(page_width * x / 100, page_height * (1 - y / 100)) for y in (18, 50, 82) for x in (18, 40, 62, 84)]
+                    if use_tile
+                    else [(page_width * x_percent / 100, page_height * (1 - y_percent / 100))]
+                )
+
+                if normalized_type == "image":
+                    image_path = Path(str(watermark_image_path))
+                    image_reader = ImageReader(str(image_path))
+                    natural_width, natural_height = image_reader.getSize()
+                    draw_width = max(1, page_width * max(1, min(width_percent, 100)) / 100)
+                    draw_height = draw_width * (natural_height / natural_width)
+                    for position_x, position_y in positions:
+                        overlay.saveState()
+                        overlay.translate(position_x, position_y)
+                        overlay.rotate(rotation)
+                        overlay.drawImage(
+                            image_reader,
+                            -draw_width / 2,
+                            -draw_height / 2,
+                            width=draw_width,
+                            height=draw_height,
+                            mask="auto",
+                        )
+                        overlay.restoreState()
+                else:
+                    overlay.setFillColor(parse_color(font_color))
+                    overlay.setFont(reportlab_font(), font_size)
+                    for position_x, position_y in positions:
+                        overlay.saveState()
+                        overlay.translate(position_x, position_y)
+                        overlay.rotate(rotation)
+                        overlay.drawCentredString(0, 0, text)
+                        overlay.restoreState()
+
+                overlay.restoreState()
+                overlay.save()
+                packet.seek(0)
+                return PdfReader(packet)
+
+            for page_number, page in enumerate(reader.pages, start=1):
+                if page_number in selected:
+                    page_width = float(page.mediabox.width)
+                    page_height = float(page.mediabox.height)
+                    overlay_reader = overlay_for_page(page_width, page_height)
+                    page.merge_page(overlay_reader.pages[0])
+                writer.add_page(page)
+
+            with output.open("wb") as target:
+                writer.write(target)
+
+        await asyncio.to_thread(write_watermarked)
+        return str(output)
+
     async def extract_text(
         self,
         input_path: str | Path,
