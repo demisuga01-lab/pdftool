@@ -5,6 +5,18 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 export const WORKSPACE_MIN_ZOOM = 25;
 export const WORKSPACE_MAX_ZOOM = 500;
 export const WORKSPACE_ZOOM_STEP = 25;
+export const INTERACTIVE_PAN_GUARD_SELECTORS = [
+  "button",
+  "input",
+  "select",
+  "textarea",
+  "label",
+  "[role='button']",
+  "[data-draggable-overlay]",
+  "[data-no-pan]",
+  "[data-settings-control]",
+  "[data-drawer-scroll]",
+].join(",");
 
 export type WorkspaceZoomMode = "fit" | "manual";
 export type WorkspaceContentSize = { height: number; width: number };
@@ -146,7 +158,7 @@ export function useWorkspaceZoom({
 
 export function useDragPan(
   viewportRef: RefObject<HTMLElement | null>,
-  { enabled, ignoreSelectors = "button,input,select,textarea,[role='button'],[data-draggable-overlay],[data-no-pan]" }: DragPanOptions,
+  { enabled, ignoreSelectors = INTERACTIVE_PAN_GUARD_SELECTORS }: DragPanOptions,
 ) {
   const [dragging, setDragging] = useState(false);
 

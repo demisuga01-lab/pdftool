@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Poin
 
 import { EditorCanvas } from "@/components/workspace/WorkspaceShells";
 import { clamp } from "@/lib/format";
+import { INTERACTIVE_PAN_GUARD_SELECTORS } from "@/lib/use-workspace-zoom";
 
 /**
  * Mobile gesture priority (also the order in which the watermark overlay
@@ -192,7 +193,9 @@ export function WatermarkEditor({
     }
 
     const isInteractiveTarget = (target: EventTarget | null) =>
-      target instanceof Element && Boolean(target.closest("textarea,input,button,label,[data-resize-handle]"));
+      target instanceof Element &&
+      target !== overlay &&
+      Boolean(target.closest(`${INTERACTIVE_PAN_GUARD_SELECTORS},[data-resize-handle]`));
 
     const startGesture = () => {
       const frame = frameRef.current;

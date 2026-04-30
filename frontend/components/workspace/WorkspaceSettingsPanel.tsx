@@ -33,19 +33,23 @@ export function WorkspaceSettingsPanel({
           "border-b border-zinc-200/80 px-5 py-5 dark:border-white/10 sm:px-6 sm:py-6",
           headerClassName ?? "",
         ].join(" ")}
+        data-no-pan
       >
         <div className="space-y-1.5">
           <h2 className="text-xl font-bold leading-tight tracking-[-0.02em] text-zinc-950 dark:text-zinc-100 lg:text-[22px]">{title}</h2>
           {description ? <p className="text-sm font-medium leading-6 text-zinc-500 dark:text-zinc-400">{description}</p> : null}
         </div>
       </div>
-      <div className={["px-5 py-5 sm:px-6 sm:py-6", bodyClassName ?? ""].join(" ")}>{children}</div>
+      <div className={["px-5 py-5 sm:px-6 sm:py-6", bodyClassName ?? ""].join(" ")} data-settings-control>
+        {children}
+      </div>
       {footer ? (
         <div
           className={[
             "border-t border-zinc-200/80 bg-zinc-50/80 px-5 py-5 dark:border-white/10 dark:bg-black/20 sm:px-6 sm:py-6",
             footerClassName ?? "",
           ].join(" ")}
+          data-settings-control
         >
           {footer}
         </div>

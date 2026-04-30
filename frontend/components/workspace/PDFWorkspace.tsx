@@ -19,11 +19,10 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ArrowDown, ArrowUp, Settings2, Trash2 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import {
   CheckIcon,
-  CloseIcon,
   DragHandleIcon,
   GridDenseIcon,
   GridIcon,
@@ -31,6 +30,7 @@ import {
   UploadIcon,
 } from "@/components/icons/SiteIcons";
 import { WorkspaceHeader } from "@/components/workspace/WorkspaceHeader";
+import { WorkspaceMobileDrawer } from "@/components/workspace/WorkspaceMobileDrawer";
 
 export type WorkspaceThumbnailSize = "small" | "medium" | "large";
 
@@ -337,17 +337,6 @@ export function PDFWorkspace({
 }: WorkspaceShellProps) {
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
 
-  useEffect(() => {
-    if (!mobileSettingsOpen) {
-      return;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [mobileSettingsOpen]);
-
   return (
     <main className="flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-x-hidden bg-white dark:bg-zinc-950 sm:min-h-[calc(100dvh-4rem)] lg:h-[calc(100dvh-4rem)]">
       <WorkspaceHeader
@@ -479,47 +468,27 @@ export function PDFWorkspace({
           </>
         ) : null}
 
-        <div
-          className={[
-            "fixed inset-0 z-40 bg-slate-900/45 transition lg:hidden",
-            mobileSettingsOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
-          ].join(" ")}
-          onClick={() => setMobileSettingsOpen(false)}
-        />
-        <div
-          className={[
-            "fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] rounded-t-[24px] border-t border-zinc-200 bg-white shadow-2xl shadow-black/20 transition dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/40 lg:hidden",
-            mobileSettingsOpen ? "translate-y-0" : "translate-y-full",
-          ].join(" ")}
-        >
-          <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-white/10">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-zinc-100">{breadcrumbTitle}</h2>
-              <p className="text-[13px] font-medium text-slate-500 dark:text-zinc-400">{description}</p>
-            </div>
+        <WorkspaceMobileDrawer
+          description={description}
+          footer={
             <button
-              aria-label="Close settings"
-              className="secondary-button h-9 w-9 p-0"
-              onClick={() => setMobileSettingsOpen(false)}
+              className="primary-button h-11 w-full"
+              disabled={processButtonDisabled}
+              onClick={() => {
+                onProcess?.();
+                setMobileSettingsOpen(false);
+              }}
               type="button"
             >
-              <CloseIcon className="h-4 w-4" />
+              {processButtonLabel}
             </button>
-          </div>
-          <div className="overflow-y-auto overscroll-contain px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+7rem)]">
-            {rightPanel}
-            <div className="pt-5">
-              <button
-                className="primary-button h-11 w-full"
-                disabled={processButtonDisabled}
-                onClick={() => { onProcess?.(); setMobileSettingsOpen(false); }}
-                type="button"
-              >
-                {processButtonLabel}
-              </button>
-            </div>
-          </div>
-        </div>
+          }
+          onClose={() => setMobileSettingsOpen(false)}
+          open={mobileSettingsOpen}
+          title={breadcrumbTitle}
+        >
+          <div data-settings-control>{rightPanel}</div>
+        </WorkspaceMobileDrawer>
       </div>
 
       {uploadOverlay ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4">{uploadOverlay}</div> : null}

@@ -34,6 +34,7 @@ import { useEffect, useState, type DragEvent, type ReactNode } from "react";
 
 import { PageIcon } from "@/components/icons/SiteIcons";
 import { WorkspaceHeader } from "@/components/workspace/WorkspaceHeader";
+import { WorkspaceMobileDrawer } from "@/components/workspace/WorkspaceMobileDrawer";
 import { WorkspaceSettingsPanel } from "@/components/workspace/WorkspaceSettingsPanel";
 import { useDragPan, useWorkspaceZoom } from "@/lib/use-workspace-zoom";
 
@@ -258,19 +259,6 @@ export function VisualEditorWorkspaceShell({
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const { dragProps, dragging } = useDropZone(onFilesDropped);
 
-  useEffect(() => {
-    if (!mobilePanelOpen) {
-      return;
-    }
-    // Save and restore the previous body.overflow value so nested drawers do
-    // not clobber each other's lock state when they close in stacked order.
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [mobilePanelOpen]);
-
   return (
     <main className="flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-x-hidden overscroll-x-none bg-white dark:bg-zinc-950 sm:min-h-[calc(100dvh-4rem)] lg:h-[calc(100dvh-4rem)]" {...dragProps}>
       <WorkspaceHeader
@@ -338,50 +326,27 @@ export function VisualEditorWorkspaceShell({
           </>
         ) : null}
 
-        <div
-          className={[
-            "fixed inset-0 z-40 bg-black/60 transition lg:hidden",
-            mobilePanelOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
-          ].join(" ")}
-          onClick={() => setMobilePanelOpen(false)}
-        />
-        <div
-          className={[
-            "fixed inset-x-0 bottom-0 z-50 max-h-[86dvh] rounded-t-[24px] border-t border-slate-200 bg-white shadow-2xl shadow-slate-900/20 transition dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/40 lg:hidden",
-            mobilePanelOpen ? "translate-y-0" : "translate-y-full",
-          ].join(" ")}
-        >
-          <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10">
-            <div className="min-w-0">
-              <h2 className="truncate text-base font-bold text-slate-900 dark:text-zinc-100">{title}</h2>
-              <p className="text-[13px] font-medium leading-5 text-slate-500 dark:text-zinc-400">{description}</p>
-            </div>
+        <WorkspaceMobileDrawer
+          description={description}
+          footer={
             <button
-              aria-label="Close controls"
-              className="secondary-button h-10 w-10 shrink-0 p-0"
-              onClick={() => setMobilePanelOpen(false)}
+              className="primary-button min-h-11 w-full"
+              disabled={processButtonDisabled}
+              onClick={() => {
+                onProcess?.();
+                setMobilePanelOpen(false);
+              }}
               type="button"
             >
-              <X className="h-4 w-4" />
+              {processButtonLabel}
             </button>
-          </div>
-          <div className="overflow-y-auto overscroll-contain px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+7rem)]">
-            {propertiesPanel}
-            <div className="pt-5">
-              <button
-                className="primary-button min-h-11 w-full"
-                disabled={processButtonDisabled}
-                onClick={() => {
-                  onProcess?.();
-                  setMobilePanelOpen(false);
-                }}
-                type="button"
-              >
-                {processButtonLabel}
-              </button>
-            </div>
-          </div>
-        </div>
+          }
+          onClose={() => setMobilePanelOpen(false)}
+          open={mobilePanelOpen}
+          title={title}
+        >
+          <div data-settings-control>{propertiesPanel}</div>
+        </WorkspaceMobileDrawer>
       </div>
 
       {dragging ? (

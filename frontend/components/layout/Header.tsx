@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { useTheme, type ThemeMode } from "@/components/theme/ThemeProvider";
 import { HomeLink } from "@/components/ui/HomeLink";
 import { Logo } from "@/components/ui/Logo";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 
 type ToolSection = {
   label: string;
@@ -192,16 +193,7 @@ export function Header() {
     setOpenGroup(null);
   }, []);
 
-  useEffect(() => {
-    if (mobileOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [mobileOpen]);
+  useBodyScrollLock(mobileOpen);
 
   useEffect(() => {
     if (!mobileOpen) {
