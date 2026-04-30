@@ -1,33 +1,44 @@
-﻿# Python
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+HEADS-*.pem
+venv/
 backend/venv/
 backend/.venv/
-backend/.env
-backend/**/__pycache__/
-backend/**/*.pyc
-__pycache__/
-*.pyc
-
-# Next / Node
+node_modules/
 frontend/node_modules/
+.next/
 frontend/.next/
 frontend/out/
 frontend/.turbo/
 frontend/tsconfig.tsbuildinfo
-
-# Env
-frontend/.env
-frontend/.env.local
-frontend/.env.production
-frontend/.env.development
-
-# Data / generated
-data/
-uploads/
-outputs/
-temp/
+backend/**/__pycache__/
+backend/**/*.pyc
+__pycache__/
+*.pyc
+logs/
 *.log
-
-# OS/editor
+data/uploads/
+data/outputs/
+data/temp/
+data/previews/
+backend/data/
+pm2-backup.json
+pm2-worker-fast-backup.txt
+pm2-worker-heavy-backup.txt
 .DS_Store
 Thumbs.db
 .vscode/

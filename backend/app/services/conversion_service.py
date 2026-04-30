@@ -39,13 +39,39 @@ class ConversionService:
 
     def _normalize_format(self, value: str | None, *, fallback: str | None = None) -> str:
         normalized = (value or fallback or "").lower().strip().lstrip(".")
-        if normalized == "jpeg":
+        # JPEG is the IANA name; "jpg" is the common file extension. Treat them
+        # as the same canonical format internally.
+        if normalized in {"jpeg", "jpg"}:
             return "jpg"
-        if normalized == "tif":
+        if normalized in {"tif", "tiff"}:
             return "tiff"
         if normalized == "htm":
             return "html"
+        if normalized in {"text", "plain"}:
+            return "txt"
         return normalized
+
+    def media_type_for(self, target_format: str) -> str:
+        """Map a canonical output format to its IANA media type."""
+
+        normalized = self._normalize_format(target_format)
+        return {
+            "jpg": "image/jpeg",
+            "png": "image/png",
+            "webp": "image/webp",
+            "avif": "image/avif",
+            "tiff": "image/tiff",
+            "bmp": "image/bmp",
+            "pdf": "application/pdf",
+            "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "txt": "text/plain",
+            "html": "text/html",
+            "csv": "text/csv",
+            "zip": "application/zip",
+            "svg": "image/svg+xml",
+            "eps": "application/postscript",
+        }.get(normalized, "application/octet-stream")
 
     def detect_input_format(
         self,

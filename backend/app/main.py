@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -9,8 +10,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import compress, convert, files, image, ocr, pdf
 from app.core.config import get_settings
+from app.core.errors import register_exception_handlers
+from app.core.rate_limit import RateLimitMiddleware
+from app.core.security_headers import SecurityHeadersMiddleware
 
-APP_VERSION = "0.1.0"
+APP_VERSION = "1.0.0"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 
 
 @asynccontextmanager
@@ -25,18 +34,27 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
-        title="PDFTool API",
+        title="PDFTools API",
         version=APP_VERSION,
         lifespan=lifespan,
     )
 
+    register_exception_handlers(app)
+
+    # Middleware order: outermost runs first (security headers + rate limiting),
+    # innermost runs last (CORS preflight handling). Starlette applies them in
+    # reverse registration order, so we add CORS first.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.ALLOWED_ORIGINS,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Request-ID"],
+        expose_headers=["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "Retry-After"],
+        max_age=600,
     )
+    app.add_middleware(RateLimitMiddleware, settings=settings)
+    app.add_middleware(SecurityHeadersMiddleware)
 
     app.include_router(pdf.router, prefix="/api/pdf", tags=["pdf"])
     app.include_router(image.router, prefix="/api/image", tags=["image"])

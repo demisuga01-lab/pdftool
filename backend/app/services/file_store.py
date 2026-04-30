@@ -19,11 +19,11 @@ BROWSER_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".
 
 def get_imagemagick_command() -> str:
     import shutil
-    if shutil.which("magick"):
-        return "magick"
     if shutil.which("convert"):
         return "convert"
-    raise RuntimeError("ImageMagick is not installed. Expected either 'magick' or 'convert'.")
+    if shutil.which("magick"):
+        return "magick"
+    raise RuntimeError("ImageMagick is not installed. Expected the 'convert' command.")
 
 def _safe_original_name(filename: str | None) -> str:
     name = Path(filename or "upload").name.strip()
@@ -171,9 +171,21 @@ async def save_upload_file(file: UploadFile, settings: Settings) -> dict[str, An
     destination = _ensure_inside(settings.UPLOAD_DIR / filename, settings.UPLOAD_DIR, label="Upload path")
     original_name = _safe_original_name(file.filename)
 
+    max_bytes = settings.max_upload_bytes
+    bytes_written = 0
     await file.seek(0)
     async with aiofiles.open(destination, "wb") as output_file:
         while chunk := await file.read(1024 * 1024):
+            bytes_written += len(chunk)
+            if bytes_written > max_bytes:
+                await output_file.close()
+                destination.unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=(
+                        f"File is too large. Maximum size is {settings.MAX_FILE_SIZE_MB} MB."
+                    ),
+                )
             await output_file.write(chunk)
     await file.close()
 

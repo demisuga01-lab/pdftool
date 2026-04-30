@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { Download, LoaderCircle, PencilLine, RotateCcw } from "lucide-react";
 
 type DownloadPanelState = "queued" | "processing" | "success" | "failure";
 
 export function DownloadPanel({
   error,
-  errorDetails,
+  errorDetails: _errorDetails,
   estimatedTime,
   jobId,
   onDownload,
@@ -34,9 +33,11 @@ export function DownloadPanel({
   state: DownloadPanelState;
   statusText?: string;
 }) {
-  const [showDetails, setShowDetails] = useState(false);
   const isReady = state === "success";
   const isFailed = state === "failure";
+  const supportSubject = jobId
+    ? `Processing%20issue%20-%20Job%20${encodeURIComponent(jobId)}`
+    : "Processing%20issue";
 
   return (
     <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-900/12 dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/35 sm:p-5">
@@ -77,20 +78,18 @@ export function DownloadPanel({
           </div>
         ) : null}
 
-        {isFailed && errorDetails ? (
-          <div className="space-y-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
-            <button
-              className="text-sm font-semibold text-rose-700"
-              onClick={() => setShowDetails((current) => !current)}
-              type="button"
-            >
-              {showDetails ? "Hide details" : "View details"}
-            </button>
-            {showDetails ? (
-              <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs font-medium text-rose-700">
-                {errorDetails}
-              </pre>
-            ) : null}
+        {isFailed ? (
+          <div className="space-y-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+            <p>
+              If this keeps happening, contact{" "}
+              <a
+                className="font-semibold underline decoration-rose-300 underline-offset-2 hover:decoration-rose-500"
+                href={`mailto:support@wellfriend.online?subject=${supportSubject}`}
+              >
+                support@wellfriend.online
+              </a>
+              {jobId ? ` with job ID ${jobId}` : ""}.
+            </p>
           </div>
         ) : null}
 

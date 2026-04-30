@@ -421,7 +421,7 @@ export default function OcrPage() {
         jobState !== "idle" && !panelDismissed ? (
           <DownloadPanel
             error={jobError}
-            errorDetails={jobResult?.traceback}
+            errorDetails={null}
             estimatedTime={fileMeta ? estimateProcessingTime(fileMeta.size_bytes, isPdf ? pageCount || 3 : 1) : undefined}
             jobId={jobId}
             onDownload={jobState === "success" && jobId ? () => downloadFile("image", jobId, outputName) : undefined}

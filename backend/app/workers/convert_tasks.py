@@ -1,12 +1,12 @@
 import asyncio
 import logging
 import mimetypes
-import traceback
 from pathlib import Path
 from typing import Any, Awaitable
 
 from fastapi import HTTPException
 
+from app.core.errors import sanitize_error_message
 from app.services.conversion_service import ConversionService
 from app.workers.celery_app import celery_app
 
@@ -34,7 +34,7 @@ def _success(task: Any, **result: Any) -> dict[str, Any]:
 
 
 def _failure(task: Any, exc: Exception) -> dict[str, Any]:
-    error = exc.detail if isinstance(exc, HTTPException) else str(exc)
+    raw_detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
     logger.exception("Convert task %s failed", _task_id(task))
     return {
         "task_id": _task_id(task),
@@ -42,8 +42,7 @@ def _failure(task: Any, exc: Exception) -> dict[str, Any]:
         "stage": "processing",
         "output_path": None,
         "output_paths": None,
-        "error": error,
-        "traceback": traceback.format_exc(),
+        "error": sanitize_error_message(str(raw_detail) if raw_detail is not None else None),
     }
 
 

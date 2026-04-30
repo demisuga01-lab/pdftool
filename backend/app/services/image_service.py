@@ -18,11 +18,13 @@ IMAGE_OUTPUT_FORMAT_ERROR = "Output format is invalid. Please choose Same as inp
 
 def get_imagemagick_command() -> str:
     import shutil
-    if shutil.which("magick"):
-        return "magick"
+    # Production VPS exposes ImageMagick through ``convert``; ``magick`` is
+    # preferred only when the legacy command is unavailable.
     if shutil.which("convert"):
         return "convert"
-    raise RuntimeError("ImageMagick is not installed. Expected either 'magick' or 'convert'.")
+    if shutil.which("magick"):
+        return "magick"
+    raise RuntimeError("ImageMagick is not installed. Expected the 'convert' command.")
 
 def normalize_image_output_format(value: str | None) -> str:
     if value is None:
@@ -693,59 +695,70 @@ class ImageService:
             base = Image.open(input_path).convert("RGBA")
             canvas = Image.new("RGBA", base.size, (0, 0, 0, 0))
             points = placements_for(base.width, base.height)
+            temp_rasterized: Path | None = None
 
-            if normalized_type == "image":
-                watermark = Path(str(watermark_image_path))
-                if not watermark.exists():
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Watermark image was not found",
-                    )
-                overlay = Image.open(watermark).convert("RGBA")
-                width_ratio = normalized_percent(width_percent, 22.0) / 100
-                target_width = max(1, round(base.width * width_ratio))
-                if height_percent is not None:
-                    height_ratio = normalized_percent(height_percent, 22.0) / 100
-                    target_height = max(1, round(base.height * height_ratio))
-                else:
-                    target_height = max(1, round(target_width * (overlay.height / max(overlay.width, 1))))
-                overlay = overlay.resize((target_width, target_height))
-                overlay = apply_opacity(overlay, opacity)
-                if rotation:
-                    overlay = overlay.rotate(rotation, expand=True, resample=Image.Resampling.BICUBIC)
+            try:
+                if normalized_type == "image":
+                    watermark = Path(str(watermark_image_path))
+                    if not watermark.exists():
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Watermark image was not found",
+                        )
+                    if watermark.suffix.lower() == ".svg":
+                        from app.services.svg_rasterizer import rasterize_svg_to_png
 
-                for center_x, center_y in points:
-                    left = round(center_x - overlay.width / 2)
-                    top = round(center_y - overlay.height / 2)
-                    canvas.alpha_composite(overlay, (left, top))
-            else:
-                font = load_font(max(10, int(font_size)))
-                fill = ImageColor.getrgb(font_color or "#ffffff")
-                for center_x, center_y in points:
-                    text_layer = Image.new("RGBA", base.size, (0, 0, 0, 0))
-                    draw = ImageDraw.Draw(text_layer)
-                    bbox = draw.textbbox((0, 0), watermark_text, font=font)
-                    text_width = max(1, bbox[2] - bbox[0])
-                    text_height = max(1, bbox[3] - bbox[1])
-                    draw.text(
-                        (center_x - text_width / 2, center_y - text_height / 2),
-                        watermark_text,
-                        fill=(*fill, round(opacity * 255)),
-                        font=font,
-                    )
+                        temp_rasterized = watermark.with_name(f"{watermark.stem}-rasterized.png")
+                        rasterize_svg_to_png(watermark, temp_rasterized, width=2048)
+                        watermark = temp_rasterized
+                    overlay = Image.open(watermark).convert("RGBA")
+                    width_ratio = normalized_percent(width_percent, 22.0) / 100
+                    target_width = max(1, round(base.width * width_ratio))
+                    if height_percent is not None:
+                        height_ratio = normalized_percent(height_percent, 22.0) / 100
+                        target_height = max(1, round(base.height * height_ratio))
+                    else:
+                        target_height = max(1, round(target_width * (overlay.height / max(overlay.width, 1))))
+                    overlay = overlay.resize((target_width, target_height))
+                    overlay = apply_opacity(overlay, opacity)
                     if rotation:
-                        text_layer = text_layer.rotate(rotation, resample=Image.Resampling.BICUBIC)
-                    canvas.alpha_composite(text_layer)
+                        overlay = overlay.rotate(rotation, expand=True, resample=Image.Resampling.BICUBIC)
 
-            result = Image.alpha_composite(base, canvas)
-            suffix = output.suffix.lower()
-            if suffix in {".jpg", ".jpeg"}:
-                flattened = Image.new("RGB", result.size, (255, 255, 255))
-                flattened.paste(result, mask=result.getchannel("A"))
-                flattened.save(output, quality=95)
-            else:
-                result.save(output)
-            return str(output)
+                    for center_x, center_y in points:
+                        left = round(center_x - overlay.width / 2)
+                        top = round(center_y - overlay.height / 2)
+                        canvas.alpha_composite(overlay, (left, top))
+                else:
+                    font = load_font(max(10, int(font_size)))
+                    fill = ImageColor.getrgb(font_color or "#ffffff")
+                    for center_x, center_y in points:
+                        text_layer = Image.new("RGBA", base.size, (0, 0, 0, 0))
+                        draw = ImageDraw.Draw(text_layer)
+                        bbox = draw.textbbox((0, 0), watermark_text, font=font)
+                        text_width = max(1, bbox[2] - bbox[0])
+                        text_height = max(1, bbox[3] - bbox[1])
+                        draw.text(
+                            (center_x - text_width / 2, center_y - text_height / 2),
+                            watermark_text,
+                            fill=(*fill, round(opacity * 255)),
+                            font=font,
+                        )
+                        if rotation:
+                            text_layer = text_layer.rotate(rotation, resample=Image.Resampling.BICUBIC)
+                        canvas.alpha_composite(text_layer)
+
+                result = Image.alpha_composite(base, canvas)
+                suffix = output.suffix.lower()
+                if suffix in {".jpg", ".jpeg"}:
+                    flattened = Image.new("RGB", result.size, (255, 255, 255))
+                    flattened.paste(result, mask=result.getchannel("A"))
+                    flattened.save(output, quality=95)
+                else:
+                    result.save(output)
+                return str(output)
+            finally:
+                if temp_rasterized is not None:
+                    temp_rasterized.unlink(missing_ok=True)
 
         return await self._run_blocking(watermark, failure_message="Failed to watermark image")
 

@@ -100,7 +100,6 @@ const planCards: Plan[] = [
     usdPrice: "~$10/mo",
     credits: 1000,
     rateLimit: "100 requests per hour",
-    fileSize: "25MB",
     buttonLabel: "Coming Soon",
     buttonDisabled: true,
     comingSoon: true,
@@ -117,7 +116,6 @@ const planCards: Plan[] = [
     usdPrice: "~$25/mo",
     credits: 2500,
     rateLimit: "300 requests per hour",
-    fileSize: "50MB",
     buttonLabel: "Coming Soon",
     comingSoon: true,
     notes: [
@@ -133,7 +131,6 @@ const planCards: Plan[] = [
     usdPrice: "~$80/mo",
     credits: 7000,
     rateLimit: "1,000 requests per hour",
-    fileSize: "100MB",
     buttonLabel: "Coming Soon",
     buttonDisabled: true,
     comingSoon: true,
@@ -150,7 +147,6 @@ const planCards: Plan[] = [
     usdPrice: "~$99/mo",
     credits: 10000,
     rateLimit: "Custom",
-    fileSize: "500MB",
     buttonLabel: "Coming Soon",
     buttonDisabled: true,
     comingSoon: true,
@@ -410,9 +406,10 @@ export default function PricingPage() {
           <ul className="grid gap-3 text-sm leading-7 text-slate-600 dark:text-zinc-300 sm:grid-cols-2">
             <li>Always free, no signup required</li>
             <li>All 20 PDF and image tools</li>
+            <li>Maximum upload size: 25 MB per file</li>
             <li>Files deleted within 24 hours</li>
+            <li>Public launch rate limit: 100 requests per hour</li>
             <li>No API access on free tier</li>
-            <li>No rate limits on web usage</li>
           </ul>
         </section>
 
@@ -467,6 +464,10 @@ export default function PricingPage() {
               <PricingPlanCard key={plan.label} plan={plan} />
             ))}
           </div>
+          <p className="text-sm leading-7 text-slate-500 dark:text-zinc-400">
+            Public web usage is currently capped at 25 MB per file. API-specific file limits will be finalized before
+            api.wellfriend.online launches.
+          </p>
           <div className="tool-panel">
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Need more than 10,000 credits or a white-label setup?</h3>
             <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-zinc-300">

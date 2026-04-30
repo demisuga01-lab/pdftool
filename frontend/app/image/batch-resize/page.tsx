@@ -187,7 +187,7 @@ export default function ImageBatchResizePage() {
           job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
             <DownloadPanel
               error={job.error}
-              errorDetails={job.errorDetails ?? job.result?.traceback ?? null}
+              errorDetails={job.errorDetails ?? null}
               estimatedTime={estimateProcessingTime(totalBytes, files.length)}
               jobId={job.jobId}
               onDownload={job.state === "success" ? job.download : undefined}

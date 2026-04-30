@@ -489,6 +489,20 @@ class PDFService:
 
         output = self._ensure_parent(output_path)
 
+        # ReportLab/PIL cannot read SVG natively. If the watermark is SVG (or
+        # something else PIL refuses), rasterize it to a temporary PNG first.
+        _resolved_watermark: Path | None = None
+        _temp_watermark: Path | None = None
+        if normalized_type == "image" and watermark_image_path:
+            from app.services.svg_rasterizer import is_svg, rasterize_svg_to_png
+
+            source = Path(str(watermark_image_path))
+            if is_svg(source):
+                _temp_watermark = source.with_name(f"{source.stem}-rasterized.png")
+                _resolved_watermark = rasterize_svg_to_png(source, _temp_watermark, width=2048)
+            else:
+                _resolved_watermark = source
+
         def write_watermarked() -> None:
             from io import BytesIO
 
@@ -548,8 +562,7 @@ class PDFService:
                 )
 
                 if normalized_type == "image":
-                    image_path = Path(str(watermark_image_path))
-                    image_reader = ImageReader(str(image_path))
+                    image_reader = ImageReader(str(_resolved_watermark))
                     natural_width, natural_height = image_reader.getSize()
                     draw_width = max(1, page_width * max(1, min(width_percent, 100)) / 100)
                     draw_height = draw_width * (natural_height / natural_width)
@@ -592,7 +605,14 @@ class PDFService:
             with output.open("wb") as target:
                 writer.write(target)
 
-        await asyncio.to_thread(write_watermarked)
+        try:
+            await asyncio.to_thread(write_watermarked)
+        finally:
+            if _temp_watermark is not None:
+                try:
+                    Path(_temp_watermark).unlink(missing_ok=True)
+                except OSError:
+                    pass
         return str(output)
 
     async def extract_text(

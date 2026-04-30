@@ -61,17 +61,30 @@ export function Footer() {
               ))}
               <a
                 className="inline-flex items-center gap-2 transition hover:text-emerald-300"
+                href="mailto:support@wellfriend.online"
+              >
+                <MailIcon className="h-4 w-4" />
+                <span>support@wellfriend.online</span>
+              </a>
+              <a
+                className="inline-flex items-center gap-2 transition hover:text-emerald-300"
                 href="mailto:contact@wellfriend.online"
               >
                 <MailIcon className="h-4 w-4" />
                 <span>contact@wellfriend.online</span>
               </a>
-              <p className="text-sm text-zinc-400">API Coming Soon</p>
+              <p className="text-sm text-zinc-400">API Coming Soon at api.wellfriend.online</p>
             </div>
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col gap-3 border-t border-white/10 pt-6 text-sm text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-10 grid gap-1 border-t border-white/10 pt-6 text-xs text-zinc-400 sm:grid-cols-3">
+          <p>Maximum upload size: 25 MB</p>
+          <p>Files deleted after 24 hours</p>
+          <p>Rate limit: 100 requests per hour</p>
+        </div>
+
+        <div className="mt-6 flex flex-col gap-3 text-sm text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
           <p>2026 WellFriend. All rights reserved.</p>
           <p>Open source software. Free to use and self-host.</p>
         </div>

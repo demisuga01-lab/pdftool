@@ -5,14 +5,21 @@ from pathlib import Path
 from typing import Annotated, Any
 from uuid import uuid4
 
-import aiofiles
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.core.config import Settings
-from app.core.dependencies import get_app_settings, validate_upload_file_size
-from app.core.dependencies import validate_upload_files_size
+from app.core.dependencies import (
+    get_app_settings,
+    save_temp_upload,
+    validate_optional_upload,
+    validate_saved_upload_path,
+    validate_saved_upload_paths,
+    validate_upload_batch,
+    validate_upload_file_size,
+    validate_upload_files_size,
+)
 from app.services.file_store import resolve_upload_path
 from app.services.image_service import IMAGE_OUTPUT_FORMAT_ERROR, ImageService, normalize_image_output_format
 from app.workers.celery_app import celery_app
@@ -84,40 +91,9 @@ def _output_dir(settings: Settings) -> Path:
     return output_dir
 
 
-async def _save_upload(file: UploadFile, settings: Settings) -> Path:
-    settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    destination = settings.UPLOAD_DIR / f"{uuid4().hex}{_safe_suffix(file.filename)}"
-
-    await file.seek(0)
-    async with aiofiles.open(destination, "wb") as output_file:
-        while chunk := await file.read(1024 * 1024):
-            await output_file.write(chunk)
-    await file.close()
-
-    return destination
-
-
 async def _save_uploads(files: list[UploadFile], settings: Settings) -> list[Path]:
-    return [await _save_upload(file, settings) for file in files]
-
-
-def _validate_optional_upload_size(file: UploadFile, settings: Settings) -> None:
-    max_size_bytes = settings.MAX_FILE_SIZE_MB * 1024 * 1024
-    try:
-        file.file.seek(0, 2)
-        file_size = file.file.tell()
-        file.file.seek(0)
-    except OSError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Could not read uploaded file size",
-        ) from exc
-
-    if file_size > max_size_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File exceeds maximum size of {settings.MAX_FILE_SIZE_MB} MB",
-        )
+    validate_upload_batch(files, settings)
+    return [await save_temp_upload(file, settings) for file in files]
 
 
 async def _input_path_from_file_or_id(
@@ -126,14 +102,16 @@ async def _input_path_from_file_or_id(
     file_id: str | None = None,
 ) -> Path:
     if file_id:
-        return resolve_upload_path(file_id, settings)
+        path = resolve_upload_path(file_id, settings)
+        validate_saved_upload_path(path, settings)
+        return path
     if file is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Provide either file_id or file",
         )
-    _validate_optional_upload_size(file, settings)
-    return await _save_upload(file, settings)
+    validate_optional_upload(file, settings)
+    return await save_temp_upload(file, settings)
 
 
 async def _input_paths_from_files_or_ids(
@@ -143,14 +121,14 @@ async def _input_paths_from_files_or_ids(
 ) -> list[Path]:
     clean_ids = [file_id for file_id in (file_ids or []) if file_id]
     if clean_ids:
-        return [resolve_upload_path(file_id, settings) for file_id in clean_ids]
+        paths = [resolve_upload_path(file_id, settings) for file_id in clean_ids]
+        validate_saved_upload_paths(paths, settings)
+        return paths
     if not files:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Provide either file_ids or files",
         )
-    for file in files:
-        _validate_optional_upload_size(file, settings)
     return await _save_uploads(files, settings)
 
 
@@ -217,18 +195,40 @@ async def _extract_zip_images(zip_path: Path, settings: Settings) -> list[Path]:
     extract_dir = settings.TEMP_DIR / uuid4().hex
     extract_dir.mkdir(parents=True, exist_ok=True)
 
+    max_total = settings.MAX_ARCHIVE_EXTRACTED_BYTES
+    max_files = settings.MAX_ARCHIVE_FILES
+
     def extract() -> list[Path]:
         extracted: list[Path] = []
+        total_bytes = 0
         with zipfile.ZipFile(zip_path) as archive:
-            for member in archive.infolist():
+            members = archive.infolist()
+            if len(members) > max_files * 2:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Zip contains too many entries.",
+                )
+
+            for member in members:
                 if member.is_dir():
                     continue
 
                 member_name = Path(member.filename)
-                if member_name.is_absolute() or ".." in member_name.parts:
+                if (
+                    member_name.is_absolute()
+                    or ".." in member_name.parts
+                    or any(part.startswith(".") and part != "." for part in member_name.parts)
+                    or "\x00" in member.filename
+                ):
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="Zip contains an unsafe path",
+                    )
+
+                if member.file_size and member.file_size > max_total:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Zip member exceeds the allowed size.",
                     )
 
                 suffix = member_name.suffix.lower()
@@ -237,8 +237,24 @@ async def _extract_zip_images(zip_path: Path, settings: Settings) -> list[Path]:
 
                 destination = extract_dir / f"{uuid4().hex}{suffix}"
                 with archive.open(member) as source, destination.open("wb") as target:
-                    target.write(source.read())
+                    while True:
+                        chunk = source.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        total_bytes += len(chunk)
+                        if total_bytes > max_total:
+                            destination.unlink(missing_ok=True)
+                            raise HTTPException(
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="Zip extraction exceeds the allowed size.",
+                            )
+                        target.write(chunk)
                 extracted.append(destination)
+                if len(extracted) > max_files:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Zip contains too many files.",
+                    )
 
         if not extracted:
             raise HTTPException(
@@ -435,9 +451,10 @@ async def watermark_image(
     asset_id = uploaded_watermark_file_id or watermark_file_id
     if asset_id:
         watermark_path = resolve_upload_path(asset_id, settings)
+        validate_saved_upload_path(watermark_path, settings)
     elif watermark_file is not None:
-        _validate_optional_upload_size(watermark_file, settings)
-        watermark_path = await _save_upload(watermark_file, settings)
+        validate_optional_upload(watermark_file, settings)
+        watermark_path = await save_temp_upload(watermark_file, settings)
     task = watermark_image_task.apply_async(
         args=[
             str(input_path),
@@ -515,7 +532,7 @@ async def batch_resize(
             detail="At least one image is required",
         )
     elif len(files) == 1 and Path(files[0].filename or "").suffix.lower() == ".zip":
-        zip_path = await _save_upload(files[0], settings)
+        zip_path = await save_temp_upload(files[0], settings)
         input_paths = await _extract_zip_images(zip_path, settings)
     else:
         input_paths = await _save_uploads(files, settings)
@@ -559,14 +576,17 @@ async def get_status(job_id: str) -> dict[str, Any]:
             response["output_filename"] = result.get("output_filename")
             response["media_type"] = result.get("media_type")
             response["extension"] = result.get("extension")
+            from app.core.errors import sanitize_error_message
+
             response["result"] = result.get("result")
-            response["error"] = result.get("error")
-            response["traceback"] = result.get("traceback")
+            raw_error = result.get("error")
+            response["error"] = sanitize_error_message(str(raw_error)) if raw_error else None
     elif task.failed():
+        from app.core.errors import sanitize_error_message
+
         response["status"] = "failure"
         response["stage"] = "processing"
-        response["error"] = str(task.result)
-        response["traceback"] = str(task.result)
+        response["error"] = sanitize_error_message(str(task.result) if task.result else None)
 
     return response
 
@@ -582,16 +602,21 @@ async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
         )
 
     if task.failed():
+        from app.core.errors import sanitize_error_message
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(task.result),
+            detail=sanitize_error_message(str(task.result) if task.result else None),
         )
 
     result = task.result or {}
     if not isinstance(result, dict) or result.get("status") == "failed":
+        from app.core.errors import sanitize_error_message
+
+        raw = result.get("error") if isinstance(result, dict) else None
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=result.get("error") if isinstance(result, dict) else "Task failed",
+            detail=sanitize_error_message(str(raw) if raw is not None else None),
         )
 
     output_path = result.get("output_path")

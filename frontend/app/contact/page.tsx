@@ -3,8 +3,8 @@ import { StaticPage } from "@/components/ui/StaticPage";
 
 const reasons = [
   "General questions about PDFTools",
-  "API access and early access requests",
-  "Bug reports and feature suggestions",
+  "API access and early access requests (api.wellfriend.online coming soon)",
+  "Feature suggestions and feedback",
   "Enterprise and custom pricing",
   "Partnership inquiries",
 ];
@@ -19,8 +19,8 @@ const contactButtons = [
     label: "API Early Access Request",
   },
   {
-    href: "mailto:contact@wellfriend.online?subject=Bug%20Report%20-%20PDFTools",
-    label: "Bug Report",
+    href: "mailto:support@wellfriend.online?subject=Bug%20Report%20-%20PDFTools",
+    label: "Bug Report (support@)",
   },
   {
     href: "mailto:contact@wellfriend.online?subject=Enterprise%20Pricing%20Inquiry",
@@ -58,13 +58,24 @@ export default function ContactPage() {
             </ul>
           </div>
 
-          <a
-            className="inline-flex items-center gap-2 text-base font-semibold text-[#059669] hover:text-[#047857]"
-            href="mailto:contact@wellfriend.online"
-          >
-            <MailIcon className="h-4 w-4" />
-            contact@wellfriend.online
-          </a>
+          <div className="grid gap-2 text-sm">
+            <a
+              className="inline-flex items-center gap-2 text-base font-semibold text-[#059669] hover:text-[#047857]"
+              href="mailto:contact@wellfriend.online"
+            >
+              <MailIcon className="h-4 w-4" />
+              contact@wellfriend.online
+              <span className="text-xs font-medium text-slate-500 dark:text-zinc-400">(general, API, partnerships, suggestions)</span>
+            </a>
+            <a
+              className="inline-flex items-center gap-2 text-base font-semibold text-[#059669] hover:text-[#047857]"
+              href="mailto:support@wellfriend.online"
+            >
+              <MailIcon className="h-4 w-4" />
+              support@wellfriend.online
+              <span className="text-xs font-medium text-slate-500 dark:text-zinc-400">(bugs, processing failures, abuse reports)</span>
+            </a>
+          </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             {contactButtons.map((button) => (
@@ -75,7 +86,8 @@ export default function ContactPage() {
           </div>
 
           <p className="text-sm leading-7 text-slate-500 dark:text-zinc-400">
-            Include your use case and expected monthly volume for API and enterprise inquiries.
+            Include your use case and expected monthly volume for API and enterprise inquiries. Maximum upload size is
+            25 MB and files are deleted after 24 hours.
           </p>
         </div>
       </div>

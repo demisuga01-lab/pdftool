@@ -200,7 +200,7 @@ export default function PdfMergePage() {
           fileCount > 0 && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
             <DownloadPanel
               error={job.error}
-              errorDetails={job.errorDetails ?? job.result?.traceback ?? null}
+              errorDetails={job.errorDetails ?? null}
               estimatedTime={estimateProcessingTime(totalBytes, fileCount)}
               jobId={job.jobId}
               onDownload={job.state === "success" ? job.download : undefined}

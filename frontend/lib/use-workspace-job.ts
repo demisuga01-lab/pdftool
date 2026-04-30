@@ -59,7 +59,7 @@ export function useWorkspaceJob({
     setResult(finalStatus);
     setState(finalStatus.status);
     setError(finalStatus.error ?? null);
-    setErrorDetails(finalStatus.traceback ?? null);
+    setErrorDetails(null);
     if (finalStatus.status === "success" && !failed && !finalStatus.output_path && !finalStatus.output_paths?.length) {
       setState("failure");
       setError(finalStatus.error ?? "Processing finished but no download URL was returned.");
@@ -77,7 +77,7 @@ export function useWorkspaceJob({
           if (nextStatus.status === "queued" || nextStatus.status === "processing") {
             setState(nextStatus.status);
             setError(nextStatus.error ?? null);
-            setErrorDetails(nextStatus.traceback ?? null);
+            setErrorDetails(null);
           }
         },
         nextTimeoutKind,
@@ -129,7 +129,7 @@ export function useWorkspaceJob({
         const nextError = caughtError instanceof Error ? caughtError.message : "Unable to process file";
         setState("failure");
         setError(nextError);
-        setErrorDetails(caughtError instanceof Error ? caughtError.stack ?? null : null);
+        setErrorDetails(null);
         return null;
       }
     },
@@ -187,7 +187,7 @@ export function useWorkspaceJob({
 
       setState("failure");
       setError(caughtError instanceof Error ? caughtError.message : "Unable to resume job");
-      setErrorDetails(caughtError instanceof Error ? caughtError.stack ?? null : null);
+      setErrorDetails(null);
     });
 
     return () => controller.abort();

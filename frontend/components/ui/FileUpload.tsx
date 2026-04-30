@@ -62,7 +62,7 @@ function getFileIcon(file: File) {
 export function FileUpload({
   accept,
   multiple = false,
-  maxSizeMB = 100,
+  maxSizeMB = 25,
   onFilesSelected,
   onUploadProgress,
 }: FileUploadProps) {
@@ -120,7 +120,7 @@ export function FileUpload({
 
     if (oversizeFile) {
       setFiles([]);
-      setError(`"${oversizeFile.name}" exceeds the ${maxSizeMB} MB limit.`);
+      setError(`File is too large. Maximum size is ${maxSizeMB} MB.`);
       resetProgress();
       return;
     }

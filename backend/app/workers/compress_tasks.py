@@ -2,13 +2,13 @@ import asyncio
 import logging
 import mimetypes
 import time
-import traceback
 from pathlib import Path
 from typing import Any, Awaitable
 
 from celery.exceptions import SoftTimeLimitExceeded
 from fastapi import HTTPException
 
+from app.core.errors import sanitize_error_message
 from app.services.compression_service import CompressionService
 from app.workers.celery_app import celery_app
 
@@ -44,11 +44,11 @@ def _success(task: Any, **result: Any) -> dict[str, Any]:
 
 def _failure(task: Any, exc: Exception, *, message: str | None = None) -> dict[str, Any]:
     if message is not None:
-        error = message
+        raw_error: Any = message
     elif isinstance(exc, HTTPException):
-        error = exc.detail
+        raw_error = exc.detail
     else:
-        error = str(exc) or exc.__class__.__name__
+        raw_error = str(exc) or exc.__class__.__name__
     logger.exception("Compression task %s failed", _task_id(task))
     return {
         "task_id": _task_id(task),
@@ -57,8 +57,7 @@ def _failure(task: Any, exc: Exception, *, message: str | None = None) -> dict[s
         "progress": 100,
         "output_path": None,
         "result": None,
-        "error": error,
-        "traceback": traceback.format_exc(),
+        "error": sanitize_error_message(str(raw_error) if raw_error is not None else None),
     }
 
 

@@ -6,13 +6,16 @@ from pathlib import Path
 from typing import Annotated, Any
 from uuid import uuid4
 
-import aiofiles
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.core.config import Settings
-from app.core.dependencies import get_app_settings
+from app.core.dependencies import (
+    get_app_settings,
+    save_temp_upload,
+    validate_saved_upload_path,
+)
 from app.services.conversion_service import ConversionService
 from app.services.file_store import read_upload_metadata, resolve_upload_path
 from app.workers.celery_app import celery_app
@@ -92,20 +95,6 @@ async def _zip_outputs(job_id: str, output_paths: list[str], settings: Settings,
     return zip_path
 
 
-async def _save_upload(file: UploadFile, settings: Settings) -> Path:
-    settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    suffix = Path(file.filename or "").suffix
-    destination = settings.UPLOAD_DIR / f"{uuid4().hex}{suffix}"
-
-    await file.seek(0)
-    async with aiofiles.open(destination, "wb") as output_file:
-        while chunk := await file.read(1024 * 1024):
-            await output_file.write(chunk)
-    await file.close()
-
-    return destination
-
-
 async def _input_path_from_file_or_id(
     settings: Settings,
     file: UploadFile | None,
@@ -113,7 +102,9 @@ async def _input_path_from_file_or_id(
 ) -> tuple[Path, dict[str, Any]]:
     if file_id:
         metadata = read_upload_metadata(file_id, settings)
-        return resolve_upload_path(file_id, settings), metadata
+        path = resolve_upload_path(file_id, settings)
+        validate_saved_upload_path(path, settings)
+        return path, metadata
 
     if file is None:
         raise HTTPException(
@@ -121,7 +112,7 @@ async def _input_path_from_file_or_id(
             detail="Provide either file_id or file",
         )
 
-    input_path = await _save_upload(file, settings)
+    input_path = await save_temp_upload(file, settings)
     mime_type = file.content_type or "application/octet-stream"
     return input_path, {
         "original_name": file.filename or input_path.name,
@@ -143,6 +134,11 @@ async def convert_file(
 ) -> dict[str, str]:
     if not to_format.strip():
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="to_format is required")
+
+    if file is not None:
+        from app.core.dependencies import validate_optional_upload
+
+        validate_optional_upload(file, settings)
 
     input_path, metadata = await _input_path_from_file_or_id(settings, file, file_id)
     parsed_settings: dict[str, Any] = {}
@@ -186,6 +182,8 @@ async def get_status(job_id: str) -> dict[str, Any]:
     if task.successful():
         result = task.result or {}
         if isinstance(result, dict):
+            from app.core.errors import sanitize_error_message
+
             response["status"] = "failure" if result.get("status") in {"failure", "failed"} else "success"
             response["stage"] = result.get("stage", "finalizing")
             response["progress"] = result.get("progress", 100)
@@ -195,13 +193,13 @@ async def get_status(job_id: str) -> dict[str, Any]:
             response["media_type"] = result.get("media_type")
             response["extension"] = result.get("extension")
             response["result"] = result.get("result")
-            response["error"] = result.get("error")
-            response["traceback"] = result.get("traceback")
+            response["error"] = sanitize_error_message(result.get("error")) if result.get("error") else None
     elif task.failed():
+        from app.core.errors import sanitize_error_message
+
         response["status"] = "failure"
         response["stage"] = "processing"
-        response["error"] = str(task.result)
-        response["traceback"] = str(task.result)
+        response["error"] = sanitize_error_message(str(task.result) if task.result else None)
 
     return response
 
@@ -217,16 +215,21 @@ async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
         )
 
     if task.failed():
+        from app.core.errors import sanitize_error_message
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(task.result),
+            detail=sanitize_error_message(str(task.result) if task.result else None),
         )
 
     result = task.result or {}
     if not isinstance(result, dict) or result.get("status") == "failed":
+        from app.core.errors import sanitize_error_message
+
+        raw = result.get("error") if isinstance(result, dict) else None
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=result.get("error") if isinstance(result, dict) else "Task failed",
+            detail=sanitize_error_message(str(raw) if raw is not None else None),
         )
 
     output_path = result.get("output_path")

@@ -1,12 +1,12 @@
 import asyncio
 import logging
 import mimetypes
-import traceback
 from pathlib import Path
 from typing import Any, Awaitable
 
 from fastapi import HTTPException
 
+from app.core.errors import sanitize_error_message
 from app.services.compression_service import CompressionService
 from app.services.image_service import ImageService
 from app.services.ocr_service import OCRService
@@ -36,7 +36,7 @@ def _success(task: Any, **result: str | list[str] | dict[str, Any]) -> dict[str,
 
 
 def _failure(task: Any, exc: Exception) -> dict[str, Any]:
-    error = exc.detail if isinstance(exc, HTTPException) else str(exc)
+    raw_detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
     logger.exception("Image task %s failed", _task_id(task))
     return {
         "task_id": _task_id(task),
@@ -44,8 +44,7 @@ def _failure(task: Any, exc: Exception) -> dict[str, Any]:
         "stage": "processing",
         "output_path": None,
         "result": None,
-        "error": error,
-        "traceback": traceback.format_exc(),
+        "error": sanitize_error_message(str(raw_detail) if raw_detail is not None else None),
     }
 
 

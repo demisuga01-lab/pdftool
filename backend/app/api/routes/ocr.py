@@ -2,11 +2,15 @@ from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
 
-import aiofiles
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from app.core.config import Settings
-from app.core.dependencies import get_app_settings, validate_upload_file_size
+from app.core.dependencies import (
+    get_app_settings,
+    save_temp_upload,
+    validate_saved_upload_path,
+    validate_upload_file_size,
+)
 from app.services.file_store import resolve_upload_path
 from app.workers.image_tasks import ocr_image_task
 
@@ -22,27 +26,17 @@ def _output_dir(settings: Settings) -> Path:
     return output_dir
 
 
-async def _save_upload(file: UploadFile, settings: Settings) -> Path:
-    settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    suffix = Path(file.filename or "").suffix.lower() or ".bin"
-    destination = settings.UPLOAD_DIR / f"{uuid4().hex}{suffix}"
-    await file.seek(0)
-    async with aiofiles.open(destination, "wb") as output_file:
-        while chunk := await file.read(1024 * 1024):
-            await output_file.write(chunk)
-    await file.close()
-    return destination
-
-
 async def _input_path(settings: Settings, file: UploadFile | None, file_id: str | None) -> Path:
     if file_id:
-        return resolve_upload_path(file_id, settings)
+        path = resolve_upload_path(file_id, settings)
+        validate_saved_upload_path(path, settings)
+        return path
     if file is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Provide either file_id or file",
         )
-    return await _save_upload(file, settings)
+    return await save_temp_upload(file, settings)
 
 
 @router.post("")

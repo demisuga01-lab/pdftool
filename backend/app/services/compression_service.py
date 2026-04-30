@@ -54,11 +54,11 @@ MAX_IMAGE_CANDIDATES_MAXIMUM = 2
 
 def get_imagemagick_command() -> str:
     import shutil
-    if shutil.which("magick"):
-        return "magick"
     if shutil.which("convert"):
         return "convert"
-    raise RuntimeError("ImageMagick is not installed. Expected either 'magick' or 'convert'.")
+    if shutil.which("magick"):
+        return "magick"
+    raise RuntimeError("ImageMagick is not installed. Expected the 'convert' command.")
 
 
 class CompressionService:

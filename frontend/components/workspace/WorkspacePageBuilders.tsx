@@ -678,7 +678,7 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
     fileMeta && currentFile && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
       <DownloadPanel
         error={job.error}
-        errorDetails={job.errorDetails ?? job.result?.traceback ?? null}
+        errorDetails={job.errorDetails ?? null}
         estimatedTime={estimateProcessingTime(fileMeta.size_bytes, pageCount)}
         jobId={job.jobId}
         onDownload={job.state === "success" ? job.download : undefined}
@@ -1072,7 +1072,7 @@ export function SingleImageWorkspacePage<T extends Record<string, unknown>>({
     fileMeta && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
       <DownloadPanel
         error={job.error}
-        errorDetails={job.errorDetails ?? job.result?.traceback ?? null}
+        errorDetails={job.errorDetails ?? null}
         estimatedTime={estimateProcessingTime(fileMeta.size_bytes, 1)}
         jobId={job.jobId}
         onDownload={job.state === "success" ? job.download : undefined}
@@ -1282,7 +1282,7 @@ export function MultiImageWorkspacePage<T extends Record<string, unknown>>({
         job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
           <DownloadPanel
             error={job.error}
-            errorDetails={job.errorDetails ?? job.result?.traceback ?? null}
+            errorDetails={job.errorDetails ?? null}
             estimatedTime={estimateProcessingTime(totalBytes, files.length)}
             jobId={job.jobId}
             onDownload={job.state === "success" ? job.download : undefined}

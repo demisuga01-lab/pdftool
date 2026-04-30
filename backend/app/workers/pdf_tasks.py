@@ -1,12 +1,12 @@
 import asyncio
 import logging
 import mimetypes
-import traceback
 from pathlib import Path
 from typing import Any, Awaitable
 
 from fastapi import HTTPException
 
+from app.core.errors import sanitize_error_message
 from app.services.compression_service import CompressionService
 from app.services.ocr_service import OCRService
 from app.services.pdf_service import PDFService
@@ -36,15 +36,14 @@ def _success(task: Any, **result: Any) -> dict[str, Any]:
 
 
 def _failure(task: Any, exc: Exception) -> dict[str, Any]:
-    error = exc.detail if isinstance(exc, HTTPException) else str(exc)
+    raw_detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
     logger.exception("PDF task %s failed", _task_id(task))
     return {
         "task_id": _task_id(task),
         "status": "failure",
         "stage": "processing",
         "output_path": None,
-        "error": error,
-        "traceback": traceback.format_exc(),
+        "error": sanitize_error_message(str(raw_detail) if raw_detail is not None else None),
     }
 
 

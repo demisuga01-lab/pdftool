@@ -12,7 +12,6 @@ export type JobStatus = {
   estimated_seconds_remaining?: number;
   result?: any;
   error?: string;
-  traceback?: string;
 };
 
 export type ApiResponse = {
@@ -65,23 +64,35 @@ async function parseResponse<T>(response: Response): Promise<T> {
   }
 
   if (!response.ok) {
+    if (response.status === 429) {
+      const retryAfter = Number(data?.retry_after_seconds);
+      const minutes = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.ceil(retryAfter / 60) : null;
+      throw new Error(
+        minutes
+          ? `Rate limit reached. You can try again in about ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`
+          : "Rate limit reached. Please try again in a few minutes.",
+      );
+    }
+    if (response.status === 413) {
+      throw new Error(typeof data?.detail === "string" ? data.detail : "File is too large. Maximum size is 25 MB.");
+    }
     const detail =
       typeof data?.detail === "string"
         ? data.detail
         : typeof data?.error === "string"
           ? data.error
-          : rawText.trim() || "Request failed";
-    const normalizedDetail = response.status === 404 ? `${NOT_FOUND_MESSAGE}\n\nTechnical details: ${detail}` : detail;
+          : "Request failed. Please try again.";
+    const safeDetail = response.status === 404 ? NOT_FOUND_MESSAGE : detail;
 
     if (process.env.NODE_ENV !== "production") {
       console.error("API request failed", {
         status: response.status,
         url: response.url,
-        detail: normalizedDetail,
+        detail: safeDetail,
       });
     }
 
-    throw new Error(normalizedDetail);
+    throw new Error(safeDetail);
   }
 
   return data as T;
@@ -185,7 +196,6 @@ export async function getJobStatus(
       typeof data.estimated_seconds_remaining === "number" ? data.estimated_seconds_remaining : undefined,
     result,
     error: successWithoutDownload ? MISSING_RESULT_MESSAGE : error,
-    traceback: typeof data.traceback === "string" ? data.traceback : undefined,
   };
 }
 
