@@ -250,7 +250,8 @@ export function ImageWorkspace({
                   </div>
                 </div>
               ) : null}
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+8rem)] sm:px-6 sm:py-6 lg:pb-6">
+              {/* See WorkspaceShells.tsx — keep mobile scroll on the body, only capture at lg+. */}
+              <div className="flex-1 px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+8rem)] sm:px-6 sm:py-6 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pb-6">
                 <div className="space-y-5">
                   {centerContent}
                   <section className="rounded-2xl border border-zinc-200 bg-white p-4 pb-6 dark:border-white/10 dark:bg-zinc-900 lg:hidden">

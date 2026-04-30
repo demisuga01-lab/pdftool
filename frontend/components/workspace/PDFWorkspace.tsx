@@ -426,7 +426,8 @@ export function PDFWorkspace({
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+8rem)] sm:px-6 sm:py-6 lg:pb-6">
+              {/* See WorkspaceShells.tsx — keep mobile scroll on the body, only capture at lg+. */}
+              <div className="flex-1 px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+8rem)] sm:px-6 sm:py-6 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pb-6">
                 {renderCenter}
               </div>
             </>

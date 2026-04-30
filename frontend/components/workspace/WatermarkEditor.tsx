@@ -1,10 +1,30 @@
 "use client";
 
 import { Crosshair, Image as ImageIcon, Maximize2, Minimize2, Move, RotateCcw, RotateCw, Trash2, Type, Upload, X } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 
 import { EditorCanvas } from "@/components/workspace/WorkspaceShells";
 import { clamp } from "@/lib/format";
+
+/**
+ * Mobile gesture priority (also the order in which the watermark overlay
+ * dispatches gestures):
+ *   1. Two pointers down on the overlay → pinch-resize the watermark.
+ *   2. One pointer down on the overlay  → drag/move the watermark.
+ *   3. Pointer down on the empty canvas → handled by the canvas pan layer
+ *      (only when zoomed past Fit), since this overlay stops events.
+ *   4. Pointer down outside the canvas  → normal page scroll.
+ *
+ * The overlay sets `touch-action: none` and uses pointer capture so the
+ * browser doesn't try to scroll the page while the user is editing the
+ * watermark, and we can keep tracking pointers even if a finger drifts
+ * outside the overlay's bounding box.
+ */
+const PINCH_MIN_DISTANCE_PX = 4;
+const IMAGE_WIDTH_MIN_PERCENT = 4;
+const IMAGE_WIDTH_MAX_PERCENT = 95;
+const TEXT_FONT_MIN_PX = 10;
+const TEXT_FONT_MAX_PX = 260;
 
 export type WatermarkKind = "text" | "image";
 
@@ -91,6 +111,35 @@ export function applyWatermarkPositionPreset(
   });
 }
 
+type PointerMap = Map<number, { x: number; y: number }>;
+
+type WatermarkGesture =
+  | { mode: "drag"; startClientX: number; startClientY: number; startX: number; startY: number }
+  | {
+      mode: "pinch";
+      startDistance: number;
+      startWidthPercent: number;
+      startFontSize: number;
+      startXPercent: number;
+      startYPercent: number;
+      startCenterX: number;
+      startCenterY: number;
+    };
+
+function pinchDistance(pts: Array<{ x: number; y: number }>): number {
+  if (pts.length < 2) {
+    return 0;
+  }
+  return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+}
+
+function pinchCenter(pts: Array<{ x: number; y: number }>): { x: number; y: number } {
+  if (pts.length < 2) {
+    return pts[0] ?? { x: 0, y: 0 };
+  }
+  return { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+}
+
 export function WatermarkEditor({
   asset,
   baseAlt,
@@ -115,85 +164,249 @@ export function WatermarkEditor({
   state: WatermarkEditorState;
 }) {
   const frameRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<
-    | { mode: "move"; startClientX: number; startClientY: number; startX: number; startY: number }
-    | { mode: "resize"; startClientX: number; startWidth: number; startFontSize: number }
-    | null
-  >(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const pointersRef = useRef<PointerMap>(new Map());
+  const gestureRef = useRef<WatermarkGesture | null>(null);
+  const stateRef = useRef(state);
+  const onChangeRef = useRef(onChange);
   const [selected, setSelected] = useState(true);
   const [naturalSize, setNaturalSize] = useState<{ height: number; width: number } | null>(null);
 
+  // Keep refs in sync so pointer handlers always read current state without
+  // having to be re-bound on every render (which would lose pointer capture).
   useEffect(() => {
-    const handlePointerMove = (event: PointerEvent) => {
-      if (!dragRef.current || !frameRef.current) {
+    stateRef.current = state;
+  }, [state]);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  // Attach pointer handlers directly to the overlay element so we can keep
+  // tracking pointers via setPointerCapture even if fingers drift outside the
+  // overlay's bounding box. This also lets a desktop resize-handle button
+  // override the gesture by stopping propagation.
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!overlay) {
+      return;
+    }
+
+    const isInteractiveTarget = (target: EventTarget | null) =>
+      target instanceof Element && Boolean(target.closest("textarea,input,button,label,[data-resize-handle]"));
+
+    const startGesture = () => {
+      const frame = frameRef.current;
+      if (!frame) {
         return;
       }
 
-      const bounds = frameRef.current.getBoundingClientRect();
+      const pts = Array.from(pointersRef.current.values());
+      if (pts.length >= 2) {
+        const distance = pinchDistance(pts);
+        const center = pinchCenter(pts);
+        if (distance < PINCH_MIN_DISTANCE_PX) {
+          return;
+        }
+        const current = stateRef.current;
+        gestureRef.current = {
+          mode: "pinch",
+          startDistance: distance,
+          startWidthPercent: current.widthPercent,
+          startFontSize: current.fontSize,
+          startXPercent: current.xPercent,
+          startYPercent: current.yPercent,
+          startCenterX: center.x,
+          startCenterY: center.y,
+        };
+      } else if (pts.length === 1) {
+        const [point] = pts;
+        const current = stateRef.current;
+        gestureRef.current = {
+          mode: "drag",
+          startClientX: point.x,
+          startClientY: point.y,
+          startX: current.xPercent,
+          startY: current.yPercent,
+        };
+      }
+    };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (isInteractiveTarget(event.target)) {
+        return;
+      }
+      // Capture this pointer so subsequent move/up events route here even if
+      // the finger leaves the overlay rectangle.
+      try {
+        overlay.setPointerCapture(event.pointerId);
+      } catch {
+        // Some browsers (notably very old Safari) throw if capture is unsupported.
+      }
+      pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      setSelected(true);
+      startGesture();
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!pointersRef.current.has(event.pointerId)) {
+        return;
+      }
+      pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+      const frame = frameRef.current;
+      if (!frame) {
+        return;
+      }
+      const bounds = frame.getBoundingClientRect();
       if (bounds.width <= 0 || bounds.height <= 0) {
         return;
       }
 
-      if (dragRef.current.mode === "move") {
+      const gesture = gestureRef.current;
+      const onChangeNow = onChangeRef.current;
+      const stateNow = stateRef.current;
+
+      if (gesture?.mode === "pinch" && pointersRef.current.size >= 2) {
+        const pts = Array.from(pointersRef.current.values()).slice(0, 2);
+        const distance = pinchDistance(pts);
+        if (distance < PINCH_MIN_DISTANCE_PX || gesture.startDistance < PINCH_MIN_DISTANCE_PX) {
+          return;
+        }
+        const scale = distance / gesture.startDistance;
+        if (stateNow.type === "image") {
+          onChangeNow({
+            positionPreset: "custom",
+            widthPercent: clamp(
+              Number((gesture.startWidthPercent * scale).toFixed(2)),
+              IMAGE_WIDTH_MIN_PERCENT,
+              IMAGE_WIDTH_MAX_PERCENT,
+            ),
+          });
+        } else {
+          onChangeNow({
+            positionPreset: "custom",
+            fontSize: clamp(Math.round(gesture.startFontSize * scale), TEXT_FONT_MIN_PX, TEXT_FONT_MAX_PX),
+          });
+        }
         event.preventDefault();
-        const deltaX = ((event.clientX - dragRef.current.startClientX) / bounds.width) * 100;
-        const deltaY = ((event.clientY - dragRef.current.startClientY) / bounds.height) * 100;
-        onChange({
-          positionPreset: "custom",
-          xPercent: clamp(Number(snapPercent(dragRef.current.startX + deltaX).toFixed(2)), 0, 100),
-          yPercent: clamp(Number(snapPercent(dragRef.current.startY + deltaY).toFixed(2)), 0, 100),
-        });
+        event.stopPropagation();
         return;
       }
 
-      event.preventDefault();
-      const deltaX = ((event.clientX - dragRef.current.startClientX) / bounds.width) * 100;
-      if (state.type === "image") {
-        onChange({ widthPercent: clamp(Number((dragRef.current.startWidth + deltaX).toFixed(2)), 4, 95) });
-      } else {
-        onChange({ fontSize: clamp(Math.round(dragRef.current.startFontSize + deltaX * 3), 10, 260) });
+      if (gesture?.mode === "drag" && pointersRef.current.size === 1) {
+        const deltaX = ((event.clientX - gesture.startClientX) / bounds.width) * 100;
+        const deltaY = ((event.clientY - gesture.startClientY) / bounds.height) * 100;
+        onChangeNow({
+          positionPreset: "custom",
+          xPercent: clamp(Number(snapPercent(gesture.startX + deltaX).toFixed(2)), 0, 100),
+          yPercent: clamp(Number(snapPercent(gesture.startY + deltaY).toFixed(2)), 0, 100),
+        });
+        event.preventDefault();
+        event.stopPropagation();
+        return;
       }
     };
 
-    const handlePointerUp = () => {
-      dragRef.current = null;
+    const releasePointer = (pointerId: number) => {
+      pointersRef.current.delete(pointerId);
+      try {
+        if (overlay.hasPointerCapture(pointerId)) {
+          overlay.releasePointerCapture(pointerId);
+        }
+      } catch {
+        // Ignore — some browsers don't expose hasPointerCapture.
+      }
+      // If a finger lifts mid-pinch we drop the gesture entirely; the user can
+      // place fingers down again to start a fresh drag/pinch. This is simpler
+      // and safer than trying to morph pinch → drag mid-stream.
+      if (pointersRef.current.size === 0 || gestureRef.current?.mode === "pinch") {
+        gestureRef.current = null;
+      } else if (pointersRef.current.size === 1 && gestureRef.current?.mode === "drag") {
+        // Drag was tracking a different finger — restart from the surviving one.
+        startGesture();
+      }
     };
 
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
+    const handlePointerUp = (event: PointerEvent) => {
+      if (!pointersRef.current.has(event.pointerId)) {
+        return;
+      }
+      releasePointer(event.pointerId);
+    };
+
+    const handlePointerCancel = (event: PointerEvent) => {
+      releasePointer(event.pointerId);
+    };
+
+    overlay.addEventListener("pointerdown", handlePointerDown);
+    overlay.addEventListener("pointermove", handlePointerMove);
+    overlay.addEventListener("pointerup", handlePointerUp);
+    overlay.addEventListener("pointercancel", handlePointerCancel);
+    overlay.addEventListener("lostpointercapture", handlePointerCancel);
+
     return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
+      overlay.removeEventListener("pointerdown", handlePointerDown);
+      overlay.removeEventListener("pointermove", handlePointerMove);
+      overlay.removeEventListener("pointerup", handlePointerUp);
+      overlay.removeEventListener("pointercancel", handlePointerCancel);
+      overlay.removeEventListener("lostpointercapture", handlePointerCancel);
+      pointersRef.current.clear();
+      gestureRef.current = null;
     };
-  }, [onChange, state.type]);
+  }, []);
 
-  const startMove = (event: ReactPointerEvent<HTMLElement>) => {
-    const target = event.target as HTMLElement;
-    if (target.closest("textarea,input,button,label")) {
-      return;
-    }
-    event.preventDefault();
-    setSelected(true);
-    dragRef.current = {
-      mode: "move",
-      startClientX: event.clientX,
-      startClientY: event.clientY,
-      startX: state.xPercent,
-      startY: state.yPercent,
-    };
-  };
+  const startResize = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
+      // Desktop precision resize handle. Stop propagation so the overlay's
+      // pointerdown handler does not also fire and start a drag.
+      event.preventDefault();
+      event.stopPropagation();
+      setSelected(true);
 
-  const startResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setSelected(true);
-    dragRef.current = {
-      mode: "resize",
-      startClientX: event.clientX,
-      startFontSize: state.fontSize,
-      startWidth: state.widthPercent,
-    };
-  };
+      const startClientX = event.clientX;
+      const startWidth = state.widthPercent;
+      const startFontSize = state.fontSize;
+
+      const handleMove = (moveEvent: PointerEvent) => {
+        moveEvent.preventDefault();
+        const frame = frameRef.current;
+        if (!frame) {
+          return;
+        }
+        const bounds = frame.getBoundingClientRect();
+        if (bounds.width <= 0) {
+          return;
+        }
+        const deltaX = ((moveEvent.clientX - startClientX) / bounds.width) * 100;
+        if (state.type === "image") {
+          onChange({
+            widthPercent: clamp(
+              Number((startWidth + deltaX).toFixed(2)),
+              IMAGE_WIDTH_MIN_PERCENT,
+              IMAGE_WIDTH_MAX_PERCENT,
+            ),
+          });
+        } else {
+          onChange({
+            fontSize: clamp(Math.round(startFontSize + deltaX * 3), TEXT_FONT_MIN_PX, TEXT_FONT_MAX_PX),
+          });
+        }
+      };
+
+      const handleUp = () => {
+        window.removeEventListener("pointermove", handleMove);
+        window.removeEventListener("pointerup", handleUp);
+        window.removeEventListener("pointercancel", handleUp);
+      };
+
+      window.addEventListener("pointermove", handleMove);
+      window.addEventListener("pointerup", handleUp);
+      window.addEventListener("pointercancel", handleUp);
+    },
+    [onChange, state.type, state.widthPercent, state.fontSize],
+  );
 
   const nudge = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
@@ -229,11 +442,11 @@ export function WatermarkEditor({
       onChange={onChange}
       onPageChange={onPageChange}
       onRemoveAsset={onRemoveAsset}
+      overlayRef={overlayRef}
       pageCount={pageCount}
       selected={selected}
       setNaturalSize={setNaturalSize}
       setSelected={setSelected}
-      startMove={startMove}
       startResize={startResize}
       state={state}
       tilePreview={tilePreview}
@@ -256,11 +469,11 @@ function WatermarkEditorCanvas({
   onPageChange,
   onRemoveAsset,
   overlayCommon,
+  overlayRef,
   pageCount,
   selected,
   setNaturalSize,
   setSelected,
-  startMove,
   startResize,
   state,
   tilePreview,
@@ -277,11 +490,11 @@ function WatermarkEditorCanvas({
   onPageChange?: (page: number) => void;
   onRemoveAsset?: () => void;
   overlayCommon: { left: string; opacity: number; top: string; transform: string };
+  overlayRef: React.MutableRefObject<HTMLDivElement | null>;
   pageCount?: number;
   selected: boolean;
   setNaturalSize: (size: { height: number; width: number } | null) => void;
   setSelected: (selected: boolean) => void;
-  startMove: (event: ReactPointerEvent<HTMLElement>) => void;
   startResize: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   state: WatermarkEditorState;
   tilePreview: boolean;
@@ -483,8 +696,9 @@ function WatermarkEditorCanvas({
                 selected ? "ring-2 ring-[#059669] ring-offset-2 ring-offset-white dark:ring-emerald-400 dark:ring-offset-zinc-950" : "",
               ].join(" ")}
               data-draggable-overlay
+              data-no-pan
               onKeyDown={nudge}
-              onPointerDown={startMove}
+              ref={overlayRef}
               role="button"
               style={state.type === "image" ? { ...overlayCommon, width: `${state.widthPercent}%` } : overlayCommon}
               tabIndex={0}
@@ -537,6 +751,7 @@ function WatermarkEditorCanvas({
                   <button
                     aria-label="Resize watermark"
                     className="absolute -bottom-3 -right-3 hidden h-8 w-8 rounded-full border-2 border-[#059669] bg-white shadow dark:bg-zinc-900 sm:block"
+                    data-resize-handle
                     onPointerDown={startResize}
                     type="button"
                   />

@@ -259,9 +259,15 @@ export function VisualEditorWorkspaceShell({
   const { dragProps, dragging } = useDropZone(onFilesDropped);
 
   useEffect(() => {
-    document.body.style.overflow = mobilePanelOpen ? "hidden" : "";
+    if (!mobilePanelOpen) {
+      return;
+    }
+    // Save and restore the previous body.overflow value so nested drawers do
+    // not clobber each other's lock state when they close in stacked order.
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousOverflow;
     };
   }, [mobilePanelOpen]);
 
@@ -279,7 +285,14 @@ export function VisualEditorWorkspaceShell({
       />
 
       <div className="relative flex min-h-0 flex-1 flex-col bg-zinc-50 dark:bg-[#050505] lg:flex-row">
-        <section className="min-w-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+8rem)] sm:px-5 sm:py-5 lg:pb-5">
+        {/*
+          Mobile (< lg): the section overflows visibly so the document body is
+          the scroll container — that lets the user scroll up/down past the
+          editor without getting trapped in a captured nested scroll.
+          Desktop (lg+): the two-pane layout needs this section to capture its
+          own vertical scroll so the sticky settings sidebar can stay in view.
+        */}
+        <section className="min-w-0 flex-1 px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+8rem)] sm:px-5 sm:py-5 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pb-5">
           {hasContent ? editor : <div className="flex min-h-[520px] items-center justify-center">{emptyState}</div>}
         </section>
 
