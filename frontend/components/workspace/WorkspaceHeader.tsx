@@ -120,7 +120,7 @@ export function WorkspaceHeader({
             {infoContent ? (
               <button
                 aria-label="File details"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-white/10 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-white/10 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
                 onClick={() => setInfoOpen(true)}
                 type="button"
               >
@@ -129,7 +129,7 @@ export function WorkspaceHeader({
             ) : null}
             {onDownload ? (
               <button
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5"
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5"
                 onClick={onDownload}
                 type="button"
               >
@@ -140,7 +140,7 @@ export function WorkspaceHeader({
             ) : null}
             {onReset ? (
               <button
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5"
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5"
                 onClick={onReset}
                 type="button"
               >
@@ -154,25 +154,25 @@ export function WorkspaceHeader({
       </div>
       {infoOpen && infoContent ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-0 sm:items-center sm:p-4"
           onClick={() => setInfoOpen(false)}
         >
           <div
-            className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-900"
+            className="w-full max-w-lg rounded-t-2xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-900 sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-white/10">
               <h2 className="text-base font-semibold text-slate-900 dark:text-zinc-100">File details</h2>
               <button
                 aria-label="Close"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-zinc-500 dark:hover:bg-white/5 dark:hover:text-white"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-zinc-500 dark:hover:bg-white/5 dark:hover:text-white"
                 onClick={() => setInfoOpen(false)}
                 type="button"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="max-h-[65vh] overflow-y-auto p-5 text-sm text-slate-700 dark:text-zinc-300">{infoContent}</div>
+            <div className="max-h-[65dvh] overflow-y-auto overscroll-contain p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] text-sm text-slate-700 dark:text-zinc-300">{infoContent}</div>
           </div>
         </div>
       ) : null}

@@ -18,7 +18,6 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Settings2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import {
@@ -72,7 +71,8 @@ function SortableImageCard({
       <div className="group overflow-hidden rounded-xl border border-zinc-200 bg-white transition hover:shadow-sm dark:border-white/10 dark:bg-zinc-900">
         <div className="relative">
           <button
-            className="absolute right-3 top-3 z-20 rounded-md bg-white/90 p-1.5 text-slate-400 transition hover:text-slate-700 dark:bg-zinc-900/90 dark:text-zinc-500 dark:hover:text-white"
+            aria-label="Drag to reorder"
+            className="absolute right-3 top-3 z-20 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/80 bg-white/90 text-slate-400 transition hover:text-slate-700 dark:border-white/10 dark:bg-zinc-900/90 dark:text-zinc-500 dark:hover:text-white"
             type="button"
             {...attributes}
             {...listeners}
@@ -92,6 +92,7 @@ function SortableImageCard({
           <p className="truncate font-mono text-[13px] text-slate-700 dark:text-zinc-100">{title}</p>
           {meta ? <p className="text-[12px] text-slate-500 dark:text-zinc-400">{meta}</p> : null}
         </div>
+        {hoverActions ? <div className="border-t border-zinc-200 p-2 dark:border-white/10 sm:hidden">{hoverActions}</div> : null}
       </div>
     </div>
   );
@@ -203,7 +204,7 @@ export function ImageWorkspace({
   uploadOverlay?: ReactNode;
 }) {
   return (
-    <main className="flex min-h-[calc(100vh-60px)] flex-col bg-white dark:bg-zinc-950 lg:h-[calc(100vh-60px)]">
+    <main className="flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-x-hidden bg-white dark:bg-zinc-950 sm:min-h-[calc(100dvh-4rem)] lg:h-[calc(100dvh-4rem)]">
       <WorkspaceHeader
         countLabel={countLabel}
         fileInfo={fileInfo}
@@ -249,7 +250,7 @@ export function ImageWorkspace({
                   </div>
                 </div>
               ) : null}
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-24 sm:px-6 sm:py-6 lg:pb-6">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+8rem)] sm:px-6 sm:py-6 lg:pb-6">
                 <div className="space-y-5">
                   {centerContent}
                   <section className="rounded-2xl border border-zinc-200 bg-white p-4 pb-6 dark:border-white/10 dark:bg-zinc-900 lg:hidden">
@@ -306,7 +307,7 @@ export function ImageWorkspace({
         </aside>
 
         {hasContent ? (
-          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 p-3 backdrop-blur dark:border-white/10 dark:bg-zinc-950/95 lg:hidden">
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur dark:border-white/10 dark:bg-zinc-950/95 lg:hidden">
             <button className="primary-button h-11 w-full" disabled={processButtonDisabled} onClick={onProcess} type="button">
               {processButtonLabel}
             </button>
@@ -314,8 +315,8 @@ export function ImageWorkspace({
         ) : null}
       </div>
 
-      {uploadOverlay ? <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4">{uploadOverlay}</div> : null}
-      {downloadPanel ? <div className="fixed inset-x-4 bottom-20 z-40 lg:inset-x-auto lg:bottom-6 lg:right-6 lg:w-[360px]">{downloadPanel}</div> : null}
+      {uploadOverlay ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4">{uploadOverlay}</div> : null}
+      {downloadPanel ? <div className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-40 lg:inset-x-auto lg:bottom-6 lg:right-6 lg:w-[360px]">{downloadPanel}</div> : null}
     </main>
   );
 }
@@ -336,7 +337,7 @@ export function EmptyWorkspaceState({
   return (
     <label
       className={[
-        "flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed bg-white px-6 py-14 text-center transition dark:bg-zinc-900",
+        "flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed bg-white px-4 py-10 text-center transition dark:bg-zinc-900 sm:px-6 sm:py-14",
         dragging ? "border-[#059669] bg-[#ECFDF5] dark:bg-emerald-500/10" : "border-slate-300 dark:border-white/15",
       ].join(" ")}
       onDragLeave={() => setDragging(false)}
@@ -362,7 +363,7 @@ export function EmptyWorkspaceState({
       </span>
       <h2 className="text-[18px] text-slate-900 dark:text-zinc-100">{multiple ? "Upload files" : "Upload a file"}</h2>
       <p className="mt-2 max-w-xl text-[14px] leading-7 text-slate-500 dark:text-zinc-400">{description}</p>
-      <span className="mt-5 inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-[14px] text-slate-700 dark:border-white/10 dark:text-zinc-200">
+      <span className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 px-4 text-[14px] text-slate-700 dark:border-white/10 dark:text-zinc-200">
         <UploadIcon className="h-4 w-4" />
         Browse files
       </span>

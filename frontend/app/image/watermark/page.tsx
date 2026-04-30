@@ -62,10 +62,10 @@ function StatusCard({
       className={[
         "rounded-xl border px-4 py-3 text-[13px] font-medium leading-6",
         failure
-          ? "border-rose-200 bg-rose-50 text-rose-700"
+          ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200"
           : success
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-            : "border-zinc-200 bg-zinc-50 text-slate-500 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300",
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
+            : "border-zinc-200 bg-zinc-50 text-slate-600 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300",
       ].join(" ")}
     >
       {failure

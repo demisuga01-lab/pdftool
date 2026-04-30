@@ -3,21 +3,53 @@
 import { type ReactNode } from "react";
 
 export function WorkspaceSettingsPanel({
+  bodyClassName,
   children,
   description,
+  footer,
+  footerClassName,
+  headerClassName,
+  panelClassName,
   title,
 }: {
+  bodyClassName?: string;
   children: ReactNode;
   description?: string;
+  footer?: ReactNode;
+  footerClassName?: string;
+  headerClassName?: string;
+  panelClassName?: string;
   title: string;
 }) {
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm shadow-black/5 dark:border-white/10 dark:bg-zinc-900 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
-      <div className="mb-5 space-y-1">
-        <h2 className="text-[18px] font-bold leading-tight text-zinc-900 dark:text-zinc-100 lg:text-[22px]">{title}</h2>
-        {description ? <p className="text-[13px] font-medium leading-5 text-zinc-500 dark:text-zinc-400">{description}</p> : null}
+    <section
+      className={[
+        "overflow-hidden rounded-[28px] border border-zinc-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.05)] dark:border-white/10 dark:bg-[#111111] dark:shadow-black/30",
+        panelClassName ?? "",
+      ].join(" ")}
+    >
+      <div
+        className={[
+          "border-b border-zinc-200/80 px-5 py-5 dark:border-white/10 sm:px-6 sm:py-6",
+          headerClassName ?? "",
+        ].join(" ")}
+      >
+        <div className="space-y-1.5">
+          <h2 className="text-xl font-bold leading-tight tracking-[-0.02em] text-zinc-950 dark:text-zinc-100 lg:text-[22px]">{title}</h2>
+          {description ? <p className="text-sm font-medium leading-6 text-zinc-500 dark:text-zinc-400">{description}</p> : null}
+        </div>
       </div>
-      {children}
+      <div className={["px-5 py-5 sm:px-6 sm:py-6", bodyClassName ?? ""].join(" ")}>{children}</div>
+      {footer ? (
+        <div
+          className={[
+            "border-t border-zinc-200/80 bg-zinc-50/80 px-5 py-5 dark:border-white/10 dark:bg-black/20 sm:px-6 sm:py-6",
+            footerClassName ?? "",
+          ].join(" ")}
+        >
+          {footer}
+        </div>
+      ) : null}
     </section>
   );
 }

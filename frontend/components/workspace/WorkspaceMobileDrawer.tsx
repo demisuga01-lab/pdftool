@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 export function WorkspaceMobileDrawer({
   children,
@@ -16,6 +16,18 @@ export function WorkspaceMobileDrawer({
   open: boolean;
   title: string;
 }) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
   return (
     <>
       <div
@@ -27,7 +39,7 @@ export function WorkspaceMobileDrawer({
       />
       <div
         className={[
-          "fixed inset-x-0 bottom-0 z-50 max-h-[86vh] rounded-t-[24px] bg-white shadow-2xl shadow-black/20 transition dark:bg-zinc-900 dark:shadow-black/40 lg:hidden",
+          "fixed inset-x-0 bottom-0 z-50 max-h-[86dvh] rounded-t-[24px] border-t border-zinc-200 bg-white shadow-2xl shadow-black/20 transition dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/40 lg:hidden",
           open ? "translate-y-0" : "translate-y-full",
         ].join(" ")}
       >
@@ -40,7 +52,7 @@ export function WorkspaceMobileDrawer({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="overflow-y-auto px-5 py-4 pb-28">{children}</div>
+        <div className="overflow-y-auto overscroll-contain px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+7rem)]">{children}</div>
       </div>
     </>
   );

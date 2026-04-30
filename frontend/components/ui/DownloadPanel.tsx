@@ -39,11 +39,11 @@ export function DownloadPanel({
   const isFailed = state === "failure";
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-900/12 dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/35">
+    <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-900/12 dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/35 sm:p-5">
       <div className="space-y-4">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-[#059669] dark:text-emerald-300">Download status</p>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-zinc-100">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-zinc-100 sm:text-xl">
             {isReady
               ? "Your file is ready"
               : isFailed
@@ -96,7 +96,7 @@ export function DownloadPanel({
 
         <div className="grid gap-3">
           {isReady && onDownload ? (
-            <button className="primary-button h-12 w-full gap-2 text-base" onClick={onDownload} type="button">
+            <button className="primary-button h-12 w-full gap-2 text-sm sm:text-base" onClick={onDownload} type="button">
               <Download className="h-5 w-5" />
               Download File
             </button>

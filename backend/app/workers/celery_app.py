@@ -31,6 +31,13 @@ celery_app.conf.update(
     task_default_queue="fast",
     task_default_exchange="fast",
     task_default_routing_key="fast",
+    # Heavy tasks (compress/convert/PDF compress) are CPU-bound and can run for
+    # tens of seconds. Without prefetch=1 the heavy worker would reserve up to
+    # four jobs at once, making the UI feel stuck while jobs sit unprocessed.
+    worker_prefetch_multiplier=1,
+    # Make sure a job that crashes a worker is retried, not silently lost.
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
     task_queues=(
         Queue("fast", fast_exchange, routing_key="fast"),
         Queue("heavy", heavy_exchange, routing_key="heavy"),
@@ -48,7 +55,10 @@ celery_app.conf.update(
     task_annotations={
         "app.workers.pdf_tasks.compress_pdf_task": {"time_limit": 300, "soft_time_limit": 290},
         "app.workers.convert_tasks.convert_file_task": {"time_limit": 300, "soft_time_limit": 290},
-        "app.workers.compress_tasks.compress_file_task": {"time_limit": 600, "soft_time_limit": 590},
+        # Compression must finish quickly. The bounded image strategy plus
+        # per-tool timeouts means a single image compression should never need
+        # more than ~3-4 minutes even on slow disks.
+        "app.workers.compress_tasks.compress_file_task": {"time_limit": 240, "soft_time_limit": 210},
         "app.workers.pdf_tasks.office_to_pdf_task": {"time_limit": 300, "soft_time_limit": 290},
         "app.workers.image_tasks.batch_resize_task": {"time_limit": 300, "soft_time_limit": 290},
         "app.workers.pdf_tasks.*": {"time_limit": 60, "soft_time_limit": 55},

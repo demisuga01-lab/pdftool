@@ -73,7 +73,7 @@ export type ControlSection<T> = {
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-zinc-500">
+    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">
       {children}
     </p>
   );
@@ -124,9 +124,8 @@ export function WorkspaceControls<T extends Record<string, any>>({
       {sections.map((section, sectionIndex) => (
         <div
           className={[
-            "space-y-4",
-            sectionIndex > 0 ? "border-t border-zinc-200 pt-6" : "",
-            sectionIndex > 0 ? "dark:border-white/10" : "",
+            "space-y-4 rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-white/10 dark:bg-zinc-950/70 sm:p-5",
+            sectionIndex === 0 ? "shadow-sm shadow-black/[0.02]" : "",
           ].join(" ")}
           key={section.key}
         >
@@ -163,10 +162,10 @@ export function WorkspaceControls<T extends Record<string, any>>({
                       return (
                         <button
                           className={[
-                            "rounded-lg border px-3 py-3 text-left transition",
+                            "rounded-xl border px-3.5 py-3 text-left transition",
                             isSelected
-                              ? "border-[#059669] bg-[#059669]/[0.05] dark:border-emerald-400 dark:bg-emerald-500/10"
-                              : "border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-zinc-900 dark:hover:border-zinc-500",
+                              ? "border-emerald-500 bg-emerald-50/80 shadow-sm shadow-emerald-600/5 dark:border-emerald-400/70 dark:bg-emerald-500/10"
+                              : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50 dark:border-white/10 dark:bg-[#111111] dark:hover:border-zinc-600 dark:hover:bg-white/5",
                           ].join(" ")}
                           key={String(option.value)}
                           onClick={() => update(field.key, option.value as T[keyof T])}
@@ -174,12 +173,12 @@ export function WorkspaceControls<T extends Record<string, any>>({
                         >
                           <div className="flex items-start gap-3">
                             {option.icon ? (
-                              <span className="mt-0.5 text-[#059669]">{option.icon}</span>
+                              <span className="mt-0.5 text-emerald-600 dark:text-emerald-400">{option.icon}</span>
                             ) : null}
                             <div className="space-y-1">
                               <p className="text-[15px] font-semibold text-slate-900 dark:text-zinc-100">{option.label}</p>
                               {option.description ? (
-                                <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">{option.description}</p>
+                                <p className="text-[13px] font-medium leading-5 text-slate-500 dark:text-zinc-400">{option.description}</p>
                               ) : null}
                             </div>
                           </div>
@@ -201,8 +200,8 @@ export function WorkspaceControls<T extends Record<string, any>>({
                         className={[
                           "rounded-lg border px-3 py-2 text-sm font-medium transition",
                           value === option.value
-                            ? "border-[#059669] bg-[#059669]/[0.05] text-[#059669] dark:border-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-300"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-500",
+                            ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-300"
+                            : "border-zinc-200 bg-white text-slate-600 hover:border-zinc-300 dark:border-white/10 dark:bg-[#111111] dark:text-zinc-300 dark:hover:border-zinc-500",
                         ].join(" ")}
                         key={String(option.value)}
                         onClick={() => update(field.key, option.value as T[keyof T])}

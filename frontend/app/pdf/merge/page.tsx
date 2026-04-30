@@ -278,10 +278,10 @@ export default function PdfMergePage() {
               className={[
                 "rounded-xl border px-4 py-3 text-[13px] leading-6",
                 files.uploadState === "failure" || job.state === "failure"
-                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200"
                   : job.state === "success"
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                    : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300",
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
+                    : "border-zinc-200 bg-zinc-50 text-zinc-600 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300",
               ].join(" ")}
             >
               {files.uploadState === "failure"

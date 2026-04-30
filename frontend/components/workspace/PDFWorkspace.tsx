@@ -19,7 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ArrowDown, ArrowUp, Settings2, Trash2 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import {
   CheckIcon,
@@ -106,7 +106,8 @@ function SortableCard({
       >
         {badge ? <div className="absolute left-3 top-3 z-20">{badge}</div> : null}
         <button
-          className="absolute right-3 top-3 z-20 rounded-md bg-white/90 p-1.5 text-slate-400 transition hover:text-slate-700 dark:bg-zinc-900/90 dark:text-zinc-500 dark:hover:text-white"
+          aria-label="Drag to reorder"
+          className="absolute right-3 top-3 z-20 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/80 bg-white/90 text-slate-400 transition hover:text-slate-700 dark:border-white/10 dark:bg-zinc-900/90 dark:text-zinc-500 dark:hover:text-white"
           type="button"
           {...attributes}
           {...listeners}
@@ -119,6 +120,7 @@ function SortableCard({
           </div>
         ) : null}
         {children}
+        {hoverActions ? <div className="border-t border-zinc-200 p-2 dark:border-white/10 sm:hidden">{hoverActions}</div> : null}
         {title ? <div className="border-t border-zinc-200 px-3 py-2 text-[12px] text-slate-500">{title}</div> : null}
       </div>
     </div>
@@ -172,7 +174,7 @@ export function PDFThumbnailGrid({
               badge={
                 <button
                   className={[
-                    "flex h-6 w-6 items-center justify-center rounded-md border bg-white/95",
+                    "flex h-8 w-8 items-center justify-center rounded-lg border bg-white/95 sm:h-6 sm:w-6 sm:rounded-md",
                     item.selected ? "border-[#059669] text-[#059669] dark:border-emerald-400 dark:text-emerald-300" : "border-slate-200 text-transparent dark:border-white/10",
                   ].join(" ")}
                   onClick={() => onToggleSelect(item.id)}
@@ -251,10 +253,7 @@ export function PDFFileGrid({
               id={item.id}
               key={item.id}
             >
-              <div className="flex items-center gap-4 p-4">
-                <button className="rounded-lg border border-slate-200 bg-white p-2 text-slate-400 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-500" type="button">
-                  <DragHandleIcon className="h-4 w-4" />
-                </button>
+              <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
                 <div className="flex h-20 w-16 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-zinc-950">
                   {item.thumbnail ? (
                     <img alt={item.fileName} className="h-full w-full rounded-lg object-cover" src={item.thumbnail} />
@@ -268,34 +267,37 @@ export function PDFFileGrid({
                   <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">{item.pageCount} pages</p>
                   <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">{item.sizeLabel}</p>
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="grid grid-cols-3 gap-2 sm:flex sm:shrink-0 sm:items-center sm:gap-1">
                   <button
                     aria-label="Move file up"
-                    className="secondary-button h-10 w-10 p-0"
+                    className="secondary-button h-11 px-3 sm:h-10 sm:w-10 sm:p-0"
                     disabled={index === 0}
                     onClick={() => onReorder(arrayMove(items, index, index - 1))}
                     type="button"
                   >
                     <ArrowUp className="h-4 w-4" />
+                    <span className="ml-2 sm:hidden">Up</span>
                   </button>
                   <button
                     aria-label="Move file down"
-                    className="secondary-button h-10 w-10 p-0"
+                    className="secondary-button h-11 px-3 sm:h-10 sm:w-10 sm:p-0"
                     disabled={index === items.length - 1}
                     onClick={() => onReorder(arrayMove(items, index, index + 1))}
                     type="button"
                   >
                     <ArrowDown className="h-4 w-4" />
+                    <span className="ml-2 sm:hidden">Down</span>
+                  </button>
+                  <button
+                    aria-label={`Remove ${item.fileName}`}
+                    className="secondary-button h-11 px-3 text-rose-600 sm:h-10 sm:w-10 sm:p-0"
+                    onClick={() => onRemove(item.id)}
+                    type="button"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="ml-2 sm:hidden">Remove</span>
                   </button>
                 </div>
-                <button
-                  aria-label={`Remove ${item.fileName}`}
-                  className="secondary-button h-10 w-10 shrink-0 p-0 text-rose-600"
-                  onClick={() => onRemove(item.id)}
-                  type="button"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
               </div>
             </SortableCard>
           ))}
@@ -335,8 +337,19 @@ export function PDFWorkspace({
 }: WorkspaceShellProps) {
   const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
 
+  useEffect(() => {
+    if (!mobileSettingsOpen) {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileSettingsOpen]);
+
   return (
-    <main className="flex min-h-[calc(100vh-60px)] flex-col bg-white dark:bg-zinc-950 lg:h-[calc(100vh-60px)]">
+    <main className="flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-x-hidden bg-white dark:bg-zinc-950 sm:min-h-[calc(100dvh-4rem)] lg:h-[calc(100dvh-4rem)]">
       <WorkspaceHeader
         countLabel={countLabel}
         fileInfo={fileInfo}
@@ -413,7 +426,7 @@ export function PDFWorkspace({
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-24 sm:px-6 sm:py-6 lg:pb-6">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+8rem)] sm:px-6 sm:py-6 lg:pb-6">
                 {renderCenter}
               </div>
             </>
@@ -449,14 +462,14 @@ export function PDFWorkspace({
 
         {hasContent ? (
           <>
-            <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 p-3 backdrop-blur dark:border-white/10 dark:bg-zinc-950/95 lg:hidden">
+            <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur dark:border-white/10 dark:bg-zinc-950/95 lg:hidden">
               <button className="primary-button h-11 w-full" disabled={processButtonDisabled} onClick={onProcess} type="button">
                 {processButtonLabel}
               </button>
             </div>
             <button
               aria-label="Open settings"
-              className="fixed bottom-16 right-4 z-30 inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-600/25 lg:hidden"
+              className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-30 inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-600/25 lg:hidden"
               onClick={() => setMobileSettingsOpen(true)}
               type="button"
             >
@@ -467,14 +480,14 @@ export function PDFWorkspace({
 
         <div
           className={[
-            "fixed inset-0 z-40 bg-slate-900/35 transition lg:hidden",
+            "fixed inset-0 z-40 bg-slate-900/45 transition lg:hidden",
             mobileSettingsOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
           ].join(" ")}
           onClick={() => setMobileSettingsOpen(false)}
         />
         <div
           className={[
-            "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] rounded-t-[24px] bg-white transition dark:bg-zinc-900 lg:hidden",
+            "fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] rounded-t-[24px] border-t border-zinc-200 bg-white shadow-2xl shadow-black/20 transition dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/40 lg:hidden",
             mobileSettingsOpen ? "translate-y-0" : "translate-y-full",
           ].join(" ")}
         >
@@ -492,7 +505,7 @@ export function PDFWorkspace({
               <CloseIcon className="h-4 w-4" />
             </button>
           </div>
-          <div className="overflow-y-auto px-5 py-4 pb-24">
+          <div className="overflow-y-auto overscroll-contain px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+7rem)]">
             {rightPanel}
             <div className="pt-5">
               <button
@@ -508,8 +521,8 @@ export function PDFWorkspace({
         </div>
       </div>
 
-      {uploadOverlay ? <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4">{uploadOverlay}</div> : null}
-      {downloadPanel ? <div className="fixed inset-x-4 bottom-20 z-40 lg:inset-x-auto lg:bottom-6 lg:right-6 lg:w-[360px]">{downloadPanel}</div> : null}
+      {uploadOverlay ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4">{uploadOverlay}</div> : null}
+      {downloadPanel ? <div className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-40 lg:inset-x-auto lg:bottom-6 lg:right-6 lg:w-[360px]">{downloadPanel}</div> : null}
     </main>
   );
 }
@@ -528,7 +541,7 @@ export function EmptyPdfWorkspaceState({
   return (
     <label
       className={[
-        "flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed bg-white px-6 py-14 text-center transition dark:bg-zinc-900",
+        "flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed bg-white px-4 py-10 text-center transition dark:bg-zinc-900 sm:px-6 sm:py-14",
         dragging ? "border-[#059669] bg-[#ECFDF5] dark:bg-emerald-500/10" : "border-slate-300 dark:border-white/15",
       ].join(" ")}
       onDragLeave={() => setDragging(false)}
@@ -554,7 +567,7 @@ export function EmptyPdfWorkspaceState({
       </span>
       <h2 className="text-[18px] text-slate-900 dark:text-zinc-100">{multiple ? "Upload PDF files" : "Upload a PDF"}</h2>
       <p className="mt-2 max-w-xl text-[14px] leading-7 text-slate-500 dark:text-zinc-400">{description}</p>
-      <span className="mt-5 inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-[14px] text-slate-700 dark:border-white/10 dark:text-zinc-200">
+      <span className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 px-4 text-[14px] text-slate-700 dark:border-white/10 dark:text-zinc-200">
         <UploadIcon className="h-4 w-4" />
         Browse files
       </span>

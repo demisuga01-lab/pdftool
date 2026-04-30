@@ -1,6 +1,6 @@
 "use client";
 
-import { Image as ImageIcon, Move, Type, Upload, X } from "lucide-react";
+import { Crosshair, Image as ImageIcon, Maximize2, Minimize2, Move, RotateCcw, RotateCw, Trash2, Type, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 
 import { EditorCanvas } from "@/components/workspace/WorkspaceShells";
@@ -294,46 +294,66 @@ function WatermarkEditorCanvas({
           {selected ? (
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               <button
-                className="secondary-button min-h-11 px-3 text-sm"
+                aria-label="Make watermark smaller"
+                className="secondary-button min-h-11 gap-2 px-3 text-sm"
                 onClick={() => onChange({ widthPercent: clamp(state.widthPercent - 4, 4, 95), fontSize: clamp(state.fontSize - 6, 10, 260) })}
                 type="button"
               >
+                <Minimize2 className="h-4 w-4" />
                 Smaller
               </button>
               <button
-                className="secondary-button min-h-11 px-3 text-sm"
+                aria-label="Make watermark bigger"
+                className="secondary-button min-h-11 gap-2 px-3 text-sm"
                 onClick={() => onChange({ widthPercent: clamp(state.widthPercent + 4, 4, 95), fontSize: clamp(state.fontSize + 6, 10, 260) })}
                 type="button"
               >
+                <Maximize2 className="h-4 w-4" />
                 Bigger
               </button>
               <button
-                className="secondary-button min-h-11 px-3 text-sm"
+                aria-label="Rotate watermark left"
+                className="secondary-button min-h-11 gap-2 px-3 text-sm"
                 onClick={() => onChange({ positionPreset: "custom", rotation: state.rotation - 15 })}
                 type="button"
               >
+                <RotateCcw className="h-4 w-4" />
                 Rotate left
               </button>
               <button
-                className="secondary-button min-h-11 px-3 text-sm"
+                aria-label="Rotate watermark right"
+                className="secondary-button min-h-11 gap-2 px-3 text-sm"
                 onClick={() => onChange({ positionPreset: "custom", rotation: state.rotation + 15 })}
                 type="button"
               >
+                <RotateCw className="h-4 w-4" />
                 Rotate right
               </button>
               <button
-                className="secondary-button min-h-11 px-3 text-sm"
+                aria-label="Center watermark"
+                className="secondary-button min-h-11 gap-2 px-3 text-sm"
                 onClick={() => onChange({ positionPreset: "center", rotation: 0, xPercent: 50, yPercent: 50 })}
                 type="button"
               >
+                <Crosshair className="h-4 w-4" />
                 Center
+              </button>
+              <button
+                aria-label="Reset watermark"
+                className="secondary-button min-h-11 gap-2 px-3 text-sm"
+                onClick={() => onChange({ fontSize: 72, positionPreset: "center", rotation: 0, widthPercent: 28, xPercent: 50, yPercent: 50 })}
+                type="button"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset
               </button>
               {state.type === "image" && asset && onRemoveAsset ? (
                 <button
-                  className="min-h-11 rounded-lg border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 transition hover:border-rose-300 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-300"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 transition hover:border-rose-300 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-300"
                   onClick={onRemoveAsset}
                   type="button"
                 >
+                  <Trash2 className="h-4 w-4" />
                   Remove logo
                 </button>
               ) : null}

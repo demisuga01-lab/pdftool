@@ -177,7 +177,7 @@ export function FileUpload({
         aria-describedby={error ? `${inputId}-error` : undefined}
         aria-invalid={Boolean(error)}
         className={[
-          "group relative rounded-lg border-2 border-dashed bg-zinc-50 p-8 transition dark:bg-zinc-900",
+          "group relative rounded-lg border-2 border-dashed bg-zinc-50 p-5 transition dark:bg-zinc-900 sm:p-8",
           isDragging
             ? "border-[#059669] bg-[#ECFDF5] dark:bg-emerald-500/10"
             : "border-zinc-300 hover:border-slate-400 dark:border-white/15 dark:hover:border-emerald-400/40",
@@ -217,9 +217,9 @@ export function FileUpload({
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-slate-500 shadow-sm shadow-slate-900/5 dark:bg-zinc-950 dark:text-zinc-300">
             <Upload className="h-4 w-4" />
           </div>
-          <div className="space-y-1">
+          <div className="min-w-0 space-y-1">
             <p className="text-sm font-medium text-slate-500 dark:text-zinc-300">{helperText}</p>
-            <p className="text-xs text-slate-400 dark:text-zinc-500">
+            <p className="break-words text-xs text-slate-400 dark:text-zinc-500">
               {accept ? `Accepted: ${accept}` : "All file types accepted"} | Max {maxSizeMB} MB
             </p>
           </div>
@@ -268,7 +268,8 @@ export function FileUpload({
                     </div>
                   </div>
                   <button
-                    className="ghost-button p-0 text-slate-400 hover:bg-transparent hover:text-slate-600 dark:text-zinc-500 dark:hover:text-slate-200"
+                    aria-label={`Remove ${file.name}`}
+                    className="ghost-button min-h-10 min-w-10 p-0 text-slate-400 hover:bg-transparent hover:text-slate-600 dark:text-zinc-500 dark:hover:text-slate-200"
                     onClick={() => void handleRemove(file)}
                     type="button"
                   >

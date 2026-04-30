@@ -34,6 +34,7 @@ import { useEffect, useState, type DragEvent, type ReactNode } from "react";
 
 import { PageIcon } from "@/components/icons/SiteIcons";
 import { WorkspaceHeader } from "@/components/workspace/WorkspaceHeader";
+import { WorkspaceSettingsPanel } from "@/components/workspace/WorkspaceSettingsPanel";
 import { useDragPan, useWorkspaceZoom } from "@/lib/use-workspace-zoom";
 
 type DropHandler = (files: File[]) => void;
@@ -73,26 +74,6 @@ function useDropZone(onFilesDropped?: DropHandler) {
       },
     },
   };
-}
-
-export function ToolSettingsPanel({
-  children,
-  description,
-  title,
-}: {
-  children: ReactNode;
-  description?: string;
-  title: string;
-}) {
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/[0.03] dark:border-white/10 dark:bg-zinc-900 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
-      <div className="mb-5 space-y-1">
-        <h2 className="text-[18px] font-bold leading-tight text-slate-900 dark:text-zinc-100 lg:text-[22px]">{title}</h2>
-        {description ? <p className="text-[13px] font-medium leading-5 text-slate-500 dark:text-zinc-400">{description}</p> : null}
-      </div>
-      {children}
-    </section>
-  );
 }
 
 export function MobileActionBar({
@@ -161,7 +142,7 @@ export function CompactWorkspaceShell({
   const { dragProps, dragging } = useDropZone(onFilesDropped);
 
   return (
-    <main className="min-h-[calc(100vh-60px)] overflow-x-hidden overscroll-x-none bg-slate-50 dark:bg-zinc-950" {...dragProps}>
+    <main className="min-h-[calc(100dvh-3.5rem)] overflow-x-hidden overscroll-x-none bg-zinc-50 dark:bg-[#050505] sm:min-h-[calc(100dvh-4rem)]" {...dragProps}>
       <WorkspaceHeader
         countLabel={countLabel}
         fileInfo={fileInfo}
@@ -173,33 +154,49 @@ export function CompactWorkspaceShell({
         title={title}
       />
 
-      <div className="mx-auto grid w-full max-w-[1360px] gap-5 px-4 py-4 pb-28 sm:px-6 sm:py-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:pb-8 xl:max-w-[1440px]">
-        <section className="min-w-0 space-y-5">
-          {hasContent ? preview : <div className="flex min-h-[420px] items-center justify-center">{emptyState}</div>}
-          {resultPanel}
-        </section>
-
-        <aside className="min-w-0 lg:sticky lg:top-20">
-          <ToolSettingsPanel description={description} title={title}>
-            {settingsPanel}
+      <div className="mx-auto w-full max-w-[1440px] px-4 py-4 sm:px-6 sm:py-6 xl:px-8">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start">
+          <section className="min-w-0 space-y-6">
             {hasContent ? (
-              <div className="mt-6 hidden border-t border-slate-200 pt-5 dark:border-white/10 lg:block">
-                <button
-                  className="primary-button min-h-11 w-full text-[15px]"
-                  disabled={processButtonDisabled}
-                  onClick={onProcess}
-                  type="button"
-                >
-                  {processButtonLabel}
-                </button>
-                <div className="mt-2 space-y-0.5 text-center text-xs text-slate-400 dark:text-zinc-500">
-                  <p>{estimatedTime ?? "Estimated time updates after upload"}</p>
-                  <p>Files deleted after 24 hours</p>
-                </div>
+              preview
+            ) : (
+              <div className="rounded-[28px] border border-zinc-200 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-[#111111] dark:shadow-black/25 sm:p-6">
+                <div className="flex min-h-[360px] items-center justify-center">{emptyState}</div>
               </div>
-            ) : null}
-          </ToolSettingsPanel>
-        </aside>
+            )}
+            {resultPanel}
+          </section>
+
+          <aside className="min-w-0 lg:sticky lg:top-24">
+            <WorkspaceSettingsPanel
+              bodyClassName="space-y-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
+              description={description}
+              footer={
+                hasContent ? (
+                  <div className="space-y-3">
+                    <button
+                      className="primary-button h-12 w-full text-[15px]"
+                      disabled={processButtonDisabled}
+                      onClick={onProcess}
+                      type="button"
+                    >
+                      {processButtonLabel}
+                    </button>
+                    <div className="space-y-1 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                      <p>{estimatedTime ?? "Estimated time updates after upload"}</p>
+                      <p>Files deleted after 24 hours</p>
+                    </div>
+                  </div>
+                ) : null
+              }
+              footerClassName="shrink-0"
+              panelClassName="lg:flex lg:max-h-[calc(100dvh-7.5rem)] lg:flex-col"
+              title={title}
+            >
+              {settingsPanel}
+            </WorkspaceSettingsPanel>
+          </aside>
+        </div>
       </div>
 
       {dragging ? (
@@ -209,9 +206,8 @@ export function CompactWorkspaceShell({
           </div>
         </div>
       ) : null}
-      {uploadOverlay ? <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4">{uploadOverlay}</div> : null}
-      {downloadPanel ? <div className="fixed inset-x-4 bottom-20 z-40 lg:inset-x-auto lg:bottom-6 lg:right-6 lg:w-[360px]">{downloadPanel}</div> : null}
-      {hasContent ? <MobileActionBar disabled={processButtonDisabled} label={processButtonLabel} onClick={onProcess} /> : null}
+      {uploadOverlay ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4">{uploadOverlay}</div> : null}
+      {downloadPanel ? <div className="fixed inset-x-4 bottom-4 z-40 lg:inset-x-auto lg:bottom-6 lg:right-6 lg:w-[380px]">{downloadPanel}</div> : null}
     </main>
   );
 }
@@ -270,7 +266,7 @@ export function VisualEditorWorkspaceShell({
   }, [mobilePanelOpen]);
 
   return (
-    <main className="flex min-h-[calc(100vh-60px)] flex-col overflow-x-hidden overscroll-x-none bg-white dark:bg-zinc-950 lg:h-[calc(100vh-60px)]" {...dragProps}>
+    <main className="flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-x-hidden overscroll-x-none bg-white dark:bg-zinc-950 sm:min-h-[calc(100dvh-4rem)] lg:h-[calc(100dvh-4rem)]" {...dragProps}>
       <WorkspaceHeader
         countLabel={countLabel}
         fileInfo={fileInfo}
@@ -282,37 +278,43 @@ export function VisualEditorWorkspaceShell({
         title={title}
       />
 
-      <div className="relative flex min-h-0 flex-1 flex-col bg-slate-50 dark:bg-zinc-950 lg:flex-row">
-        <section className="min-w-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-28 sm:px-5 sm:py-5 lg:pb-5">
+      <div className="relative flex min-h-0 flex-1 flex-col bg-zinc-50 dark:bg-[#050505] lg:flex-row">
+        <section className="min-w-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+8rem)] sm:px-5 sm:py-5 lg:pb-5">
           {hasContent ? editor : <div className="flex min-h-[520px] items-center justify-center">{emptyState}</div>}
         </section>
 
-        <aside className="hidden w-[380px] shrink-0 flex-col border-l border-slate-200 bg-white dark:border-white/10 dark:bg-zinc-950 lg:flex">
-          <div className="min-h-0 flex-1 overflow-y-auto p-5">
-            <ToolSettingsPanel description={description} title={title}>
-              {propertiesPanel}
-            </ToolSettingsPanel>
-          </div>
-          <div className="border-t border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
-            <button
-              className="primary-button min-h-11 w-full text-[15px]"
-              disabled={processButtonDisabled}
-              onClick={onProcess}
-              type="button"
+        <aside className="hidden w-[420px] shrink-0 border-l border-zinc-200/80 bg-zinc-50/80 px-5 py-5 dark:border-white/10 dark:bg-black/10 lg:block">
+          <div className="sticky top-24">
+            <WorkspaceSettingsPanel
+              bodyClassName="space-y-6 lg:max-h-[calc(100dvh-15rem)] lg:overflow-y-auto"
+              description={description}
+              footer={
+                <div className="space-y-3">
+                  <button
+                    className="primary-button min-h-11 w-full text-[15px]"
+                    disabled={processButtonDisabled}
+                    onClick={onProcess}
+                    type="button"
+                  >
+                    {processButtonLabel}
+                  </button>
+                  <div className="space-y-0.5 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    <p>{estimatedTime ?? "Estimated time updates after upload"}</p>
+                    <p>Files deleted after 24 hours</p>
+                  </div>
+                </div>
+              }
+              title={title}
             >
-              {processButtonLabel}
-            </button>
-            <div className="mt-2 space-y-0.5 text-center text-xs text-slate-400 dark:text-zinc-500">
-              <p>{estimatedTime ?? "Estimated time updates after upload"}</p>
-              <p>Files deleted after 24 hours</p>
-            </div>
+              {propertiesPanel}
+            </WorkspaceSettingsPanel>
           </div>
         </aside>
 
         {hasContent ? (
           <>
             <button
-              className="fixed bottom-16 right-4 z-30 inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-full bg-[#059669] px-4 text-sm font-semibold text-white shadow-lg shadow-emerald-600/25 lg:hidden"
+              className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-30 inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-full bg-[#059669] px-4 text-sm font-semibold text-white shadow-lg shadow-emerald-600/25 lg:hidden"
               onClick={() => setMobilePanelOpen(true)}
               type="button"
             >
@@ -332,7 +334,7 @@ export function VisualEditorWorkspaceShell({
         />
         <div
           className={[
-            "fixed inset-x-0 bottom-0 z-50 max-h-[86vh] rounded-t-[24px] bg-white shadow-2xl shadow-slate-900/20 transition dark:bg-zinc-900 dark:shadow-black/40 lg:hidden",
+            "fixed inset-x-0 bottom-0 z-50 max-h-[86dvh] rounded-t-[24px] border-t border-slate-200 bg-white shadow-2xl shadow-slate-900/20 transition dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/40 lg:hidden",
             mobilePanelOpen ? "translate-y-0" : "translate-y-full",
           ].join(" ")}
         >
@@ -350,7 +352,7 @@ export function VisualEditorWorkspaceShell({
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="overflow-y-auto overscroll-contain px-5 py-4 pb-28">
+          <div className="overflow-y-auto overscroll-contain px-5 py-4 pb-[calc(env(safe-area-inset-bottom)+7rem)]">
             {propertiesPanel}
             <div className="pt-5">
               <button
@@ -376,8 +378,8 @@ export function VisualEditorWorkspaceShell({
           </div>
         </div>
       ) : null}
-      {uploadOverlay ? <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4">{uploadOverlay}</div> : null}
-      {downloadPanel ? <div className="fixed inset-x-4 bottom-20 z-40 lg:inset-x-auto lg:bottom-6 lg:right-6 lg:w-[360px]">{downloadPanel}</div> : null}
+      {uploadOverlay ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4">{uploadOverlay}</div> : null}
+      {downloadPanel ? <div className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-40 lg:inset-x-auto lg:bottom-6 lg:right-6 lg:w-[360px]">{downloadPanel}</div> : null}
     </main>
   );
 }
@@ -534,7 +536,7 @@ export function EditorCanvas({
         {toolbar}
       </div>
       <div
-        className="h-[min(72vh,760px)] overflow-auto overscroll-contain bg-slate-50 p-3 dark:bg-zinc-950 sm:p-5"
+        className="h-[min(62dvh,560px)] overflow-auto overscroll-contain bg-slate-50 p-3 dark:bg-zinc-950 sm:h-[min(72dvh,760px)] sm:p-5"
         ref={zoom.viewportRef}
         style={{
           cursor: dragPan.panCursor,

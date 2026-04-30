@@ -22,12 +22,16 @@ import { CSS } from "@dnd-kit/utilities";
 import { FileWorkspaceRow, type FileWorkspaceRowItem } from "@/components/workspace/FileWorkspaceRow";
 
 function SortableWorkspaceRow({
+  canMoveDown,
+  canMoveUp,
   item,
   index,
   onMoveDown,
   onMoveUp,
   onRemove,
 }: {
+  canMoveDown: boolean;
+  canMoveUp: boolean;
   item: FileWorkspaceRowItem;
   index: number;
   onMoveDown?: () => void;
@@ -50,6 +54,8 @@ function SortableWorkspaceRow({
         dragging={isDragging}
         index={index}
         item={item}
+        canMoveDown={canMoveDown}
+        canMoveUp={canMoveUp}
         onMoveDown={onMoveDown}
         onMoveUp={onMoveUp}
         onRemove={onRemove}
@@ -93,6 +99,8 @@ export function FileWorkspaceGrid({
             <SortableWorkspaceRow
               index={index}
               item={item}
+              canMoveDown={index < items.length - 1}
+              canMoveUp={index > 0}
               key={item.id}
               onMoveDown={onMove ? () => onMove(item.id, 1) : undefined}
               onMoveUp={onMove ? () => onMove(item.id, -1) : undefined}

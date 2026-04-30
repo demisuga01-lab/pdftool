@@ -13,6 +13,8 @@ export type FileWorkspaceRowItem = {
 };
 
 export function FileWorkspaceRow({
+  canMoveDown = true,
+  canMoveUp = true,
   dragAttributes,
   dragListeners,
   dragging,
@@ -22,6 +24,8 @@ export function FileWorkspaceRow({
   onMoveUp,
   onRemove,
 }: {
+  canMoveDown?: boolean;
+  canMoveUp?: boolean;
   dragAttributes?: any;
   dragListeners?: any;
   dragging?: boolean;
@@ -34,7 +38,7 @@ export function FileWorkspaceRow({
   return (
     <div
       className={[
-        "flex min-w-0 flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm shadow-black/5 dark:border-white/10 dark:bg-zinc-900 sm:flex-row sm:items-center",
+        "grid min-w-0 grid-cols-[44px_minmax(0,1fr)] gap-3 rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm shadow-black/5 dark:border-white/10 dark:bg-zinc-900 sm:flex sm:flex-row sm:items-center",
         dragging ? "opacity-60" : "",
       ].join(" ")}
     >
@@ -67,21 +71,24 @@ export function FileWorkspaceRow({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
-        <button aria-label={`Move ${item.title} up`} className="secondary-button h-10 w-10 p-0" onClick={onMoveUp} type="button">
+      <div className="col-span-2 grid grid-cols-3 gap-2 sm:col-span-1 sm:flex sm:shrink-0 sm:items-center sm:gap-1 sm:self-auto">
+        <button aria-label={`Move ${item.title} up`} className="secondary-button h-11 px-3 sm:h-10 sm:w-10 sm:p-0" disabled={!canMoveUp || !onMoveUp} onClick={onMoveUp} type="button">
           <ArrowUp className="h-4 w-4" />
+          <span className="ml-2 sm:hidden">Up</span>
         </button>
-        <button aria-label={`Move ${item.title} down`} className="secondary-button h-10 w-10 p-0" onClick={onMoveDown} type="button">
+        <button aria-label={`Move ${item.title} down`} className="secondary-button h-11 px-3 sm:h-10 sm:w-10 sm:p-0" disabled={!canMoveDown || !onMoveDown} onClick={onMoveDown} type="button">
           <ArrowDown className="h-4 w-4" />
+          <span className="ml-2 sm:hidden">Down</span>
         </button>
         {onRemove ? (
           <button
             aria-label={`Remove ${item.title}`}
-            className="secondary-button h-10 w-10 p-0 text-rose-600 dark:text-rose-400"
+            className="secondary-button h-11 px-3 text-rose-600 dark:text-rose-400 sm:h-10 sm:w-10 sm:p-0"
             onClick={onRemove}
             type="button"
           >
             <Trash2 className="h-4 w-4" />
+            <span className="ml-2 sm:hidden">Remove</span>
           </button>
         ) : null}
       </div>

@@ -103,13 +103,13 @@ const initialSettings: CompressionSettings = {
   preserveOriginalExtension: true,
   quality: 82,
   recompressAs7z: false,
-  recompressAsZip: true,
+  recompressAsZip: false,
   stripMetadata: true,
   targetSizeEnabled: false,
   targetSizeStrategy: "best_effort",
   targetSizeUnit: "MB",
   targetSizeValue: 1,
-  zipOutput: true,
+  zipOutput: false,
 };
 
 function detectedFileType(file: UploadedFileMetadata | null, fallback: CompressionFileType): CompressionFileType {
@@ -203,16 +203,18 @@ function ResultStats({ result }: { result?: CompressionResult }) {
   return (
     <section
       className={[
-        "rounded-xl border p-4",
-        alreadyOptimized ? "border-amber-200 bg-amber-50" : "border-zinc-200 bg-white",
+        "rounded-[24px] border p-5 shadow-sm shadow-black/[0.03] dark:shadow-black/20",
+        alreadyOptimized
+          ? "border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10"
+          : "border-zinc-200 bg-white dark:border-white/10 dark:bg-[#111111]",
       ].join(" ")}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Compression result</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-zinc-500">Compression result</p>
       <div className="mt-3 grid gap-2.5 text-sm">
         {rows.map(([label, value]) => (
           <div className="flex items-center justify-between gap-4" key={label}>
-            <span className="text-slate-500">{label}</span>
-            <span className="text-right font-semibold text-slate-800">{value}</span>
+            <span className="text-slate-500 dark:text-zinc-400">{label}</span>
+            <span className="text-right font-semibold text-slate-800 dark:text-zinc-100">{value}</span>
           </div>
         ))}
       </div>
@@ -221,8 +223,8 @@ function ResultStats({ result }: { result?: CompressionResult }) {
           className={[
             "mt-3 rounded-lg border px-3 py-2 text-[13px] leading-6",
             alreadyOptimized
-              ? "border-amber-200 bg-amber-50 text-amber-800"
-              : "border-slate-200 bg-slate-50 text-slate-600",
+              ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+              : "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300",
           ].join(" ")}
         >
           {result.message}
@@ -245,10 +247,10 @@ function FileTypePreview({ file, type }: { file: UploadedFileMetadata; type: Com
         : FileText;
   return (
     <div className="flex flex-col items-center justify-center gap-3 text-center">
-      <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#ECFDF5] text-[#059669]">
-          <Icon className="h-6 w-6" />
+      <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#ECFDF5] text-[#059669] dark:bg-emerald-500/10 dark:text-emerald-300">
+        <Icon className="h-6 w-6" />
       </span>
-      <p className="max-w-md text-sm font-medium leading-6 text-slate-500">
+      <p className="max-w-md text-sm font-medium leading-6 text-slate-500 dark:text-zinc-400">
         Preview is not available for this file type. Compression will use safe repacking, minification, or ZIP/7z packaging where useful.
       </p>
     </div>
@@ -266,11 +268,11 @@ function sectionsFor(type: CompressionFileType): Array<ControlSection<Compressio
           label: "Mode",
           type: "radioCards",
           options: [
-            { label: "Smart Auto", value: "smart", description: "Let PDFTools choose a conservative strategy." },
-            { label: "Lossless", value: "lossless", description: "Preserve quality and focus on safe container optimization." },
-            { label: "Balanced", value: "balanced", description: "Good size reduction with practical visual quality." },
+            { label: "Smart Auto", value: "smart", description: "Recommended safe compression." },
+            { label: "Lossless", value: "lossless", description: "Preserve quality where possible." },
+            { label: "Balanced", value: "balanced", description: "Smaller files with practical quality." },
             { label: "Maximum Compression", value: "maximum", description: "Prioritize smallest output." },
-            { label: "Custom", value: "custom", description: "Use the format-specific settings below." },
+            { label: "Custom", value: "custom", description: "Tune advanced settings manually." },
           ],
         },
       ],
@@ -428,6 +430,16 @@ function toBackendSettings(settings: CompressionSettings, fileType: CompressionF
   const archiveAs7z = fileType === "archive" && ["7z", "maximum"].includes(settings.archiveOutputMode);
   const archiveAsZip = fileType === "archive" && !archiveAs7z;
   const targetBytes = targetSizeBytes(settings);
+  // Archive-style flags (ZIP/7z output, ZIP/7z repacking) are only meaningful
+  // for text/office/archive flows. Don't ship them with image or PDF jobs —
+  // they confuse worker logs and do nothing useful for those paths.
+  const allowArchiveFlags = fileType === "text" || fileType === "office" || fileType === "archive";
+  const zipOutputFlag = allowArchiveFlags && settings.zipOutput;
+  // The text-output toggle in the UI is labeled "ZIP / 7z output"; map ZIP to
+  // zip_output and 7z to seven_zip_output via the dedicated packageAs7z flag.
+  const sevenZipOutputFlag = allowArchiveFlags && settings.packageAs7z;
+  const recompressAsZipFlag = fileType === "archive" ? archiveAsZip : allowArchiveFlags && settings.recompressAsZip;
+  const recompressAs7zFlag = fileType === "archive" ? archiveAs7z : allowArchiveFlags && settings.recompressAs7z;
 
   return {
     archive_level: settings.archiveLevel,
@@ -455,14 +467,14 @@ function toBackendSettings(settings: CompressionSettings, fileType: CompressionF
     preserve_original_extension: settings.preserveOriginalExtension,
     preserve_transparency: settings.imagePreserveTransparency,
     quality: settings.quality,
-    recompress_as_7z: fileType === "archive" ? archiveAs7z : settings.recompressAs7z,
-    recompress_as_zip: fileType === "archive" ? archiveAsZip : settings.recompressAsZip,
-    seven_zip_output: settings.zipOutput,
+    recompress_as_7z: recompressAs7zFlag,
+    recompress_as_zip: recompressAsZipFlag,
+    seven_zip_output: sevenZipOutputFlag,
     strip_metadata: settings.stripMetadata && !settings.imagePreserveMetadata,
     target_size_bytes: targetBytes,
     target_size_strategy: settings.targetSizeStrategy,
     type: fileType === "auto" ? undefined : fileType,
-    zip_output: settings.zipOutput,
+    zip_output: zipOutputFlag,
   };
 }
 
@@ -622,8 +634,31 @@ export default function CompressPage() {
     };
   }, [fileMeta?.file_id, searchParams]);
 
+  const jobInFlight = job.state === "uploading" || job.state === "queued" || job.state === "processing";
+  const [queuedSince, setQueuedSince] = useState<number | null>(null);
+  const [queuedNow, setQueuedNow] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    if (job.state === "queued") {
+      setQueuedSince((current) => current ?? Date.now());
+    } else {
+      setQueuedSince(null);
+    }
+  }, [job.state]);
+
+  useEffect(() => {
+    if (queuedSince === null) {
+      return;
+    }
+    const interval = window.setInterval(() => setQueuedNow(Date.now()), 5000);
+    return () => window.clearInterval(interval);
+  }, [queuedSince]);
+
+  const queuedSecs = queuedSince ? Math.round((queuedNow - queuedSince) / 1000) : 0;
+  const queuedTooLong = job.state === "queued" && queuedSecs >= 20;
+
   const handleCompress = () => {
-    if (!fileMeta || !currentFile) {
+    if (!fileMeta || !currentFile || jobInFlight) {
       return;
     }
     const formData = new FormData();
@@ -695,6 +730,11 @@ export default function CompressPage() {
             }}
             onReedit={job.dismissPanel}
             state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
+            statusText={
+              queuedTooLong
+                ? "Still waiting for a worker. This may take longer during heavy load."
+                : undefined
+            }
           />
         ) : null
       }
@@ -723,8 +763,8 @@ export default function CompressPage() {
         job.reset();
         syncFileQuery(null);
       }}
-      processButtonDisabled={!fileMeta}
-      processButtonLabel="Compress"
+      processButtonDisabled={!fileMeta || jobInFlight}
+      processButtonLabel={jobInFlight ? "Compressing…" : "Compress"}
       processingLabel={
         uploadState === "uploading"
           ? "Uploading file"
@@ -736,12 +776,12 @@ export default function CompressPage() {
         <div className="space-y-6">
           <div
             className={[
-              "rounded-xl border px-4 py-3 text-[13px] leading-6",
+              "rounded-2xl border px-4 py-3 text-[13px] font-medium leading-6",
               uploadState === "failure" || job.state === "failure"
-                ? "border-rose-200 bg-rose-50 text-rose-700"
+                ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200"
                 : job.state === "success"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-zinc-200 bg-zinc-50 text-slate-500 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300",
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
+                  : "border-zinc-200 bg-zinc-50 text-slate-600 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300",
             ].join(" ")}
           >
             {uploadState === "failure"

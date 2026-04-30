@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GitBranch } from "lucide-react";
 
 import { ChevronDownIcon, CloseIcon, MenuIcon } from "@/components/icons/SiteIcons";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { useTheme, type ThemeMode } from "@/components/theme/ThemeProvider";
+import { HomeLink } from "@/components/ui/HomeLink";
 import { Logo } from "@/components/ui/Logo";
 
 type ToolSection = {
@@ -186,6 +187,11 @@ export function Header() {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const mobileGroups = useMemo(() => toolSections, []);
 
+  const closeMobile = useCallback(() => {
+    setMobileOpen(false);
+    setOpenGroup(null);
+  }, []);
+
   useEffect(() => {
     if (mobileOpen) {
       document.body.style.overflow = "hidden";
@@ -197,17 +203,30 @@ export function Header() {
     };
   }, [mobileOpen]);
 
-  const closeMobile = () => {
-    setMobileOpen(false);
-    setOpenGroup(null);
-  };
+  useEffect(() => {
+    if (!mobileOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeMobile();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [closeMobile, mobileOpen]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-zinc-950/85">
-      <div className="mx-auto flex h-16 max-w-[1560px] items-center justify-between px-4 sm:px-6 xl:px-8">
-        <Logo />
+      <div className="mx-auto flex h-14 max-w-[1560px] items-center justify-between gap-2 px-3 sm:h-16 sm:px-6 xl:px-8">
+        <Logo className="gap-2 sm:gap-3" iconClassName="h-9 w-9 sm:h-10 sm:w-10" onNavigate={closeMobile} />
 
         <nav className="hidden items-center gap-1 md:flex">
+          <HomeLink className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-semibold text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-emerald-300 dark:focus-visible:ring-emerald-400/35">
+            Home
+          </HomeLink>
           <ToolsDropdown />
           <Link className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-semibold text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-emerald-300" href="/pricing">
             Pricing
@@ -234,7 +253,7 @@ export function Header() {
           <button
             aria-expanded={mobileOpen}
             aria-label="Toggle navigation menu"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5 dark:hover:text-emerald-300 md:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5 dark:hover:text-emerald-300 md:hidden"
             onClick={() => setMobileOpen((current) => !current)}
             type="button"
           >
@@ -246,10 +265,10 @@ export function Header() {
       {mobileOpen ? (
         <>
           <div
-            className="fixed inset-0 top-16 z-40 bg-black/55 backdrop-blur-sm md:hidden"
+            className="fixed inset-0 top-14 z-40 bg-black/55 backdrop-blur-sm sm:top-16 md:hidden"
             onClick={closeMobile}
           />
-          <div className="fixed inset-x-0 top-16 z-50 max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-slate-200 bg-white md:hidden dark:border-white/10 dark:bg-zinc-950">
+          <div className="fixed inset-x-0 top-14 z-50 max-h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] sm:top-16 sm:max-h-[calc(100dvh-4rem)] md:hidden dark:border-white/10 dark:bg-zinc-950">
             <div className="space-y-4 px-4 py-4">
               {mobileGroups.map((group) => (
                 <div className="border-b border-slate-100 dark:border-white/10 last:border-b-0" key={group.label}>
@@ -286,6 +305,12 @@ export function Header() {
               <MobileThemeSelector />
 
               <div className="border-t border-slate-200 py-3 dark:border-white/10">
+                <HomeLink
+                  className="block rounded-xl px-3 py-3 text-sm font-medium text-zinc-600 transition hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-emerald-300 dark:focus-visible:ring-emerald-400/35"
+                  onNavigate={closeMobile}
+                >
+                  Home
+                </HomeLink>
                 {[
                   { href: "/pricing", name: "Pricing" },
                   { href: "/about", name: "About" },

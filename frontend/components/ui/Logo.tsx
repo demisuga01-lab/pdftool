@@ -1,13 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+
+import { HomeLink } from "@/components/ui/HomeLink";
 
 type LogoProps = {
   className?: string;
   compact?: boolean;
   href?: string;
   iconClassName?: string;
+  onNavigate?: () => void;
   showLink?: boolean;
 };
 
@@ -16,10 +18,18 @@ export function Logo({
   compact = false,
   href = "/",
   iconClassName,
+  onNavigate,
   showLink = true,
 }: LogoProps) {
   const content = (
-    <span className={["inline-flex items-center gap-3 text-zinc-900 dark:text-zinc-100", className].filter(Boolean).join(" ")}>
+    <span
+      className={[
+        "inline-flex items-center gap-3 rounded-xl text-zinc-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 dark:text-zinc-100 dark:focus-visible:ring-emerald-400/40",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <Image
         alt="PDFTools by WellFriend"
         className={iconClassName ?? "h-10 w-10"}
@@ -47,8 +57,13 @@ export function Logo({
   }
 
   return (
-    <Link aria-label="PDFTools by WellFriend" href={href}>
+    <HomeLink
+      ariaLabel="PDFTools by WellFriend"
+      className="inline-flex cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 dark:focus-visible:ring-emerald-400/40"
+      href={href}
+      onNavigate={onNavigate}
+    >
       {content}
-    </Link>
+    </HomeLink>
   );
 }

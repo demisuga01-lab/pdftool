@@ -474,7 +474,7 @@ export default function OcrPage() {
       processingLabel={processingLabel}
       settingsPanel={
         <div className="space-y-6">
-          <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-[13px] font-medium leading-6 text-slate-500 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300">
+          <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-[13px] font-medium leading-6 text-slate-600 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300">
             {pdfNeedsPassword && !settings.pdfPassword
               ? "This PDF is password-protected. Enter the password before running OCR."
               : uploadState === "failure"

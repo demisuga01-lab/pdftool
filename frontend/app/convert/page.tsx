@@ -385,20 +385,20 @@ export default function ConvertPage() {
                   className={[
                     "relative rounded-lg border px-3 py-3 text-left transition",
                     active
-                      ? "border-[#059669] bg-[#059669]/[0.06] ring-2 ring-[#059669]/15"
-                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-zinc-900 dark:hover:bg-white/5",
+                      ? "border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/10 dark:border-emerald-400/70 dark:bg-emerald-500/10"
+                      : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50 dark:border-white/10 dark:bg-[#111111] dark:hover:bg-white/5",
                   ].join(" ")}
                   key={option.value}
                   onClick={() => selectOutput(option.value)}
                   type="button"
                 >
-                  <span className={["block text-[15px] font-semibold", active ? "text-[#059669] dark:text-emerald-300" : "text-slate-900 dark:text-zinc-100"].join(" ")}>
+                  <span className={["block text-[15px] font-semibold", active ? "text-emerald-700 dark:text-emerald-300" : "text-slate-900 dark:text-zinc-100"].join(" ")}>
                     {option.label}
                   </span>
-                  <span className="mt-1 block text-sm font-medium text-slate-500">{option.description}</span>
+                  <span className="mt-1 block text-sm font-medium text-slate-500 dark:text-zinc-400">{option.description}</span>
                   {active ? (
-                    <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-[#059669] text-[11px] font-bold text-white">
-                      ?
+                    <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white">
+                      ✓
                     </span>
                   ) : null}
                 </button>
@@ -593,12 +593,12 @@ export default function ConvertPage() {
         <div className="space-y-6">
           <div
             className={[
-              "rounded-xl border px-4 py-3 text-[13px] leading-6",
+              "rounded-2xl border px-4 py-3 text-[13px] font-medium leading-6",
               uploadState === "failure" || job.state === "failure"
-                ? "border-rose-200 bg-rose-50 text-rose-700"
+                ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200"
                 : job.state === "success"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-zinc-200 bg-zinc-50 text-slate-500 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300",
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
+                  : "border-zinc-200 bg-zinc-50 text-slate-600 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300",
             ].join(" ")}
           >
             {uploadState === "failure"

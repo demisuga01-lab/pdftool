@@ -46,9 +46,12 @@ export function WorkspaceEditorCanvas({
         {toolbar}
       </WorkspaceToolbar>
       <div
-        className="h-[min(72vh,760px)] touch-pan-x touch-pan-y overflow-auto bg-zinc-50 p-3 dark:bg-neutral-950 sm:p-5"
+        className="h-[min(62dvh,560px)] overflow-auto overscroll-contain bg-zinc-50 p-3 dark:bg-neutral-950 sm:h-[min(72dvh,760px)] sm:p-5"
         ref={zoom.viewportRef}
-        style={{ cursor: dragPan.panCursor }}
+        style={{
+          cursor: dragPan.panCursor,
+          touchAction: !zoom.fitMode && zoom.effectiveZoom > 100 ? "none" : "manipulation",
+        }}
       >
         <div className="flex min-h-full min-w-full items-center justify-center">{children({ effectiveZoom: zoom.effectiveZoom, mode: zoom.mode })}</div>
       </div>
