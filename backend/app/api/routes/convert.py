@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import mimetypes
 import zipfile
 from pathlib import Path
@@ -22,6 +23,7 @@ from app.workers.celery_app import celery_app
 from app.workers.convert_tasks import convert_file_task
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 AppSettings = Annotated[Settings, Depends(get_app_settings)]
 
@@ -95,6 +97,32 @@ async def _zip_outputs(job_id: str, output_paths: list[str], settings: Settings,
     return zip_path
 
 
+def _normalize_task_result_payload(result: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(result)
+    output_path = normalized.get("output_path")
+    raw_output_paths = normalized.get("output_paths")
+    output_paths = [str(path) for path in raw_output_paths] if isinstance(raw_output_paths, list) else []
+
+    if output_path or len(output_paths) != 1:
+        return normalized
+
+    single_path = output_paths[0]
+    single_name = Path(single_path).name
+    normalized["output_path"] = single_path
+    normalized["output_paths"] = None
+
+    current_filename = str(normalized.get("output_filename") or "").strip()
+    if not current_filename or current_filename.lower().endswith(".zip"):
+        normalized["output_filename"] = single_name
+
+    current_media_type = str(normalized.get("media_type") or "").strip()
+    if not current_media_type or current_media_type == "application/zip":
+        normalized["media_type"] = mimetypes.guess_type(single_name)[0] or "application/octet-stream"
+
+    normalized["extension"] = Path(single_name).suffix.lstrip(".")
+    return normalized
+
+
 async def _input_path_from_file_or_id(
     settings: Settings,
     file: UploadFile | None,
@@ -135,6 +163,10 @@ async def convert_file(
     if not to_format.strip():
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="to_format is required")
 
+    conversion_service = ConversionService()
+    requested_to_format = to_format
+    normalized_to_format = conversion_service.normalize_output_format(to_format)
+
     if file is not None:
         from app.core.dependencies import validate_optional_upload
 
@@ -153,7 +185,7 @@ async def convert_file(
     if output_filename and output_filename.strip():
         parsed_settings["output_filename"] = output_filename.strip()
 
-    detected_from = ConversionService().detect_input_format(
+    detected_from = conversion_service.detect_input_format(
         input_path,
         from_format=from_format,
         mime_type=str(metadata.get("mime_type") or ""),
@@ -161,10 +193,17 @@ async def convert_file(
     task = convert_file_task.delay(
         str(input_path),
         str(_output_dir(settings)),
-        to_format,
+        normalized_to_format,
         detected_from,
         str(metadata.get("mime_type") or ""),
         parsed_settings,
+    )
+    logger.info(
+        "Queued conversion task job_id=%s requested_format=%s normalized_format=%s input_extension=%s",
+        task.id,
+        requested_to_format,
+        normalized_to_format,
+        Path(input_path).suffix.lower().lstrip("."),
     )
     return _queued_response(str(task.id), "Conversion queued")
 
@@ -184,16 +223,17 @@ async def get_status(job_id: str) -> dict[str, Any]:
         if isinstance(result, dict):
             from app.core.errors import sanitize_error_message
 
+            normalized_result = _normalize_task_result_payload(result)
             response["status"] = "failure" if result.get("status") in {"failure", "failed"} else "success"
-            response["stage"] = result.get("stage", "finalizing")
-            response["progress"] = result.get("progress", 100)
-            response["output_path"] = result.get("output_path")
-            response["output_paths"] = result.get("output_paths")
-            response["output_filename"] = result.get("output_filename")
-            response["media_type"] = result.get("media_type")
-            response["extension"] = result.get("extension")
-            response["result"] = result.get("result")
-            response["error"] = sanitize_error_message(result.get("error")) if result.get("error") else None
+            response["stage"] = normalized_result.get("stage", "finalizing")
+            response["progress"] = normalized_result.get("progress", 100)
+            response["output_path"] = normalized_result.get("output_path")
+            response["output_paths"] = normalized_result.get("output_paths")
+            response["output_filename"] = normalized_result.get("output_filename")
+            response["media_type"] = normalized_result.get("media_type")
+            response["extension"] = normalized_result.get("extension")
+            response["result"] = normalized_result.get("result")
+            response["error"] = sanitize_error_message(normalized_result.get("error")) if normalized_result.get("error") else None
     elif task.failed():
         from app.core.errors import sanitize_error_message
 
@@ -232,10 +272,11 @@ async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
             detail=sanitize_error_message(str(raw) if raw is not None else None),
         )
 
-    output_path = result.get("output_path")
-    output_paths = result.get("output_paths")
-    output_filename = str(result.get("output_filename") or "").strip() or None
-    media_type = str(result.get("media_type") or "").strip() or None
+    normalized_result = _normalize_task_result_payload(result)
+    output_path = normalized_result.get("output_path")
+    output_paths = normalized_result.get("output_paths")
+    output_filename = str(normalized_result.get("output_filename") or "").strip() or None
+    media_type = str(normalized_result.get("media_type") or "").strip() or None
 
     if output_path:
         file_path = _safe_output_path(str(output_path), settings)

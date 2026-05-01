@@ -260,6 +260,7 @@ export default function ImageWatermarkPage() {
             errorDetails={job.errorDetails ?? null}
             estimatedTime={estimateProcessingTime(fileMeta.size_bytes, 1)}
             jobId={job.jobId}
+            notice={job.notice}
             onDownload={job.state === "success" ? job.download : undefined}
             onProcessAnother={() => {
               setFile(null);
@@ -268,6 +269,7 @@ export default function ImageWatermarkPage() {
               job.reset();
             }}
             onReedit={job.dismissPanel}
+            rateLimitScope={job.rateLimitScope}
             state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
           />
         ) : null

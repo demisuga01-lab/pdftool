@@ -1,6 +1,7 @@
 import asyncio
 import csv
 import html
+import logging
 import mimetypes
 import re
 import zipfile
@@ -30,6 +31,8 @@ TEXT_FORMATS = {"txt", "html", "htm", "csv"}
 IMAGE_FORMATS = {"jpg", "jpeg", "png", "webp", "avif", "tif", "tiff", "bmp"}
 SVG_FORMATS = {"svg"}
 
+logger = logging.getLogger(__name__)
+
 
 class ConversionService:
     def _safe_filename(self, value: str | None, fallback_stem: str, extension: str) -> str:
@@ -37,7 +40,7 @@ class ConversionService:
         safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(requested).stem if requested else fallback_stem).strip(".-") or fallback_stem
         return f"{safe_stem}.{extension.lstrip('.')}"
 
-    def _normalize_format(self, value: str | None, *, fallback: str | None = None) -> str:
+    def normalize_output_format(self, value: str | None, *, fallback: str | None = None) -> str:
         normalized = (value or fallback or "").lower().strip().lstrip(".")
         # JPEG is the IANA name; "jpg" is the common file extension. Treat them
         # as the same canonical format internally.
@@ -51,10 +54,13 @@ class ConversionService:
             return "txt"
         return normalized
 
+    def _normalize_format(self, value: str | None, *, fallback: str | None = None) -> str:
+        return self.normalize_output_format(value, fallback=fallback)
+
     def media_type_for(self, target_format: str) -> str:
         """Map a canonical output format to its IANA media type."""
 
-        normalized = self._normalize_format(target_format)
+        normalized = self.normalize_output_format(target_format)
         return {
             "jpg": "image/jpeg",
             "png": "image/png",
@@ -80,15 +86,15 @@ class ConversionService:
         mime_type: str | None = None,
     ) -> str:
         if from_format:
-            return self._normalize_format(from_format)
+            return self.normalize_output_format(from_format)
 
-        suffix = self._normalize_format(Path(input_path).suffix)
+        suffix = self.normalize_output_format(Path(input_path).suffix)
         if suffix:
             return suffix
 
         if mime_type:
             guessed = mime_type.split("/")[-1]
-            return self._normalize_format(guessed)
+            return self.normalize_output_format(guessed)
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -99,12 +105,20 @@ class ConversionService:
         output_dir.mkdir(parents=True, exist_ok=True)
         return output_dir / filename
 
-    def _single_result(self, output_path: Path, *, original_name: str | None = None) -> dict[str, Any]:
-        media_type = mimetypes.guess_type(output_path.name)[0] or "application/octet-stream"
+    def _single_result(
+        self,
+        output_path: Path,
+        *,
+        original_name: str | None = None,
+        media_type: str | None = None,
+    ) -> dict[str, Any]:
+        resolved_media_type = media_type or self.media_type_for(output_path.suffix)
+        if resolved_media_type == "application/octet-stream":
+            resolved_media_type = mimetypes.guess_type(output_path.name)[0] or "application/octet-stream"
         return {
             "output_path": str(output_path),
             "output_filename": output_path.name,
-            "media_type": media_type,
+            "media_type": resolved_media_type,
             "original_name": original_name,
             "extension": output_path.suffix.lstrip("."),
         }
@@ -117,6 +131,40 @@ class ConversionService:
             "original_name": original_name,
             "extension": "zip",
         }
+
+    def _finalize_output_collection(
+        self,
+        output_paths: list[Path],
+        *,
+        destination_root: Path,
+        requested_name: str,
+        fallback_stem: str,
+        single_extension: str,
+        original_name: str | None = None,
+    ) -> dict[str, Any]:
+        if not output_paths:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unsupported output format.",
+            )
+
+        normalized_extension = self.normalize_output_format(single_extension)
+
+        if len(output_paths) == 1:
+            output_path = output_paths[0]
+            desired_name = self._safe_filename(requested_name, fallback_stem, normalized_extension)
+            desired_path = self._safe_output_path(destination_root, desired_name)
+            if output_path != desired_path:
+                output_path.replace(desired_path)
+                output_path = desired_path
+            return self._single_result(
+                output_path,
+                original_name=original_name,
+                media_type=self.media_type_for(normalized_extension),
+            )
+
+        zip_name = self._safe_filename(requested_name, fallback_stem, "zip")
+        return self._multi_result(output_paths, output_filename=zip_name, original_name=original_name)
 
     async def _csv_to_xlsx(self, input_path: Path, output_path: Path) -> str:
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -201,7 +249,7 @@ class ConversionService:
         destination_root = Path(output_dir)
         options = settings or {}
         input_format = self.detect_input_format(source, from_format, mime_type)
-        target_format = self._normalize_format(to_format)
+        target_format = self.normalize_output_format(to_format)
         requested_name = str(options.get("output_filename") or "").strip()
         original_name = source.name
 
@@ -209,19 +257,19 @@ class ConversionService:
             if target_format == "docx":
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "docx"))
                 await PDFService().pdf_to_docx(source, output_path)
-                return self._single_result(output_path, original_name=original_name)
+                return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("docx"))
             if target_format == "xlsx":
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "xlsx"))
                 await PDFService().pdf_to_excel(source, output_path)
-                return self._single_result(output_path, original_name=original_name)
+                return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("xlsx"))
             if target_format == "txt":
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "txt"))
                 await PDFService().extract_text(source, output_path, layout=True, output_format="txt")
-                return self._single_result(output_path, original_name=original_name)
+                return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("txt"))
             if target_format == "html":
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "html"))
                 await PDFService().pdf_to_html(source, output_path)
-                return self._single_result(output_path, original_name=original_name)
+                return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("html"))
             if target_format in {"png", "jpg", "webp"}:
                 dpi = int(options.get("dpi", 180))
                 jpeg_quality = int(options.get("quality", 85))
@@ -238,8 +286,14 @@ class ConversionService:
                             transparent=bool(options.get("transparent", False)),
                         )
                     ]
-                    zip_name = self._safe_filename(page_base, source.stem, "zip")
-                    return self._multi_result(outputs, output_filename=zip_name, original_name=original_name)
+                    return self._finalize_output_collection(
+                        outputs,
+                        destination_root=destination_root,
+                        requested_name=requested_name or page_base,
+                        fallback_stem=source.stem,
+                        single_extension=target_format,
+                        original_name=original_name,
+                    )
 
                 rendered_dir = destination_root / "rendered-png"
                 rendered = [
@@ -265,8 +319,14 @@ class ConversionService:
                         str(options.get("color_space", "srgb")),
                     )
                     converted.append(output_path)
-                zip_name = self._safe_filename(page_base, source.stem, "zip")
-                return self._multi_result(converted, output_filename=zip_name, original_name=original_name)
+                return self._finalize_output_collection(
+                    converted,
+                    destination_root=destination_root,
+                    requested_name=requested_name or page_base,
+                    fallback_stem=source.stem,
+                    single_extension="webp",
+                    original_name=original_name,
+                )
             if target_format in {"searchable_pdf", "pdf"}:
                 output_name = self._safe_filename(requested_name, source.stem, "pdf")
                 output_path = await OCRService().ocr(
@@ -281,7 +341,7 @@ class ConversionService:
                     renamed = destination_root / output_name
                     final_path.replace(renamed)
                     final_path = renamed
-                return self._single_result(final_path, original_name=original_name)
+                return self._single_result(final_path, original_name=original_name, media_type=self.media_type_for("pdf"))
 
         if input_format in OFFICE_FORMATS or input_format in {"txt", "html", "rtf"}:
             if target_format == "pdf":
@@ -290,23 +350,23 @@ class ConversionService:
                 if output_path.name != desired.name:
                     output_path.replace(desired)
                     output_path = desired
-                return self._single_result(output_path, original_name=original_name)
+                return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("pdf"))
             if input_format == "xlsx" and target_format == "csv":
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "csv"))
                 await self._xlsx_to_csv(source, output_path)
-                return self._single_result(output_path, original_name=original_name)
+                return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("csv"))
             if input_format in {"txt", "html"} and target_format == "zip":
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "zip"))
                 await self._zip_single(source, output_path)
-                return self._single_result(output_path, original_name=original_name)
+                return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("zip"))
             if input_format == "txt" and target_format == "html":
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "html"))
                 await self._text_to_html(source, output_path)
-                return self._single_result(output_path, original_name=original_name)
+                return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("html"))
             if input_format == "html" and target_format == "txt":
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "txt"))
                 await self._html_to_txt(source, output_path)
-                return self._single_result(output_path, original_name=original_name)
+                return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("txt"))
 
         if input_format == "csv":
             if target_format == "pdf":
@@ -315,15 +375,15 @@ class ConversionService:
                 if output_path.name != desired.name:
                     output_path.replace(desired)
                     output_path = desired
-                return self._single_result(output_path, original_name=original_name)
+                return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("pdf"))
             if target_format == "xlsx":
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "xlsx"))
                 await self._csv_to_xlsx(source, output_path)
-                return self._single_result(output_path, original_name=original_name)
+                return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("xlsx"))
             if target_format == "zip":
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "zip"))
                 await self._zip_single(source, output_path)
-                return self._single_result(output_path, original_name=original_name)
+                return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("zip"))
 
         if input_format in SVG_FORMATS:
             if target_format in {"png", "pdf", "eps"}:
@@ -336,7 +396,7 @@ class ConversionService:
                     bool(options.get("preserve_metadata", False)),
                     str(options.get("color_space", "srgb")),
                 )
-                return self._single_result(output_path, original_name=original_name)
+                return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for(target_format))
 
         if input_format in IMAGE_FORMATS:
             if target_format in {"jpg", "png", "webp", "avif", "tiff", "bmp"}:
@@ -351,20 +411,26 @@ class ConversionService:
                 )
                 if isinstance(converted, dict):
                     return converted
-                return self._single_result(Path(converted), original_name=original_name)
+                return self._single_result(Path(converted), original_name=original_name, media_type=self.media_type_for(target_format))
             if target_format == "pdf":
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "pdf"))
                 await PDFService().images_to_pdf([source], output_path)
-                return self._single_result(output_path, original_name=original_name)
+                return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("pdf"))
 
+        logger.info(
+            "Unsupported conversion output format requested: input_format=%s target_format=%s source=%s",
+            input_format,
+            target_format,
+            source.suffix.lower(),
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Conversion from {input_format} to {target_format} is not supported yet.",
+            detail="Unsupported output format.",
         )
 
     def select_queue(self, input_format: str, to_format: str) -> str:
-        normalized_input = self._normalize_format(input_format)
-        normalized_output = self._normalize_format(to_format)
+        normalized_input = self.normalize_output_format(input_format)
+        normalized_output = self.normalize_output_format(to_format)
         if normalized_output in {"docx", "xlsx", "searchable_pdf"}:
             return "heavy"
         if normalized_input in OFFICE_FORMATS or normalized_input in {"csv"}:

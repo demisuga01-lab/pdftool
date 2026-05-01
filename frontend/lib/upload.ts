@@ -1,4 +1,4 @@
-import { toApiPath } from "@/lib/api";
+import { ApiRateLimitError, formatRateLimitMessage, toApiPath } from "@/lib/api";
 
 type UploadResponse = {
   [key: string]: unknown;
@@ -91,6 +91,21 @@ export function uploadWithProgress(
       const data = parseJsonSafe(request.responseText);
 
       if (request.status < 200 || request.status >= 300) {
+        if (request.status === 429) {
+          const retryAfterSeconds = Number(data?.retry_after_seconds);
+          reject(
+            new ApiRateLimitError(
+              formatRateLimitMessage("job", Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0 ? retryAfterSeconds : undefined),
+              {
+                bucket: typeof data?.bucket === "string" ? data.bucket : undefined,
+                retryAfterSeconds:
+                  Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0 ? Math.ceil(retryAfterSeconds) : undefined,
+                scope: "job",
+              },
+            ),
+          );
+          return;
+        }
         const detail =
           typeof data?.detail === "string"
             ? data.detail

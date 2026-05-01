@@ -62,10 +62,13 @@ export default function SettingsPage() {
                 onChange={(event) => setTheme(event.target.value as "light" | "dark" | "system")}
                 value={theme}
               >
+                <option value="system">System (recommended)</option>
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
-                <option value="system">System</option>
               </select>
+              <p className="text-xs text-slate-500 dark:text-zinc-400">
+                New visitors follow their device theme by default unless they save a light or dark preference.
+              </p>
             </label>
 
             <label className="space-y-2">
@@ -132,6 +135,38 @@ export default function SettingsPage() {
             >
               Reset all tool settings to defaults
             </button>
+          </div>
+        </section>
+
+        <section className={`${panelClass} space-y-3`}>
+          <h2 className="section-title">Help and community</h2>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-4 text-sm leading-7 text-slate-600 dark:border-white/10 dark:bg-zinc-900/80 dark:text-zinc-300">
+            <p>
+              Bugs, processing failures, security issues, and abuse reports should go to{" "}
+              <a className="font-semibold text-[#059669] hover:text-[#047857]" href="mailto:support@wellfriend.online">
+                support@wellfriend.online
+              </a>
+              .
+            </p>
+            <p>
+              API, feature, business, and partnership questions should go to{" "}
+              <a className="font-semibold text-[#059669] hover:text-[#047857]" href="mailto:contact@wellfriend.online">
+                contact@wellfriend.online
+              </a>
+              .
+            </p>
+            <p>
+              You can also join the{" "}
+              <a
+                className="font-semibold text-[#059669] hover:text-[#047857]"
+                href="https://discord.gg/ZQFmYaQbVu"
+                rel="noreferrer"
+                target="_blank"
+              >
+                WellFriend Corp Discord
+              </a>{" "}
+              for community help, updates, and discussion.
+            </p>
           </div>
         </section>
 

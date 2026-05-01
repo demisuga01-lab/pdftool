@@ -177,7 +177,7 @@ export function FileUpload({
         aria-describedby={error ? `${inputId}-error` : undefined}
         aria-invalid={Boolean(error)}
         className={[
-          "group relative rounded-lg border-2 border-dashed bg-zinc-50 p-5 transition dark:bg-zinc-900 sm:p-8",
+          "group relative rounded-2xl border-2 border-dashed bg-white/76 p-5 shadow-[0_16px_45px_rgba(15,23,42,0.05)] backdrop-blur-xl transition dark:bg-zinc-900/76 dark:shadow-[0_18px_50px_rgba(0,0,0,0.24)] sm:p-8",
           isDragging
             ? "border-[#059669] bg-[#ECFDF5] dark:bg-emerald-500/10"
             : "border-zinc-300 hover:border-slate-400 dark:border-white/15 dark:hover:border-emerald-400/40",
@@ -221,6 +221,22 @@ export function FileUpload({
             <p className="text-sm font-medium text-slate-500 dark:text-zinc-300">{helperText}</p>
             <p className="break-words text-xs text-slate-400 dark:text-zinc-500">
               {accept ? `Accepted: ${accept}` : "All file types accepted"} | Max {maxSizeMB} MB
+            </p>
+            <p className="break-words text-xs text-slate-400 dark:text-zinc-500">
+              Need help? Email{" "}
+              <a className="font-semibold text-[#059669] hover:text-[#047857]" href="mailto:support@wellfriend.online">
+                support@wellfriend.online
+              </a>{" "}
+              or join{" "}
+              <a
+                className="font-semibold text-[#059669] hover:text-[#047857]"
+                href="https://discord.gg/ZQFmYaQbVu"
+                rel="noreferrer"
+                target="_blank"
+              >
+                Discord
+              </a>
+              .
             </p>
           </div>
         </div>

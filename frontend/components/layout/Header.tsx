@@ -97,7 +97,7 @@ function ToolsDropdown() {
     <div className="relative" onBlur={closeMenu} onFocus={openMenu} onMouseEnter={openMenu} onMouseLeave={closeMenu}>
       <button
         aria-expanded={open}
-        className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-semibold text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-emerald-300 dark:focus-visible:ring-emerald-400/35"
+        className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-semibold text-slate-600 transition hover:bg-emerald-50/80 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:text-zinc-300 dark:hover:bg-white/6 dark:hover:text-emerald-300 dark:focus-visible:ring-emerald-400/35"
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
@@ -111,7 +111,7 @@ function ToolsDropdown() {
           open ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
         ].join(" ")}
       >
-        <div className="grid grid-cols-4 gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/10 dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/30">
+        <div className="grid grid-cols-4 gap-5 rounded-2xl border border-zinc-200/70 bg-white/88 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/84 dark:shadow-[0_30px_70px_rgba(0,0,0,0.34)]">
           {toolSections.map((section) => (
             <div className="min-w-0" key={section.label}>
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-zinc-500">{section.label}</p>
@@ -211,7 +211,7 @@ export function Header() {
   }, [closeMobile, mobileOpen]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-zinc-950/85">
+    <header className="sticky top-0 z-50 border-b border-zinc-200/70 bg-white/78 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/72">
       <div className="mx-auto flex h-14 max-w-[1560px] items-center justify-between gap-2 px-3 sm:h-16 sm:px-6 xl:px-8">
         <Logo className="gap-2 sm:gap-3" iconClassName="h-9 w-9 sm:h-10 sm:w-10" onNavigate={closeMobile} />
 
@@ -225,6 +225,9 @@ export function Header() {
           </Link>
           <Link className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-semibold text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-emerald-300" href="/about">
             About
+          </Link>
+          <Link className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-semibold text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-emerald-300" href="/docs">
+            Docs
           </Link>
           <Link className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-semibold text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-emerald-300" href="/contact">
             Contact
@@ -260,7 +263,7 @@ export function Header() {
             className="fixed inset-0 top-14 z-40 bg-black/55 backdrop-blur-sm sm:top-16 md:hidden"
             onClick={closeMobile}
           />
-          <div className="fixed inset-x-0 top-14 z-50 max-h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] sm:top-16 sm:max-h-[calc(100dvh-4rem)] md:hidden dark:border-white/10 dark:bg-zinc-950">
+          <div className="fixed inset-x-0 top-14 z-50 max-h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain border-t border-zinc-200/70 bg-white/88 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:top-16 sm:max-h-[calc(100dvh-4rem)] md:hidden dark:border-white/10 dark:bg-zinc-950/88">
             <div className="space-y-4 px-4 py-4">
               {mobileGroups.map((group) => (
                 <div className="border-b border-slate-100 dark:border-white/10 last:border-b-0" key={group.label}>
@@ -306,6 +309,7 @@ export function Header() {
                 {[
                   { href: "/pricing", name: "Pricing" },
                   { href: "/about", name: "About" },
+                  { href: "/docs", name: "Docs" },
                   { href: "/contact", name: "Contact" },
                 ].map((item) => (
                   <Link

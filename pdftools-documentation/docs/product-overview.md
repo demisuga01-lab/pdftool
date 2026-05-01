@@ -15,6 +15,8 @@ Explain what PDFTools by WellFriend is and what it is not.
 
 This file covers the product definition, target users, current public policy, and implementation boundaries.
 
+Website documentation route: `/docs`
+
 ## What the Product Is
 
 PDFTools by WellFriend is a public web workspace for PDF and image processing. It is designed around quick, browser-driven workflows where a user uploads a file, previews it, adjusts settings, launches processing, and downloads a result.
@@ -42,7 +44,7 @@ PDFTools by WellFriend is a public web workspace for PDF and image processing. I
 - Publicly free for now
 - Files deleted after `24 hours`
 - Maximum file size `25 MB`
-- Global rate limit `100 requests/hour/IP`
+- Global rate limit `200 requests/hour/IP`
 
 ## Current Tool Families
 
@@ -68,4 +70,3 @@ PDFTools by WellFriend is a public web workspace for PDF and image processing. I
 - [../README.md](../README.md)
 - [features-index.md](./features-index.md)
 - [future-api-platform.md](./future-api-platform.md)
-

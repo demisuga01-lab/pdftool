@@ -17,6 +17,8 @@ Central map for the documentation system under `pdftools-documentation/`.
 
 This file explains what exists in the documentation set, who should read what first, and when the docs must be updated.
 
+Website documentation route: `/docs`
+
 ## Documentation Map
 
 ### Root guides
@@ -205,4 +207,3 @@ Update the documentation whenever any of the following changes:
 - Re-check support emails and domain names
 - Re-check limits and retention windows
 - Re-check PM2 names and Redis commands
-

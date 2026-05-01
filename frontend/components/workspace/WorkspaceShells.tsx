@@ -143,7 +143,7 @@ export function CompactWorkspaceShell({
   const { dragProps, dragging } = useDropZone(onFilesDropped);
 
   return (
-    <main className="min-h-[calc(100dvh-3.5rem)] overflow-x-hidden overscroll-x-none bg-zinc-50 dark:bg-[#050505] sm:min-h-[calc(100dvh-4rem)]" {...dragProps}>
+    <main className="min-h-[calc(100dvh-3.5rem)] overflow-x-hidden overscroll-x-none bg-transparent sm:min-h-[calc(100dvh-4rem)]" {...dragProps}>
       <WorkspaceHeader
         countLabel={countLabel}
         fileInfo={fileInfo}
@@ -161,7 +161,7 @@ export function CompactWorkspaceShell({
             {hasContent ? (
               preview
             ) : (
-              <div className="rounded-[28px] border border-zinc-200 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-[#111111] dark:shadow-black/25 sm:p-6">
+              <div className="rounded-[28px] border border-zinc-200/70 bg-white/82 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/76 dark:shadow-[0_24px_60px_rgba(0,0,0,0.3)] sm:p-6">
                 <div className="flex min-h-[360px] items-center justify-center">{emptyState}</div>
               </div>
             )}
@@ -260,7 +260,7 @@ export function VisualEditorWorkspaceShell({
   const { dragProps, dragging } = useDropZone(onFilesDropped);
 
   return (
-    <main className="flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-x-hidden overscroll-x-none bg-white dark:bg-zinc-950 sm:min-h-[calc(100dvh-4rem)] lg:h-[calc(100dvh-4rem)]" {...dragProps}>
+    <main className="flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-x-hidden overscroll-x-none bg-transparent sm:min-h-[calc(100dvh-4rem)] lg:h-[calc(100dvh-4rem)]" {...dragProps}>
       <WorkspaceHeader
         countLabel={countLabel}
         fileInfo={fileInfo}
@@ -272,7 +272,7 @@ export function VisualEditorWorkspaceShell({
         title={title}
       />
 
-      <div className="relative flex min-h-0 flex-1 flex-col bg-zinc-50 dark:bg-[#050505] lg:flex-row">
+      <div className="relative flex min-h-0 flex-1 flex-col bg-transparent lg:flex-row">
         {/*
           Mobile (< lg): the section overflows visibly so the document body is
           the scroll container — that lets the user scroll up/down past the
@@ -284,7 +284,7 @@ export function VisualEditorWorkspaceShell({
           {hasContent ? editor : <div className="flex min-h-[520px] items-center justify-center">{emptyState}</div>}
         </section>
 
-        <aside className="hidden w-[420px] shrink-0 border-l border-zinc-200/80 bg-zinc-50/80 px-5 py-5 dark:border-white/10 dark:bg-black/10 lg:block">
+        <aside className="hidden w-[420px] shrink-0 border-l border-zinc-200/70 bg-white/42 px-5 py-5 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/26 lg:block">
           <div className="sticky top-24">
             <WorkspaceSettingsPanel
               bodyClassName="space-y-6 lg:max-h-[calc(100dvh-15rem)] lg:overflow-y-auto"
@@ -381,7 +381,7 @@ export function PreviewCard({
 
   return (
     <>
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/[0.03] dark:border-white/10 dark:bg-zinc-900 sm:p-5">
+      <section className="rounded-2xl border border-zinc-200/70 bg-white/84 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/78 dark:shadow-[0_22px_60px_rgba(0,0,0,0.3)] sm:p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-start">
           <div className="flex min-h-[220px] min-w-0 flex-1 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-zinc-950 sm:min-h-[280px]">
             {children ?? (

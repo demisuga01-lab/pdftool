@@ -90,11 +90,13 @@ def compress_file_task(self: Any, input_path: str, output_dir: str, settings: di
         result = _run_service(CompressionService().compress_file(input_path, output_dir, payload))
         elapsed = time.monotonic() - started
         logger.info(
-            "compress_file_task success job_id=%s elapsed=%.2fs method=%s reached_target=%s",
+            "compress_file_task success job_id=%s elapsed=%.2fs method=%s reached_target=%s output_size=%s attempts=%s",
             job_id,
             elapsed,
             result.get("method"),
             result.get("reached_target"),
+            result.get("output_size"),
+            result.get("attempts"),
         )
         return _success(self, **result)
     except SoftTimeLimitExceeded as exc:

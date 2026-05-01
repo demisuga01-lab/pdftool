@@ -257,6 +257,7 @@ export default function PdfWatermarkPage() {
             errorDetails={job.errorDetails ?? null}
             estimatedTime={estimateProcessingTime(fileMeta.size_bytes, totalPages)}
             jobId={job.jobId}
+            notice={job.notice}
             onDownload={job.state === "success" ? job.download : undefined}
             onProcessAnother={() => {
               setFile(null);
@@ -265,6 +266,7 @@ export default function PdfWatermarkPage() {
               job.reset();
             }}
             onReedit={job.dismissPanel}
+            rateLimitScope={job.rateLimitScope}
             state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
           />
         ) : null

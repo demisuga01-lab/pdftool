@@ -4,6 +4,8 @@
 
 Internal first-pass guide for handling user reports.
 
+Website documentation route: `/docs`
+
 ## Intake Checklist
 
 - tool and route
@@ -23,4 +25,3 @@ Internal first-pass guide for handling user reports.
 
 - abuse/security -> `support@wellfriend.online`
 - general/API/business -> `contact@wellfriend.online`
-

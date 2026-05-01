@@ -16,7 +16,7 @@ export function StaticPage({
   width = "narrow",
 }: StaticPageProps) {
   return (
-    <main className="bg-white dark:bg-zinc-950">
+    <main className="bg-transparent">
       <div
         className={[
           "mx-auto px-4 py-12 sm:px-6 lg:px-8 lg:py-16",

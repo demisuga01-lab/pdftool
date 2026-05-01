@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { downloadFile, pollJobStatus, type JobStatus } from "@/lib/api";
+import { ApiRateLimitError, downloadFile, pollJobStatus, type JobStatus } from "@/lib/api";
 import { uploadWithProgress } from "@/lib/upload";
 
 type ProcessingState = "idle" | "uploading" | "queued" | "processing" | "success" | "failure";
@@ -31,7 +31,9 @@ export function useWorkspaceJob({
   const [result, setResult] = useState<JobStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [panelDismissed, setPanelDismissed] = useState(false);
+  const [rateLimitScope, setRateLimitScope] = useState<"job" | "status" | "download" | null>(null);
   const [uploadPercent, setUploadPercent] = useState(0);
   const [uploadSpeedKBs, setUploadSpeedKBs] = useState(0);
   const [uploadRemainingSecs, setUploadRemainingSecs] = useState(0);
@@ -60,6 +62,8 @@ export function useWorkspaceJob({
     setState(finalStatus.status);
     setError(finalStatus.error ?? null);
     setErrorDetails(null);
+    setNotice(null);
+    setRateLimitScope(null);
     if (finalStatus.status === "success" && !failed && !finalStatus.output_path && !finalStatus.output_paths?.length) {
       setState("failure");
       setError(finalStatus.error ?? "Processing finished but no download URL was returned.");
@@ -74,9 +78,11 @@ export function useWorkspaceJob({
         controller.signal,
         (nextStatus) => {
           setResult(nextStatus);
+          setNotice(nextStatus.notice ?? null);
+          setRateLimitScope(nextStatus.notice ? "status" : null);
           if (nextStatus.status === "queued" || nextStatus.status === "processing") {
             setState(nextStatus.status);
-            setError(nextStatus.error ?? null);
+            setError(nextStatus.notice ? null : (nextStatus.error ?? null));
             setErrorDetails(null);
           }
         },
@@ -90,12 +96,17 @@ export function useWorkspaceJob({
 
   const process = useCallback(
     async (endpoint: string, formData: FormData, options?: ProcessOptions) => {
+      if (state === "uploading" || state === "queued" || state === "processing") {
+        return null;
+      }
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
       setState("uploading");
       setError(null);
       setErrorDetails(null);
+      setNotice(null);
+      setRateLimitScope(null);
       setResult(null);
       setPanelDismissed(false);
       setUploadPercent(0);
@@ -126,14 +137,25 @@ export function useWorkspaceJob({
           return null;
         }
 
+        if (caughtError instanceof ApiRateLimitError && caughtError.scope === "job") {
+          setState("failure");
+          setError(caughtError.message);
+          setNotice(null);
+          setRateLimitScope("job");
+          setErrorDetails(null);
+          return null;
+        }
+
         const nextError = caughtError instanceof Error ? caughtError.message : "Unable to process file";
         setState("failure");
+        setRateLimitScope(null);
+        setNotice(null);
         setError(nextError);
         setErrorDetails(null);
         return null;
       }
     },
-    [startPolling, syncJobQuery, timeoutKind],
+    [startPolling, state, syncJobQuery, timeoutKind],
   );
 
   const reset = useCallback(() => {
@@ -144,6 +166,8 @@ export function useWorkspaceJob({
     setResult(null);
     setError(null);
     setErrorDetails(null);
+    setNotice(null);
+    setRateLimitScope(null);
     setPanelDismissed(false);
     setUploadPercent(0);
     setUploadSpeedKBs(0);
@@ -162,6 +186,8 @@ export function useWorkspaceJob({
     setUploadPercent(0);
     setUploadSpeedKBs(0);
     setUploadRemainingSecs(0);
+    setNotice(null);
+    setRateLimitScope(null);
   }, []);
 
   useEffect(() => {
@@ -185,7 +211,18 @@ export function useWorkspaceJob({
         return;
       }
 
+      if (caughtError instanceof ApiRateLimitError && caughtError.scope === "job") {
+        setState("failure");
+        setError(caughtError.message);
+        setRateLimitScope("job");
+        setNotice(null);
+        setErrorDetails(null);
+        return;
+      }
+
       setState("failure");
+      setRateLimitScope(null);
+      setNotice(null);
       setError(caughtError instanceof Error ? caughtError.message : "Unable to resume job");
       setErrorDetails(null);
     });
@@ -194,6 +231,9 @@ export function useWorkspaceJob({
   }, [jobId, queryJobId, startPolling, timeoutKind]);
 
   const processingLabel = useMemo(() => {
+    if (notice && rateLimitScope === "status" && (state === "queued" || state === "processing")) {
+      return notice;
+    }
     switch (state) {
       case "uploading":
         return "Uploading file";
@@ -208,14 +248,28 @@ export function useWorkspaceJob({
       default:
         return null;
     }
-  }, [error, state]);
+  }, [error, notice, rateLimitScope, state]);
 
-  const download = useCallback(() => {
+  const download = useCallback(async () => {
     if (!jobId) {
       return;
     }
-    downloadFile(prefix, jobId, filename);
-  }, [filename, jobId, prefix]);
+    try {
+      await downloadFile(prefix, jobId, result?.output_filename ?? filename);
+      setNotice(null);
+      setRateLimitScope(null);
+    } catch (caughtError) {
+      if (caughtError instanceof ApiRateLimitError && caughtError.scope === "download") {
+        setNotice(caughtError.message);
+        setRateLimitScope("download");
+        return;
+      }
+      if (caughtError instanceof Error) {
+        setNotice(caughtError.message);
+        setRateLimitScope(null);
+      }
+    }
+  }, [filename, jobId, prefix, result?.output_filename]);
 
   return {
     cancelUpload,
@@ -227,6 +281,8 @@ export function useWorkspaceJob({
     panelDismissed,
     process,
     processingLabel,
+    notice,
+    rateLimitScope,
     reset,
     result,
     state,

@@ -1,9 +1,9 @@
 """Redis-backed rate limiting for the public API.
 
-We keep this dependency-free of ``slowapi`` because the rate-limiting logic we
-need is straightforward: per-IP fixed-window counters with bucket-specific
-budgets. Using ``redis-py`` directly also lets us share the existing Celery
-broker without adding another middleware stack.
+The public app needs separate budgets for uploads, job creation, status
+polling, previews, and downloads. In particular, status polling must *not*
+consume the same strict quota as job creation, otherwise long-running Celery
+jobs can appear to fail even when the worker is still running normally.
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ import logging
 import time
 from dataclasses import dataclass
 from ipaddress import ip_address
-from typing import Iterable
 
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
@@ -34,47 +33,91 @@ class RateRule:
     window_seconds: int
 
 
+@dataclass(frozen=True)
+class RateBucket:
+    """Resolved bucket target for a request."""
+
+    bucket_type: str
+    group: str
+    rule_name: str
+    include_global: bool
+
+    @property
+    def response_bucket(self) -> str:
+        return f"{self.bucket_type}:{self.group}"
+
+    def redis_key(self, ip: str) -> str:
+        return f"rl:{ip}:{self.bucket_type}:{self.group}"
+
+
 # Window length is one hour for all buckets. Limits are configurable.
 _HOUR = 3600
 
 
 def _build_rules(settings: Settings) -> dict[str, RateRule]:
+    preview_limit = max(1, settings.RATE_LIMIT_STATUS_PER_HOUR)
     return {
         "global": RateRule("global", max(1, settings.RATE_LIMIT_GLOBAL_PER_HOUR), _HOUR),
         "jobs": RateRule("jobs", max(1, settings.RATE_LIMIT_JOBS_PER_HOUR), _HOUR),
         "uploads": RateRule("uploads", max(1, settings.RATE_LIMIT_UPLOADS_PER_HOUR), _HOUR),
         "status": RateRule("status", max(1, settings.RATE_LIMIT_STATUS_PER_HOUR), _HOUR),
         "downloads": RateRule("downloads", max(1, settings.RATE_LIMIT_DOWNLOADS_PER_HOUR), _HOUR),
+        "preview": RateRule("preview", preview_limit, _HOUR),
     }
 
 
-def _bucket_for_path(method: str, path: str) -> str | None:
-    """Map a request to the most relevant rate bucket.
+def _classify_request(method: str, path: str) -> RateBucket | str | None:
+    """Map a request to a rate-limited tool bucket.
 
-    ``None`` means "global only" (the global limiter is always applied except
-    for explicit allowlist matches).
+    ``"skip"`` means "do not rate-limit this request".
+    ``None`` means "fallback to the shared global bucket only".
     """
 
     method_upper = method.upper()
-    lower = path.lower()
+    normalized_path = path.lower().rstrip("/")
 
-    if lower.startswith("/api/health"):
+    if method_upper == "OPTIONS" or normalized_path.startswith("/api/health"):
         return "skip"
 
-    if method_upper == "GET":
-        if "/status/" in lower:
-            return "status"
-        if "/download/" in lower:
-            return "downloads"
-        if "/preview/" in lower or "/thumbnail/" in lower or "/pdf-page/" in lower:
-            return "downloads"
+    if normalized_path.startswith("/api/files/"):
+        if method_upper == "POST" and (
+            normalized_path.endswith("/upload") or normalized_path.endswith("/upload-multiple")
+        ):
+            return RateBucket(bucket_type="upload", group="files", rule_name="uploads", include_global=True)
+        if method_upper == "GET":
+            return RateBucket(bucket_type="preview", group="files", rule_name="preview", include_global=False)
+
+    for prefix, group in (
+        ("/api/compress", "compress"),
+        ("/api/convert", "convert"),
+        ("/api/pdf", "pdf"),
+        ("/api/image", "image"),
+        ("/api/ocr", "ocr"),
+    ):
+        if not normalized_path.startswith(prefix):
+            continue
+
+        if method_upper == "GET":
+            if "/status/" in normalized_path:
+                return RateBucket(bucket_type="status", group=group, rule_name="status", include_global=False)
+            if "/download/" in normalized_path:
+                return RateBucket(bucket_type="download", group=group, rule_name="downloads", include_global=False)
+            if group == "pdf" and "/file/" in normalized_path:
+                return RateBucket(bucket_type="preview", group=group, rule_name="preview", include_global=False)
+            return RateBucket(bucket_type="preview", group=group, rule_name="preview", include_global=False)
+
+        if method_upper in {"POST", "PUT", "PATCH"}:
+            if group == "pdf" and normalized_path.endswith("/upload-only"):
+                return RateBucket(bucket_type="upload", group=group, rule_name="uploads", include_global=True)
+            return RateBucket(bucket_type="job", group=group, rule_name="jobs", include_global=True)
+
         return None
 
-    if method_upper in {"POST", "PUT", "PATCH"}:
-        if "/upload" in lower or lower.endswith("/upload-only"):
-            return "uploads"
-        # Any other write operation counts as a job submission.
-        return "jobs"
+    if path.lower().startswith("/api/"):
+        if method_upper == "GET":
+            return RateBucket(bucket_type="preview", group="api", rule_name="preview", include_global=False)
+        if method_upper in {"POST", "PUT", "PATCH", "DELETE"}:
+            return None
 
     return None
 
@@ -114,19 +157,11 @@ class _RedisLimiter:
     """Thin wrapper around redis-py for rate-limit bookkeeping."""
 
     def __init__(self, url: str) -> None:
-        # Importing inside __init__ keeps redis-py optional until we actually
-        # need it (e.g. unit tests where the server is not running).
         import redis
 
         self._client = redis.Redis.from_url(url, socket_timeout=0.5, socket_connect_timeout=0.5)
 
     def hit(self, key: str, window_seconds: int) -> tuple[int, int]:
-        """Increment ``key`` and return ``(count, ttl_seconds)``.
-
-        On Redis failures we surface the error so the middleware can fail open
-        rather than block the request.
-        """
-
         pipeline = self._client.pipeline()
         pipeline.incr(key)
         pipeline.expire(key, window_seconds, nx=True)
@@ -136,7 +171,7 @@ class _RedisLimiter:
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """ASGI middleware that applies the global + per-bucket limits."""
+    """ASGI middleware that applies the global and per-bucket limits."""
 
     def __init__(self, app: ASGIApp, *, settings: Settings | None = None) -> None:
         super().__init__(app)
@@ -163,7 +198,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if not self._enabled:
             return await call_next(request)
 
-        bucket = _bucket_for_path(request.method, request.url.path)
+        bucket = _classify_request(request.method, request.url.path)
         if bucket == "skip":
             return await call_next(request)
 
@@ -172,17 +207,22 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         ip = _client_ip(request, trust_proxy=self._trust_proxy)
-        rules: list[RateRule] = [self._rules["global"]]
-        if bucket and bucket in self._rules:
-            rules.append(self._rules[bucket])
+        rules_to_apply: list[tuple[RateRule, str, str]] = []
+        if bucket is None:
+            rules_to_apply.append((self._rules["global"], f"rl:{ip}:global", "global"))
+        else:
+            if bucket.include_global:
+                rules_to_apply.append((self._rules["global"], f"rl:{ip}:global", "global"))
+            rules_to_apply.append((self._rules[bucket.rule_name], bucket.redis_key(ip), bucket.response_bucket))
 
         worst_remaining: int | None = None
         worst_reset: int | None = None
         worst_limit: int | None = None
-        for rule in rules:
-            key = f"rl:{rule.name}:{ip}"
+        worst_bucket = "global"
+
+        for rule, redis_key, response_bucket in rules_to_apply:
             try:
-                count, ttl = limiter.hit(key, rule.window_seconds)
+                count, ttl = limiter.hit(redis_key, rule.window_seconds)
             except Exception as exc:  # pragma: no cover - depends on Redis
                 logger.warning("Rate limiter pipeline failed (failing open): %s", exc)
                 return await call_next(request)
@@ -192,13 +232,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 worst_remaining = remaining
                 worst_reset = ttl
                 worst_limit = rule.limit
+                worst_bucket = response_bucket
 
             if count > rule.limit:
                 logger.info(
-                    "Rate limit hit ip=%s bucket=%s count=%s limit=%s ttl=%s",
+                    "Rate limit hit ip=%s path=%s bucket=%s limit=%s retry_after=%s",
                     ip,
-                    rule.name,
-                    count,
+                    request.url.path,
+                    response_bucket,
                     rule.limit,
                     ttl,
                 )
@@ -207,6 +248,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     content={
                         "detail": "Rate limit exceeded. Please try again later.",
                         "retry_after_seconds": ttl,
+                        "bucket": response_bucket,
                     },
                 )
                 self._apply_headers(response, rule.limit, 0, ttl)
@@ -216,6 +258,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         if worst_limit is not None and worst_remaining is not None and worst_reset is not None:
             self._apply_headers(response, worst_limit, worst_remaining, worst_reset)
+            response.headers.setdefault("X-RateLimit-Bucket", worst_bucket)
         return response
 
     @staticmethod
@@ -223,3 +266,4 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response.headers["X-RateLimit-Limit"] = str(limit)
         response.headers["X-RateLimit-Remaining"] = str(max(0, remaining))
         response.headers["X-RateLimit-Reset"] = str(int(time.time()) + max(0, reset_in))
+

@@ -19,6 +19,8 @@ The universal conversion route is asynchronous and accepts many input families. 
 Implemented normalization rules include:
 
 - `jpeg` -> `jpg`
+- `JPG` -> `jpg`
+- `JPEG` -> `jpg`
 - `jpg` -> canonical `jpg`
 - `tif` -> `tiff`
 - `htm` -> `html`
@@ -42,7 +44,7 @@ This is why PDF to JPG works without the older `Unknown output format 'jpg'` bug
 - PDF -> XLSX
 - PDF -> TXT
 - PDF -> HTML
-- PDF -> PNG/JPG/WebP ZIP
+- PDF -> PNG/JPG/WebP
 - PDF -> searchable PDF
 - Office/text -> PDF
 - CSV -> XLSX
@@ -53,9 +55,12 @@ This is why PDF to JPG works without the older `Unknown output format 'jpg'` bug
 ## Important Notes
 
 - PDF to JPG is implemented using canonical `jpg` and correct `image/jpeg` MIME mapping
-- PDF to image outputs download as ZIP because the result is multi-file
+- PDF to image outputs download directly when a conversion produces exactly one page image
+- PDF to image outputs are packaged as ZIP only when the job produces multiple page images
+- image-to-image conversions download directly instead of being wrapped in ZIP by default
 - image to PDF uses the PDF service path
 - Office conversion depends on LibreOffice
+- unsupported output formats fail with the safe user-facing message `Unsupported output format.`
 
 ## Queueing
 
@@ -67,4 +72,3 @@ This is why PDF to JPG works without the older `Unknown output format 'jpg'` bug
 - [external-tools.md](./external-tools.md)
 - [pdf-tools.md](./pdf-tools.md)
 - [image-tools.md](./image-tools.md)
-

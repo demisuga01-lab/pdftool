@@ -18,6 +18,7 @@ This file covers mailbox ownership, what users should include, and the minimum t
 
 - Bugs, broken tools, processing failures, upload/download problems, abuse, and security reports: `support@wellfriend.online`
 - API questions, general contact, feature suggestions, partnerships, and business: `contact@wellfriend.online`
+- Community help, release updates, and discussion: <https://discord.gg/ZQFmYaQbVu>
 
 ## What Users Should Include
 
@@ -39,6 +40,8 @@ This file covers mailbox ownership, what users should include, and the minimum t
 ## Processing Failure Guidance
 
 If the UI shows a job ID, ask the user to include it in the report. Current failure UI already points users toward `support@wellfriend.online` with the job ID when applicable.
+
+Discord can be offered as a community-help path, but it is not a replacement for the official support mailbox for bugs, failures, abuse, or security reports.
 
 ## Security and Abuse
 
@@ -63,4 +66,3 @@ Set your internal target response time according to staffing. The repository doe
 - [docs/support-playbook.md](./docs/support-playbook.md)
 - [docs/error-handling.md](./docs/error-handling.md)
 - [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
-

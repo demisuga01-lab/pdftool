@@ -67,11 +67,20 @@ def convert_file_task(
     settings: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     try:
+        service = ConversionService()
+        normalized_to_format = service.normalize_output_format(to_format)
+        logger.info(
+            "Starting convert task job_id=%s requested_format=%s normalized_format=%s input_extension=%s",
+            _task_id(self),
+            to_format,
+            normalized_to_format,
+            Path(input_path).suffix.lower().lstrip("."),
+        )
         result = _run_service(
-            ConversionService().convert(
+            service.convert(
                 input_path,
                 output_dir,
-                to_format,
+                normalized_to_format,
                 from_format=from_format,
                 mime_type=mime_type,
                 settings=settings,

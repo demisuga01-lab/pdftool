@@ -20,7 +20,11 @@ This checklist assumes the current PM2 process names and current public policy i
 - Batch total: `100 MB`
 - Archive extracted total: `100 MB`
 - Archive extracted file count: `200`
-- Global rate limit: `100 requests/hour/IP`
+- Global rate limit: `200 requests/hour/IP`
+- Jobs per tool bucket: `40 requests/hour/IP`
+- Uploads: `60 requests/hour/IP`
+- Status polling per tool bucket: `1000 requests/hour/IP`
+- Downloads per tool bucket: `200 requests/hour/IP`
 - Retention: `24 hours`
 - Production ImageMagick command: `convert`
 
@@ -156,6 +160,8 @@ curl -I https://tools.wellfriend.online
 
 - Confirm `429` response appears after repeated calls
 - Confirm `Retry-After` and `X-RateLimit-*` headers are present
+- Confirm status polling uses the separate high bucket and does not consume the strict job quota
+- Confirm a polling `429` slows the UI check rate without turning an active job into `Processing failed`
 - Confirm `/api/health` remains available
 
 ## Mail Tests
@@ -196,4 +202,3 @@ pm2 save
 - Some frontend control surfaces expose settings that current backend routes do not consume yet
 - Mobile interaction quality still benefits from real-device QA
 - OCR, conversion, compression, and watermark reliability depend on installed host tools
-

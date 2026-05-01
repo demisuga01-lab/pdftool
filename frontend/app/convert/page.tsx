@@ -177,17 +177,19 @@ export default function ConvertPage() {
     inputKind === "pdf" && fileMeta ? fileMeta.file_id : null,
     Number(fileMeta?.metadata?.page_count ?? fileMeta?.pages ?? 0),
   );
-  const outputExtension =
-    inputKind === "pdf" && ["png", "jpg", "webp"].includes(outputFormat)
-      ? "zip"
-      : outputFormat === "searchable_pdf"
-        ? "pdf"
-        : outputFormat;
+  const packagesMultipleOutputs = inputKind === "pdf" && ["png", "jpg", "webp"].includes(outputFormat) && pageCount > 1;
+  const outputExtension = packagesMultipleOutputs ? "zip" : outputFormat === "searchable_pdf" ? "pdf" : outputFormat;
   const outputFilename = suggestedOutputName(fileMeta, settings, outputExtension || "pdf");
   const job = useWorkspaceJob({
     filename: outputFilename,
     prefix: "convert",
   });
+  const completedIsZip =
+    job.result?.media_type === "application/zip" ||
+    (Array.isArray(job.result?.output_paths) && job.result.output_paths.length > 1) ||
+    job.result?.extension === "zip";
+  const downloadLabel = completedIsZip ? "Download ZIP" : "Download result";
+  const packagingHint = packagesMultipleOutputs ? "Multiple page images are packaged as ZIP." : undefined;
   const infoContent = useMemo(() => {
     const details = uploadedFileDetails(fileMeta);
     if (details.length === 0) {
@@ -541,9 +543,12 @@ export default function ConvertPage() {
       downloadPanel={
         fileMeta && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
           <DownloadPanel
+            downloadLabel={downloadLabel}
             error={job.error}
             estimatedTime={estimateProcessingTime(fileMeta.size_bytes, pageCount || 1)}
+            helperText={job.state === "success" ? packagingHint : undefined}
             jobId={job.jobId}
+            notice={job.notice}
             onDownload={job.state === "success" ? job.download : undefined}
             onProcessAnother={() => {
               setFile(null);
@@ -552,6 +557,8 @@ export default function ConvertPage() {
               syncQuery({ file_id: null, from: searchParams.get("from"), to: searchParams.get("to") });
             }}
             onReedit={job.dismissPanel}
+            outputFilename={job.result?.output_filename}
+            rateLimitScope={job.rateLimitScope}
             state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
           />
         ) : null
@@ -608,7 +615,9 @@ export default function ConvertPage() {
                 : job.state === "success"
                   ? "Result is ready to download."
                   : outputOptions.length > 0
-                    ? "Choose an output format below and click Convert."
+                    ? packagesMultipleOutputs
+                      ? "Choose an output format below and click Convert. Multiple page images are packaged as ZIP."
+                      : "Choose an output format below and click Convert."
                     : "Upload a file to see available conversion formats."}
           </div>
           <WorkspaceControls sections={sections} state={settings} update={update} />

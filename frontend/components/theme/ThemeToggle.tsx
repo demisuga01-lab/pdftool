@@ -11,9 +11,9 @@ const themeOptions: Array<{
   label: string;
   value: ThemeMode;
 }> = [
+  { description: "Follow your device appearance. Default for new visitors.", icon: Monitor, label: "System", value: "system" },
   { description: "Always use the light interface.", icon: Sun, label: "Light", value: "light" },
   { description: "Always use the dark interface.", icon: Moon, label: "Dark", value: "dark" },
-  { description: "Follow your device appearance.", icon: Monitor, label: "System", value: "system" },
 ];
 
 function ThemeIcon({ theme }: { theme: ThemeMode }) {
@@ -61,7 +61,7 @@ export function ThemeToggle() {
       <button
         aria-expanded={open}
         aria-label={`Theme: ${theme === "system" ? `System (${resolvedTheme})` : theme}`}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white dark:focus-visible:ring-emerald-400/35"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-200/70 bg-white/82 text-slate-600 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:border-white/10 dark:bg-zinc-900/78 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white dark:focus-visible:ring-emerald-400/35"
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
@@ -69,7 +69,7 @@ export function ThemeToggle() {
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-[60] w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10 dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/30">
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-[60] w-56 rounded-2xl border border-zinc-200/70 bg-white/88 p-2 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/84 dark:shadow-[0_28px_70px_rgba(0,0,0,0.34)]">
           <div className="space-y-1">
             {themeOptions.map((option) => {
               const Icon = option.icon;

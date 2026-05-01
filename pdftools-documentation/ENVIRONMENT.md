@@ -36,14 +36,18 @@ MAX_ARCHIVE_FILES=200
 FILE_RETENTION_HOURS=24
 ALLOWED_ORIGINS=https://tools.wellfriend.online
 RATE_LIMIT_ENABLED=true
-RATE_LIMIT_GLOBAL_PER_HOUR=100
-RATE_LIMIT_JOBS_PER_HOUR=20
-RATE_LIMIT_UPLOADS_PER_HOUR=30
-RATE_LIMIT_STATUS_PER_HOUR=300
-RATE_LIMIT_DOWNLOADS_PER_HOUR=100
+RATE_LIMIT_GLOBAL_PER_HOUR=200
+RATE_LIMIT_JOBS_PER_HOUR=40
+RATE_LIMIT_UPLOADS_PER_HOUR=60
+RATE_LIMIT_STATUS_PER_HOUR=1000
+RATE_LIMIT_DOWNLOADS_PER_HOUR=200
 RATE_LIMIT_REDIS_URL=redis://localhost:6379/0
 RATE_LIMIT_TRUST_PROXY=true
 ```
+
+Rate limiting is split per tool and per bucket. Status polling and preview
+requests use higher non-global buckets so active jobs do not appear to fail
+when the frontend is only checking progress.
 
 ## Environment Categories
 
@@ -86,4 +90,3 @@ See [docs/environment-variables.md](./docs/environment-variables.md) for the ful
 - [PRODUCTION_ENV.md](./PRODUCTION_ENV.md)
 - [docs/environment-variables.md](./docs/environment-variables.md)
 - [docs/local-development-windows.md](./docs/local-development-windows.md)
-

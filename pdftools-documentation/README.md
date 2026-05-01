@@ -24,12 +24,14 @@ PDFTools by WellFriend is a browser-based file processing workspace for PDFs and
 ## Live Services
 
 - Website: <https://tools.wellfriend.online>
+- Website documentation route: `/docs`
 - Mail host: <https://postal.wellfriend.online>
 
 ## Contact
 
 - Bugs, processing failures, upload/download problems, security issues, and abuse reports: `support@wellfriend.online`
 - API questions, general contact, feature suggestions, business, and partnerships: `contact@wellfriend.online`
+- Community help, updates, and discussion: <https://discord.gg/ZQFmYaQbVu>
 
 ## Current Production Limits
 
@@ -37,7 +39,7 @@ PDFTools by WellFriend is a browser-based file processing workspace for PDFs and
 - Maximum multi-file batch total: `100 MB`
 - Maximum extracted archive total: `100 MB`
 - Maximum extracted archive files: `200`
-- Global public rate limit: `100 requests/hour/IP`
+- Global public rate limit: `200 requests/hour/IP`
 - Files deleted after: `24 hours`
 
 ## Feature Summary
@@ -47,7 +49,7 @@ PDFTools by WellFriend is a browser-based file processing workspace for PDFs and
 - Shared workspaces: convert, compress, OCR
 - Workspace system: compact, grid, and visual editor layouts
 - Mobile editor: bottom drawer, sticky actions, safe-area handling
-- Theme system: light, dark, system
+- Theme system: light, dark, system, with system as the default for new visitors
 - Production hardening: rate limiting, safe errors, security headers, retention cleanup
 
 ## Tech Stack
@@ -140,4 +142,3 @@ Do not commit `.env` files, PEM keys, passwords, private documents, runtime uplo
 ## Production Status
 
 Production readiness still depends on running backend compile checks, frontend typecheck, frontend build, and manual smoke tests against the current deployment target.
-

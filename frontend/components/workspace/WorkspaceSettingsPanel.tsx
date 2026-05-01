@@ -24,7 +24,7 @@ export function WorkspaceSettingsPanel({
   return (
     <section
       className={[
-        "overflow-hidden rounded-[28px] border border-zinc-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.05)] dark:border-white/10 dark:bg-[#111111] dark:shadow-black/30",
+        "overflow-hidden rounded-[28px] border border-zinc-200/70 bg-white/84 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/78 dark:shadow-[0_28px_70px_rgba(0,0,0,0.34)]",
         panelClassName ?? "",
       ].join(" ")}
     >
@@ -46,7 +46,7 @@ export function WorkspaceSettingsPanel({
       {footer ? (
         <div
           className={[
-            "border-t border-zinc-200/80 bg-zinc-50/80 px-5 py-5 dark:border-white/10 dark:bg-black/20 sm:px-6 sm:py-6",
+            "border-t border-zinc-200/80 bg-zinc-50/80 px-5 py-5 dark:border-white/10 dark:bg-zinc-950/50 sm:px-6 sm:py-6",
             footerClassName ?? "",
           ].join(" ")}
           data-settings-control

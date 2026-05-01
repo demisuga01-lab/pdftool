@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { MailIcon } from "@/components/icons/SiteIcons";
 import { StaticPage } from "@/components/ui/StaticPage";
 
@@ -47,7 +49,7 @@ export default function ContactPage() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-5 dark:border-white/10 dark:bg-zinc-900">
+          <div className="rounded-2xl border border-zinc-200/70 bg-zinc-50/90 p-5 dark:border-white/10 dark:bg-zinc-900/80">
             <ul className="space-y-3 text-[15px] leading-7 text-slate-600 dark:text-zinc-300">
               {reasons.map((reason) => (
                 <li className="flex gap-3" key={reason}>
@@ -77,6 +79,24 @@ export default function ContactPage() {
             </a>
           </div>
 
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-5 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+            <div className="space-y-2">
+              <h3 className="text-base font-semibold text-emerald-800 dark:text-emerald-200">Join our Discord community</h3>
+              <p className="text-sm leading-7 text-emerald-700/90 dark:text-emerald-100/90">
+                Join the WellFriend Corp Discord for community help, updates, and discussion. Email remains the
+                official support path for bugs, processing failures, security issues, and abuse reports.
+              </p>
+            </div>
+            <a
+              className="primary-button mt-4 inline-flex"
+              href="https://discord.gg/ZQFmYaQbVu"
+              rel="noreferrer"
+              target="_blank"
+            >
+              Join Discord
+            </a>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             {contactButtons.map((button) => (
               <a className="secondary-button w-full" href={button.href} key={button.label}>
@@ -88,6 +108,13 @@ export default function ContactPage() {
           <p className="text-sm leading-7 text-slate-500 dark:text-zinc-400">
             Include your use case and expected monthly volume for API and enterprise inquiries. Maximum upload size is
             25 MB and files are deleted after 24 hours.
+          </p>
+          <p className="text-sm leading-7 text-slate-500 dark:text-zinc-400">
+            Looking for setup guides, deployment commands, or deeper feature behavior first?{" "}
+            <Link className="font-semibold text-[#059669] hover:text-[#047857]" href="/docs">
+              Browse the documentation at /docs
+            </Link>
+            .
           </p>
         </div>
       </div>

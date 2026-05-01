@@ -55,7 +55,7 @@ export function WorkspaceMobileDrawer({
       />
       <div
         className={[
-          "fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] max-w-full flex-col overflow-hidden rounded-t-3xl border-t border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl shadow-black/20 transition dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/40 lg:hidden",
+          "fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] max-w-full flex-col overflow-hidden rounded-t-3xl border-t border-zinc-200/70 bg-white/90 pb-[env(safe-area-inset-bottom)] shadow-[0_-24px_70px_rgba(15,23,42,0.16)] backdrop-blur-2xl transition dark:border-white/10 dark:bg-zinc-900/88 dark:shadow-[0_-28px_80px_rgba(0,0,0,0.4)] lg:hidden",
           open ? "translate-y-0" : "translate-y-full",
         ].join(" ")}
         style={{ touchAction: "pan-y" }}
@@ -93,7 +93,7 @@ export function WorkspaceMobileDrawer({
         {footer ? (
           <div
             className={[
-              "shrink-0 border-t border-zinc-200 bg-white px-4 py-4 dark:border-white/10 dark:bg-zinc-900 sm:px-5",
+              "shrink-0 border-t border-zinc-200/70 bg-white/86 px-4 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/86 sm:px-5",
               footerClassName ?? "",
             ].join(" ")}
             data-no-pan

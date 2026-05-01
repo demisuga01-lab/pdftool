@@ -187,7 +187,7 @@ export function JobProgress({ jobId, prefix, filename, onComplete, onReset }: Jo
     }
 
     autoDownloadedRef.current = jobId;
-    downloadFile(prefix, jobId, filename);
+    void downloadFile(prefix, jobId, filename).catch(() => {});
   }, [filename, globalSettings.autoDownload, jobId, prefix, result?.output_path, state]);
 
   const handleReset = () => {
@@ -247,7 +247,9 @@ export function JobProgress({ jobId, prefix, filename, onComplete, onReset }: Jo
           {result?.output_path ? (
             <button
               className="primary-button w-full gap-2"
-              onClick={() => downloadFile(prefix, jobId ?? "", filename)}
+              onClick={() => {
+                void downloadFile(prefix, jobId ?? "", filename).catch(() => {});
+              }}
               type="button"
             >
               <Download className="h-4 w-4" />

@@ -203,12 +203,14 @@ export default function PdfMergePage() {
               errorDetails={job.errorDetails ?? null}
               estimatedTime={estimateProcessingTime(totalBytes, fileCount)}
               jobId={job.jobId}
+              notice={job.notice}
               onDownload={job.state === "success" ? job.download : undefined}
               onProcessAnother={() => {
                 files.resetFiles();
                 job.reset();
               }}
               onReedit={job.dismissPanel}
+              rateLimitScope={job.rateLimitScope}
               state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
             />
           ) : null

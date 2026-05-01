@@ -22,6 +22,8 @@ Document branding assets, naming, and theme implementation.
 - toggle: `frontend/components/theme/ThemeToggle.tsx`
 - localStorage key: `pdftools-theme`
 - modes: `light`, `dark`, `system`
+- new visitors default to `system`
+- invalid stored theme values are reset to `system`
 
 ## Logo and Icon Assets
 
@@ -40,9 +42,11 @@ Document branding assets, naming, and theme implementation.
 - emerald accent on light mode
 - neutral zinc/black dark mode
 - no blue-branded dark theme in current implementation
+- light mode uses softer off-white and zinc surfaces instead of flat pure white
+- dark mode uses layered zinc/neutral gradients instead of flat pitch black
+- primary action buttons remain emerald across both themes
 
 ## Related Documents
 
 - [frontend-components.md](./frontend-components.md)
 - [frontend-routes.md](./frontend-routes.md)
-

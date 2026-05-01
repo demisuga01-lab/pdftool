@@ -113,7 +113,7 @@ class CompressionService:
 
         elapsed = time.monotonic() - started
         logger.info(
-            "Compression done category=%s mode=%s elapsed=%.2fs original=%d output=%d saved=%d method=%s reached_target=%s",
+            "Compression done category=%s mode=%s elapsed=%.2fs original=%d output=%d saved=%d method=%s reached_target=%s attempts=%s target=%s",
             category,
             normalized_settings.get("mode"),
             elapsed,
@@ -122,6 +122,8 @@ class CompressionService:
             int(result.get("saved_bytes") or 0),
             result.get("method"),
             result.get("reached_target"),
+            result.get("attempts"),
+            normalized_settings.get("target_size_bytes"),
         )
         return result
 
@@ -496,6 +498,7 @@ class CompressionService:
             candidate for candidate in candidates
             if self._valid_nonempty(Path(candidate["path"]))
         ]
+        attempts = len(valid_candidates)
 
         if not valid_candidates:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=UNSUPPORTED_MESSAGE)
@@ -510,6 +513,7 @@ class CompressionService:
                 input_file,
                 output_dir,
                 settings,
+                attempts=attempts,
                 method="original-kept",
                 message=ORIGINAL_BELOW_TARGET_MESSAGE,
                 optimized=False,
@@ -549,6 +553,7 @@ class CompressionService:
             input_file,
             output_dir,
             settings,
+            attempts=attempts,
             method="original-kept" if keep_uploaded else str(best.get("method") or "compression"),
             message=message,
             optimized=optimized,
@@ -573,6 +578,7 @@ class CompressionService:
         output_dir: Path,
         settings: dict[str, Any],
         *,
+        attempts: int,
         method: str,
         message: str,
         optimized: bool,
@@ -597,6 +603,7 @@ class CompressionService:
             "output_size": output_size,
             "target_size_bytes": target_size_bytes,
             "reached_target": reached_target,
+            "attempts": attempts,
             "saved_bytes": saved_bytes,
             "saved_percent": saved_percent,
             "optimized": optimized,
@@ -827,4 +834,3 @@ class CompressionService:
 
     def _path_glob_suffix(self) -> str:
         return "\\*" if "\\" in str(Path.cwd()) else "/*"
-

@@ -39,7 +39,7 @@ export function ToolLayout({ children }: ToolLayoutProps) {
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 lg:flex-row lg:px-8">
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 dark:border-white/10 dark:bg-zinc-900 lg:hidden">
+      <div className="overflow-x-auto rounded-2xl border border-zinc-200/70 bg-white/82 p-2 shadow-[0_16px_45px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/76 dark:shadow-[0_20px_50px_rgba(0,0,0,0.28)] lg:hidden">
         <div className="flex min-w-max gap-2">
           {[...sharedTools, ...pdfTools, ...imageTools].map((tool) => (
             <ToolLink
@@ -53,7 +53,7 @@ export function ToolLayout({ children }: ToolLayoutProps) {
       </div>
 
       <aside className="hidden w-[240px] shrink-0 lg:block">
-        <div className="sticky top-[76px] space-y-6 rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-zinc-900">
+        <div className="sticky top-[76px] space-y-6 rounded-2xl border border-zinc-200/70 bg-white/82 p-4 shadow-[0_20px_55px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/76 dark:shadow-[0_24px_60px_rgba(0,0,0,0.32)]">
           <div className="space-y-2">
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500">
               Shared

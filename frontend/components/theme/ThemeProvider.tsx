@@ -39,14 +39,29 @@ function applyTheme(resolvedTheme: ResolvedTheme) {
   document.documentElement.style.colorScheme = resolvedTheme;
 }
 
+function readStoredTheme(): ThemeMode {
+  if (typeof window === "undefined") {
+    return "system";
+  }
+
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored === "light" || stored === "dark" || stored === "system") {
+    return stored;
+  }
+
+  if (stored !== null) {
+    window.localStorage.setItem(THEME_STORAGE_KEY, "system");
+  }
+
+  return "system";
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeMode>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
+  const [theme, setThemeState] = useState<ThemeMode>(() => readStoredTheme());
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(readStoredTheme()));
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-    const nextTheme: ThemeMode =
-      stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+    const nextTheme = readStoredTheme();
     setThemeState(nextTheme);
     setResolvedTheme(resolveTheme(nextTheme));
   }, []);

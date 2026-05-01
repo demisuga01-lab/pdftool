@@ -8,7 +8,7 @@ import { UploadProgress } from "@/components/ui/UploadProgress";
 import { EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
 import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
 import { CompactWorkspaceShell, PreviewCard } from "@/components/workspace/WorkspaceShells";
-import { downloadFile, pollJobStatus, toApiPath, type JobStatus } from "@/lib/api";
+import { ApiRateLimitError, downloadFile, formatRateLimitMessage, pollJobStatus, toApiPath, type JobStatus } from "@/lib/api";
 import {
   getFileMetadata,
   getPdfPagePreviewUrl,
@@ -70,6 +70,8 @@ export default function OcrPage() {
   const [jobId, setJobId] = useState<string | null>(searchParams.get("job_id"));
   const [jobResult, setJobResult] = useState<JobStatus | null>(null);
   const [jobError, setJobError] = useState<string | null>(null);
+  const [jobNotice, setJobNotice] = useState<string | null>(null);
+  const [rateLimitScope, setRateLimitScope] = useState<"job" | "status" | "download" | null>(null);
   const [panelDismissed, setPanelDismissed] = useState(false);
   const { state: settings, update } = useObjectState<OcrSettings>({
     dpi: 300,
@@ -144,6 +146,19 @@ export default function OcrPage() {
     setUploadTotalBytes(progress.totalBytes);
   };
 
+  const parseRetryAfterSeconds = useCallback((response: Response, data: { retry_after_seconds?: unknown; bucket?: unknown }) => {
+    const jsonRetryAfter = Number(data.retry_after_seconds);
+    if (Number.isFinite(jsonRetryAfter) && jsonRetryAfter > 0) {
+      return Math.max(1, Math.ceil(jsonRetryAfter));
+    }
+    const headerValue = response.headers.get("Retry-After");
+    const headerSeconds = Number(headerValue);
+    if (Number.isFinite(headerSeconds) && headerSeconds > 0) {
+      return Math.max(1, Math.ceil(headerSeconds));
+    }
+    return undefined;
+  }, []);
+
   useEffect(() => {
     setQueryString(window.location.search.replace(/^\?/, ""));
   }, [pathname]);
@@ -177,6 +192,8 @@ export default function OcrPage() {
       setJobId(null);
       setJobResult(null);
       setJobError(null);
+      setJobNotice(null);
+      setRateLimitScope(null);
       setPanelDismissed(false);
       setUploadPercent(0);
       setUploadSpeedKBs(0);
@@ -211,6 +228,8 @@ export default function OcrPage() {
     setJobId(null);
     setJobResult(null);
     setJobError(null);
+    setJobNotice(null);
+    setRateLimitScope(null);
     setPanelDismissed(false);
     setUploadPercent(0);
     setUploadSpeedKBs(0);
@@ -237,6 +256,8 @@ export default function OcrPage() {
     setJobState("queued");
     setJobError(null);
     setJobResult(null);
+    setJobNotice(null);
+    setRateLimitScope(null);
     setPanelDismissed(false);
 
     try {
@@ -245,13 +266,24 @@ export default function OcrPage() {
         method: "POST",
         signal: controller.signal,
       });
-      const data = (await response.json()) as { detail?: string; error?: string; job_id?: string };
+      const data = (await response.json()) as { bucket?: string; detail?: string; error?: string; job_id?: string; retry_after_seconds?: number };
+      if (response.status === 429) {
+        const retryAfterSeconds = parseRetryAfterSeconds(response, data);
+        throw new ApiRateLimitError(formatRateLimitMessage("job", retryAfterSeconds), {
+          bucket: typeof data.bucket === "string" ? data.bucket : undefined,
+          retryAfterSeconds,
+          scope: "job",
+        });
+      }
       if (!response.ok || !data.job_id) {
         throw new Error(data.detail || data.error || "Unable to start OCR");
       }
       setJobId(data.job_id);
       syncQuery({ file_id: fileMeta.file_id, job_id: data.job_id });
       const finalStatus = await pollJobStatus("image", data.job_id, controller.signal, (status) => {
+        setJobResult(status);
+        setJobNotice(status.notice ?? null);
+        setRateLimitScope(status.notice ? "status" : null);
         if (status.status === "queued" || status.status === "processing") {
           setJobState(status.status);
         }
@@ -259,14 +291,25 @@ export default function OcrPage() {
       setJobResult(finalStatus);
       setJobState(finalStatus.status);
       setJobError(finalStatus.error ?? null);
+      setJobNotice(null);
+      setRateLimitScope(null);
     } catch (caughtError) {
       if (controller.signal.aborted) {
         return;
       }
+      if (caughtError instanceof ApiRateLimitError && caughtError.scope === "job") {
+        setJobState("failure");
+        setJobError(caughtError.message);
+        setJobNotice(null);
+        setRateLimitScope("job");
+        return;
+      }
       setJobState("failure");
+      setJobNotice(null);
+      setRateLimitScope(null);
       setJobError(caughtError instanceof Error ? caughtError.message : "Unable to run OCR");
     }
-  }, [fileMeta, settings, syncQuery]);
+  }, [fileMeta, parseRetryAfterSeconds, settings, syncQuery]);
 
   useEffect(() => {
     const fileId = searchParams.get("file_id");
@@ -307,6 +350,9 @@ export default function OcrPage() {
     if (uploadState === "failure") {
       return uploadError ?? "Upload failed";
     }
+    if (jobNotice && rateLimitScope === "status" && (jobState === "queued" || jobState === "processing")) {
+      return jobNotice;
+    }
     if (jobState === "queued") {
       return "Preparing pages";
     }
@@ -320,7 +366,26 @@ export default function OcrPage() {
       return jobError ?? "OCR failed";
     }
     return null;
-  }, [jobError, jobState, uploadError, uploadState]);
+  }, [jobError, jobNotice, jobState, rateLimitScope, uploadError, uploadState]);
+
+  const handleDownload = useCallback(async () => {
+    if (!jobId) {
+      return;
+    }
+    try {
+      await downloadFile("image", jobId, outputName);
+      setJobNotice(null);
+      setRateLimitScope(null);
+    } catch (caughtError) {
+      if (caughtError instanceof ApiRateLimitError && caughtError.scope === "download") {
+        setJobNotice(caughtError.message);
+        setRateLimitScope("download");
+        return;
+      }
+      setJobNotice(caughtError instanceof Error ? caughtError.message : "Download could not be started.");
+      setRateLimitScope(null);
+    }
+  }, [jobId, outputName]);
 
   const sections: Array<ControlSection<OcrSettings>> = useMemo(
     () => [
@@ -424,7 +489,8 @@ export default function OcrPage() {
             errorDetails={null}
             estimatedTime={fileMeta ? estimateProcessingTime(fileMeta.size_bytes, isPdf ? pageCount || 3 : 1) : undefined}
             jobId={jobId}
-            onDownload={jobState === "success" && jobId ? () => downloadFile("image", jobId, outputName) : undefined}
+            notice={jobNotice}
+            onDownload={jobState === "success" && jobId ? () => void handleDownload() : undefined}
             onProcessAnother={() => {
               setFile(null);
               setFileMeta(null);
@@ -432,10 +498,13 @@ export default function OcrPage() {
               setJobId(null);
               setJobResult(null);
               setJobError(null);
+              setJobNotice(null);
+              setRateLimitScope(null);
               syncQuery({ file_id: null, job_id: null });
             }}
             onReedit={() => setPanelDismissed(true)}
             outputFilename={jobState === "success" ? outputName : undefined}
+            rateLimitScope={rateLimitScope}
             state={jobState === "success" ? "success" : jobState === "failure" ? "failure" : jobState}
             statusText={processingLabel ?? undefined}
           />
@@ -455,7 +524,7 @@ export default function OcrPage() {
       fileName={fileMeta?.original_name}
       hasContent={Boolean(fileMeta)}
       infoContent={infoContent}
-      onDownload={jobState === "success" && jobId ? () => downloadFile("image", jobId, outputName) : undefined}
+      onDownload={jobState === "success" && jobId ? () => void handleDownload() : undefined}
       onFilesDropped={(files) => {
         void handleFilesSelected(files);
       }}
@@ -467,6 +536,8 @@ export default function OcrPage() {
         setJobId(null);
         setJobResult(null);
         setJobError(null);
+        setJobNotice(null);
+        setRateLimitScope(null);
         syncQuery({ file_id: null, job_id: null });
       }}
       processButtonDisabled={!fileMeta}

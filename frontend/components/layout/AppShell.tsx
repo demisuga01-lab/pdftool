@@ -17,7 +17,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     pathname.startsWith("/tools/");
 
   return (
-    <div className="flex min-h-screen max-w-full flex-col overflow-x-hidden bg-white dark:bg-zinc-950">
+    <div className="flex min-h-screen max-w-full flex-col overflow-x-hidden bg-transparent">
       <Header />
       <div className="min-h-0 min-w-0 flex-1">{children}</div>
       {!isWorkspacePage ? <Footer /> : null}

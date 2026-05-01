@@ -191,7 +191,7 @@ const faqItems = [
   },
   {
     question: "Can I use the free web tool while waiting for the API?",
-    answer: "Yes. The web tool at tools.wellfriend.online is always free with no limits.",
+    answer: "Yes. The web tool at tools.wellfriend.online is currently free to use, with the public upload and rate-limit policies applied.",
   },
   {
     question: "Do unused credits roll over to the next month?",
@@ -408,7 +408,7 @@ export default function PricingPage() {
             <li>All 20 PDF and image tools</li>
             <li>Maximum upload size: 25 MB per file</li>
             <li>Files deleted within 24 hours</li>
-            <li>Public launch rate limit: 100 requests per hour</li>
+            <li>Public launch rate limit: 200 requests per hour</li>
             <li>No API access on free tier</li>
           </ul>
         </section>
@@ -472,6 +472,18 @@ export default function PricingPage() {
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Need more than 10,000 credits or a white-label setup?</h3>
             <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-zinc-300">
               Contact: contact@wellfriend.online
+            </p>
+            <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-zinc-300">
+              For community discussion and launch updates, join the{" "}
+              <a
+                className="font-semibold text-[#059669] hover:text-[#047857]"
+                href="https://discord.gg/ZQFmYaQbVu"
+                rel="noreferrer"
+                target="_blank"
+              >
+                WellFriend Corp Discord
+              </a>
+              .
             </p>
             <a
               className="primary-button mt-5"

@@ -41,11 +41,11 @@ class Settings(BaseSettings):
 
     # Rate limiting (Redis-backed).
     RATE_LIMIT_ENABLED: bool = Field(default=True)
-    RATE_LIMIT_GLOBAL_PER_HOUR: int = Field(default=100, gt=0)
-    RATE_LIMIT_JOBS_PER_HOUR: int = Field(default=20, gt=0)
-    RATE_LIMIT_UPLOADS_PER_HOUR: int = Field(default=30, gt=0)
-    RATE_LIMIT_STATUS_PER_HOUR: int = Field(default=300, gt=0)
-    RATE_LIMIT_DOWNLOADS_PER_HOUR: int = Field(default=100, gt=0)
+    RATE_LIMIT_GLOBAL_PER_HOUR: int = Field(default=200, gt=0)
+    RATE_LIMIT_JOBS_PER_HOUR: int = Field(default=40, gt=0)
+    RATE_LIMIT_UPLOADS_PER_HOUR: int = Field(default=60, gt=0)
+    RATE_LIMIT_STATUS_PER_HOUR: int = Field(default=1000, gt=0)
+    RATE_LIMIT_DOWNLOADS_PER_HOUR: int = Field(default=200, gt=0)
     RATE_LIMIT_REDIS_URL: str = Field(default="")
     # Trust X-Forwarded-For only when behind a known reverse proxy.
     RATE_LIMIT_TRUST_PROXY: bool = Field(default=True)

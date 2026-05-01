@@ -21,15 +21,20 @@ Expanded reference for current environment variables.
 | `FILE_RETENTION_HOURS` | backend | `24` | `24` | No | cleanup horizon |
 | `ALLOWED_ORIGINS` | backend | `https://tools.wellfriend.online` | same | No | production should not include localhost |
 | `RATE_LIMIT_ENABLED` | backend | `true` | `true` | No | disable only for trusted dev workflows |
-| `RATE_LIMIT_GLOBAL_PER_HOUR` | backend | `100` | `100` | No | global public limit |
-| `RATE_LIMIT_JOBS_PER_HOUR` | backend | `20` | `20` | No | write/job limit |
-| `RATE_LIMIT_UPLOADS_PER_HOUR` | backend | `30` | `30` | No | upload bucket |
-| `RATE_LIMIT_STATUS_PER_HOUR` | backend | `300` | `300` | No | polling bucket |
-| `RATE_LIMIT_DOWNLOADS_PER_HOUR` | backend | `100` | `100` | No | download/preview bucket |
+| `RATE_LIMIT_GLOBAL_PER_HOUR` | backend | `200` | `200` | No | global public limit for uploads and job creation |
+| `RATE_LIMIT_JOBS_PER_HOUR` | backend | `40` | `40` | No | per-tool job bucket |
+| `RATE_LIMIT_UPLOADS_PER_HOUR` | backend | `60` | `60` | No | upload bucket |
+| `RATE_LIMIT_STATUS_PER_HOUR` | backend | `1000` | `1000` | No | per-tool status and preview bucket |
+| `RATE_LIMIT_DOWNLOADS_PER_HOUR` | backend | `200` | `200` | No | per-tool download bucket |
 | `RATE_LIMIT_TRUST_PROXY` | backend | `true` | `true` | No | only correct behind trusted reverse proxy |
+
+## Notes
+
+- Rate limiting is applied per IP and per bucket key such as `job:compress`, `status:convert`, or `download:image`.
+- Status polling uses its own higher bucket and does not spend the same strict quota as uploads or job creation.
+- A polling `429` should be treated as "slow down polling", not as an actual job failure.
 
 ## Related Documents
 
 - [../ENVIRONMENT.md](../ENVIRONMENT.md)
 - [../PRODUCTION_ENV.md](../PRODUCTION_ENV.md)
-

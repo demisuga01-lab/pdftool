@@ -83,8 +83,9 @@ HTTP `429` with body similar to:
 
 ```json
 {
-  "detail": "Rate limit reached. Please try again later.",
-  "retry_after_seconds": 120
+  "detail": "Rate limit exceeded. Please try again later.",
+  "retry_after_seconds": 120,
+  "bucket": "status:compress"
 }
 ```
 
@@ -102,7 +103,8 @@ Headers:
 - Maximum extracted archive total: `100 MB`
 - Maximum extracted archive files: `200`
 - File retention: `24 hours`
-- Public global rate limit: `100 requests/hour/IP`
+- Public global rate limit: `200 requests/hour/IP`
+- Status, preview, and download checks use separate higher per-tool buckets and do not consume the strict job quota
 
 ## Endpoint Summary
 
@@ -191,4 +193,3 @@ Headers:
 - [docs/rate-limiting.md](./docs/rate-limiting.md)
 - [docs/error-handling.md](./docs/error-handling.md)
 - [docs/upload-preview-download-flow.md](./docs/upload-preview-download-flow.md)
-

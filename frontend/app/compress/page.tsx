@@ -192,7 +192,14 @@ function ResultStats({ result }: { result?: CompressionResult }) {
   ];
   if (result.target_size_bytes != null) {
     rows.push(["Target", formatBytes(result.target_size_bytes)]);
-    rows.push(["Hit target", typeof result.reached_target === "boolean" ? (result.reached_target ? "Yes" : "No") : "--"]);
+    rows.push([
+      "Target result",
+      typeof result.reached_target === "boolean"
+        ? result.reached_target
+          ? "Target reached"
+          : "Closest safe result"
+        : "--",
+    ]);
   }
   if (result.method) {
     rows.push(["Method", result.method]);
@@ -719,6 +726,7 @@ export default function CompressPage() {
             errorDetails={job.errorDetails ?? null}
             estimatedTime={estimateProcessingTime(fileMeta.size_bytes, 1)}
             jobId={job.jobId}
+            notice={job.notice}
             onDownload={job.state === "success" ? job.download : undefined}
             outputFilename={result?.output_filename}
             outputSize={typeof result?.output_size === "number" ? formatBytes(result.output_size) : undefined}
@@ -729,11 +737,13 @@ export default function CompressPage() {
               syncFileQuery(null);
             }}
             onReedit={job.dismissPanel}
+            rateLimitScope={job.rateLimitScope}
             state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
             statusText={
-              queuedTooLong
+              job.processingLabel ??
+              (queuedTooLong
                 ? "Still waiting for a worker. This may take longer during heavy load."
-                : undefined
+                : undefined)
             }
           />
         ) : null

@@ -11,11 +11,11 @@ This checklist is for deploying **PDFTools by WellFriend** to:
 - Maximum extracted archive size: `100 MB`
 - Maximum extracted archive file count: `200`
 - File retention: `24 hours`
-- Global anonymous rate limit: `100 requests/hour/IP`
-- Jobs: `20/hour/IP`
-- Uploads: `30/hour/IP`
-- Status polling: `300/hour/IP`
-- Downloads: `100/hour/IP`
+- Global anonymous rate limit: `200 requests/hour/IP`
+- Jobs per tool bucket: `40/hour/IP`
+- Uploads: `60/hour/IP`
+- Status polling per tool bucket: `1000/hour/IP`
+- Downloads per tool bucket: `200/hour/IP`
 - Backend CORS origin: `https://tools.wellfriend.online`
 - ImageMagick command in production: `convert`
 
@@ -94,11 +94,11 @@ FILE_RETENTION_HOURS=24
 ALLOWED_ORIGINS=https://tools.wellfriend.online
 
 RATE_LIMIT_ENABLED=true
-RATE_LIMIT_GLOBAL_PER_HOUR=100
-RATE_LIMIT_JOBS_PER_HOUR=20
-RATE_LIMIT_UPLOADS_PER_HOUR=30
-RATE_LIMIT_STATUS_PER_HOUR=300
-RATE_LIMIT_DOWNLOADS_PER_HOUR=100
+RATE_LIMIT_GLOBAL_PER_HOUR=200
+RATE_LIMIT_JOBS_PER_HOUR=40
+RATE_LIMIT_UPLOADS_PER_HOUR=60
+RATE_LIMIT_STATUS_PER_HOUR=1000
+RATE_LIMIT_DOWNLOADS_PER_HOUR=200
 RATE_LIMIT_REDIS_URL=redis://localhost:6379/0
 RATE_LIMIT_TRUST_PROXY=true
 EOF
@@ -192,6 +192,8 @@ This cleanup script enforces `FILE_RETENTION_HOURS=24`.
 - Confirm a multi-file batch larger than `100 MB` is rejected safely
 - Confirm `/api/health` returns success
 - Confirm rate-limited requests return `429` plus `Retry-After` and `X-RateLimit-*` headers
+- Confirm status polling uses the separate high bucket and does not consume the strict job quota
+- Confirm a polling `429` slows the UI check rate without turning an active job into `Processing failed`
 - Confirm PDF to JPG works and downloads with `.jpg` outputs and `image/jpeg`
 - Confirm SVG watermark either rasterizes safely or shows: `SVG watermark could not be processed. Upload PNG, JPG, or WebP instead.`
 - Confirm image watermark export matches preview placement

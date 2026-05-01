@@ -104,6 +104,18 @@ export default function AboutPage() {
               <p>Email: contact@wellfriend.online</p>
               <p>Response time: within 48 hours</p>
               <p>For bug reports, feature requests, enterprise pricing, and API early access.</p>
+              <p>
+                For community help, product updates, and discussion, join{" "}
+                <a
+                  className="font-medium text-[#059669] hover:text-[#047857]"
+                  href="https://discord.gg/ZQFmYaQbVu"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  the WellFriend Corp Discord
+                </a>
+                .
+              </p>
             </div>
           </section>
         </div>

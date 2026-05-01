@@ -49,7 +49,7 @@ export function ToolCard({ tool }: { tool: ToolDefinition }) {
 
   return (
     <Link
-      className="group flex h-full min-h-[120px] flex-col rounded-2xl border border-slate-200 bg-white p-4 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 hover:border-[#34D399] hover:shadow-sm active:bg-zinc-50 dark:border-white/10 dark:bg-zinc-900 dark:focus-visible:ring-emerald-400/40 dark:hover:border-emerald-400/60 dark:active:bg-white/[0.04] sm:min-h-[124px]"
+      className="group flex h-full min-h-[120px] flex-col rounded-2xl border border-zinc-200/70 bg-white/84 p-4 shadow-[0_14px_40px_rgba(15,23,42,0.05)] backdrop-blur-xl transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 hover:border-[#34D399] hover:shadow-[0_18px_50px_rgba(15,23,42,0.08)] active:bg-zinc-50 dark:border-white/10 dark:bg-zinc-900/76 dark:shadow-[0_18px_48px_rgba(0,0,0,0.28)] dark:focus-visible:ring-emerald-400/40 dark:hover:border-emerald-400/60 dark:active:bg-white/[0.04] sm:min-h-[124px]"
       href={tool.href}
     >
       <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-[#ECFDF5] text-[#059669] transition duration-200 group-hover:scale-[1.04] group-hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:group-hover:bg-emerald-500/15">

@@ -190,12 +190,14 @@ export default function ImageBatchResizePage() {
               errorDetails={job.errorDetails ?? null}
               estimatedTime={estimateProcessingTime(totalBytes, files.length)}
               jobId={job.jobId}
+              notice={job.notice}
               onDownload={job.state === "success" ? job.download : undefined}
               onProcessAnother={() => {
                 setFiles([]);
                 job.reset();
               }}
               onReedit={job.dismissPanel}
+              rateLimitScope={job.rateLimitScope}
               state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
             />
           ) : null

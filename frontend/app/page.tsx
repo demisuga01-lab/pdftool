@@ -10,8 +10,8 @@ export default function HomePage() {
   const totalCount = pdfCount + imageCount + sharedCount;
 
   return (
-    <main className="bg-white dark:bg-zinc-950">
-      <section className="border-b border-slate-200 dark:border-white/10">
+    <main className="bg-transparent">
+      <section className="border-b border-zinc-200/70 dark:border-white/10">
         <div className="mx-auto flex max-w-5xl flex-col items-center px-4 py-14 text-center sm:px-6 sm:py-20 lg:px-8 lg:py-24">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#059669] sm:text-[12px]">
             Unified Workspace · Open Source · No Signup
@@ -32,8 +32,29 @@ export default function HomePage() {
             </Link>
           </div>
 
+          <p className="mt-4 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+            Need implementation details or deployment guidance?{" "}
+            <Link className="font-semibold text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200" href="/docs">
+              Read the docs
+            </Link>
+            .
+          </p>
+
           <p className="mt-6 text-xs font-medium text-zinc-400 dark:text-zinc-500 sm:text-sm">
             {totalCount} tools available · Files deleted after 24 hours · Open source
+          </p>
+          <p className="mt-3 max-w-[620px] text-sm font-medium leading-7 text-slate-500 dark:text-zinc-400">
+            Join the{" "}
+            <a
+              className="font-semibold text-[#059669] hover:text-[#047857]"
+              href="https://discord.gg/ZQFmYaQbVu"
+              rel="noreferrer"
+              target="_blank"
+            >
+              WellFriend Corp Discord
+            </a>{" "}
+            for community help, updates, and discussion. Use support@wellfriend.online for bugs, processing failures,
+            security issues, or abuse reports.
           </p>
         </div>
       </section>
