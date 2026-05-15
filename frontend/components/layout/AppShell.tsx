@@ -1,0 +1,28 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
+
+import { Footer } from "@/components/layout/Footer";
+import { Header } from "@/components/layout/Header";
+import { BackToTopButton } from "@/components/ui/BackToTopButton";
+
+export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isWorkspacePage =
+    pathname.startsWith("/pdf/") ||
+    pathname.startsWith("/image/") ||
+    pathname === "/convert" ||
+    pathname === "/compress" ||
+    pathname.startsWith("/tools/");
+
+  return (
+    <div className="flex min-h-screen max-w-full flex-col overflow-x-hidden bg-transparent">
+      <Header />
+      <div className="min-h-0 min-w-0 flex-1">{children}</div>
+      {!isWorkspacePage ? <Footer /> : null}
+      {/* Back-to-top is only useful on long tool/workspace pages. */}
+      {isWorkspacePage ? <BackToTopButton /> : null}
+    </div>
+  );
+}

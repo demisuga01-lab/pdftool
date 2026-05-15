@@ -1,0 +1,14 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pdf-mark-bg" x1="88" y1="76" x2="420" y2="438" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#022C22" />
+      <stop offset="1" stop-color="#065F46" />
+    </linearGradient>
+  </defs>
+  <rect x="32" y="32" width="448" height="448" rx="128" fill="url(#pdf-mark-bg)" />
+  <rect x="122" y="88" width="238" height="336" rx="58" fill="#FFFFFF" />
+  <path d="M278 88L360 170V226H278V88Z" fill="#D1FAE5" />
+  <path d="M170 154H222V358H170V154Z" fill="#047857" />
+  <path d="M222 154H244C313.624 154 370 201.905 370 260C370 318.095 313.624 366 244 366H222V322H242C282.317 322 315 294.242 315 260C315 225.758 282.317 198 242 198H222V154Z" fill="#10B981" />
+  <path d="M286 218L356 260L286 302V218Z" fill="#6EE7B7" />
+</svg>

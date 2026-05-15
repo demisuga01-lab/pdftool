@@ -1,0 +1,577 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+
+import { DownloadPanel } from "@/components/ui/DownloadPanel";
+import { UploadProgress } from "@/components/ui/UploadProgress";
+import { EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
+import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
+import { CompactWorkspaceShell, PreviewCard } from "@/components/workspace/WorkspaceShells";
+import { ApiRateLimitError, downloadFile, formatRateLimitMessage, pollJobStatus, toApiPath, type JobStatus } from "@/lib/api";
+import {
+  getFileMetadata,
+  getPdfPagePreviewUrl,
+  uploadFileToWorkspace,
+  type UploadedFileMetadata,
+  type UploadProgressHandler,
+} from "@/lib/files";
+import { estimateProcessingTime, formatBytes, formatFileType, slugifyBaseName } from "@/lib/format";
+import {
+  imageSummary,
+  uploadedFileDetails,
+  uploadedFileSummary,
+  useObjectState,
+  useSingleImagePreview,
+  useUploadedPdfPageItems,
+} from "@/lib/workspace-data";
+
+type OcrSettings = {
+  dpi: 200 | 300 | 400;
+  language: "eng";
+  outputFilename: string;
+  outputFormat: "txt" | "json" | "searchable_pdf" | "docx" | "hocr";
+  pdfPassword: string;
+};
+
+type ProcessState = "idle" | "queued" | "processing" | "success" | "failure";
+
+function outputExtension(format: OcrSettings["outputFormat"]) {
+  if (format === "searchable_pdf") {
+    return "pdf";
+  }
+  if (format === "hocr") {
+    return "hocr";
+  }
+  return format;
+}
+
+function fileFromMetadata(metadata: UploadedFileMetadata): File {
+  return new File([], metadata.original_name, { type: metadata.mime_type });
+}
+
+export default function OcrPage() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [queryString, setQueryString] = useState("");
+  const searchParams = useMemo(() => new URLSearchParams(queryString), [queryString]);
+  const uploadAbortRef = useRef<AbortController | null>(null);
+  const processAbortRef = useRef<AbortController | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [fileMeta, setFileMeta] = useState<UploadedFileMetadata | null>(null);
+  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "failure">("idle");
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadPercent, setUploadPercent] = useState(0);
+  const [uploadSpeedKBs, setUploadSpeedKBs] = useState(0);
+  const [uploadRemainingSecs, setUploadRemainingSecs] = useState(0);
+  const [uploadedBytes, setUploadedBytes] = useState(0);
+  const [uploadTotalBytes, setUploadTotalBytes] = useState(0);
+  const [jobState, setJobState] = useState<ProcessState>("idle");
+  const [jobId, setJobId] = useState<string | null>(searchParams.get("job_id"));
+  const [jobResult, setJobResult] = useState<JobStatus | null>(null);
+  const [jobError, setJobError] = useState<string | null>(null);
+  const [jobNotice, setJobNotice] = useState<string | null>(null);
+  const [rateLimitScope, setRateLimitScope] = useState<"job" | "status" | "download" | null>(null);
+  const [panelDismissed, setPanelDismissed] = useState(false);
+  const { state: settings, update } = useObjectState<OcrSettings>({
+    dpi: 300,
+    language: "eng",
+    outputFilename: "",
+    outputFormat: "txt",
+    pdfPassword: "",
+  });
+
+  const currentFile = file ?? (fileMeta ? fileFromMetadata(fileMeta) : null);
+  const isPdf = fileMeta?.extension.toLowerCase() === "pdf";
+  const pdfNeedsPassword = Boolean(fileMeta?.metadata?.needs_password || fileMeta?.metadata?.encrypted);
+  const imagePreview = useSingleImagePreview(file && !isPdf ? file : null);
+  const preview = imagePreview ?? (
+    fileMeta && currentFile && !isPdf
+      ? {
+          dataUrl: fileMeta.preview_url,
+          file: currentFile,
+          format: fileMeta.extension,
+          height: Number(fileMeta.metadata?.height ?? 0),
+          size: fileMeta.size_bytes,
+          width: Number(fileMeta.metadata?.width ?? 0),
+        }
+      : null
+  );
+  const { pageCount } = useUploadedPdfPageItems(
+    isPdf && fileMeta ? fileMeta.file_id : null,
+    Number(fileMeta?.metadata?.page_count ?? fileMeta?.pages ?? 0),
+  );
+  const outputName = currentFile
+    ? `${settings.outputFilename.trim() || slugifyBaseName(currentFile.name)}.${outputExtension(settings.outputFormat)}`
+    : `ocr-output.${outputExtension(settings.outputFormat)}`;
+  const infoContent = useMemo(() => {
+    const details = uploadedFileDetails(fileMeta);
+    if (details.length === 0) {
+      return null;
+    }
+    return (
+      <div className="space-y-3">
+        {details.map((detail) => (
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0" key={detail.label}>
+            <span className="text-slate-500">{detail.label}</span>
+            <span className="max-w-[60%] text-right font-medium text-slate-900 dark:text-zinc-100">{detail.value}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }, [fileMeta]);
+
+  const syncQuery = useCallback(
+    (updates: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value) {
+          params.set(key, value);
+        } else {
+          params.delete(key);
+        }
+      });
+      const query = params.toString();
+      setQueryString(query);
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
+  const handleUploadProgress: UploadProgressHandler = (progress) => {
+    setUploadPercent(progress.percentage);
+    setUploadSpeedKBs(progress.uploadSpeedKBs);
+    setUploadRemainingSecs(progress.estimatedSecondsRemaining);
+    setUploadedBytes(progress.uploadedBytes);
+    setUploadTotalBytes(progress.totalBytes);
+  };
+
+  const parseRetryAfterSeconds = useCallback((response: Response, data: { retry_after_seconds?: unknown; bucket?: unknown }) => {
+    const jsonRetryAfter = Number(data.retry_after_seconds);
+    if (Number.isFinite(jsonRetryAfter) && jsonRetryAfter > 0) {
+      return Math.max(1, Math.ceil(jsonRetryAfter));
+    }
+    const headerValue = response.headers.get("Retry-After");
+    const headerSeconds = Number(headerValue);
+    if (Number.isFinite(headerSeconds) && headerSeconds > 0) {
+      return Math.max(1, Math.ceil(headerSeconds));
+    }
+    return undefined;
+  }, []);
+
+  useEffect(() => {
+    setQueryString(window.location.search.replace(/^\?/, ""));
+  }, [pathname]);
+
+  useEffect(() => {
+    const requestedOutput = searchParams.get("output");
+    if (
+      requestedOutput &&
+      requestedOutput !== settings.outputFormat &&
+      ["txt", "json", "searchable_pdf", "docx", "hocr"].includes(requestedOutput)
+    ) {
+      update("outputFormat", requestedOutput as OcrSettings["outputFormat"]);
+    }
+  }, [searchParams, settings.outputFormat]);
+
+  const handleFilesSelected = useCallback(
+    async (files: File[]) => {
+      const nextFile = files[0];
+      if (!nextFile) {
+        return;
+      }
+
+      uploadAbortRef.current?.abort();
+      const controller = new AbortController();
+      uploadAbortRef.current = controller;
+      setFile(nextFile);
+      setFileMeta(null);
+      setUploadState("uploading");
+      setUploadError(null);
+      setJobState("idle");
+      setJobId(null);
+      setJobResult(null);
+      setJobError(null);
+      setJobNotice(null);
+      setRateLimitScope(null);
+      setPanelDismissed(false);
+      setUploadPercent(0);
+      setUploadSpeedKBs(0);
+      setUploadRemainingSecs(0);
+      setUploadedBytes(0);
+      setUploadTotalBytes(nextFile.size);
+
+      try {
+        const metadata = await uploadFileToWorkspace(nextFile, handleUploadProgress, controller.signal);
+        setFileMeta(metadata);
+        setUploadState("idle");
+        syncQuery({ file_id: metadata.file_id, job_id: null });
+      } catch (caughtError) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setUploadState("failure");
+        setUploadError(caughtError instanceof Error ? caughtError.message : "Upload failed");
+      }
+    },
+    [syncQuery],
+  );
+
+  const cancelUpload = useCallback(() => {
+    uploadAbortRef.current?.abort();
+    uploadAbortRef.current = null;
+    setFile(null);
+    setFileMeta(null);
+    setUploadState("idle");
+    setUploadError(null);
+    setJobState("idle");
+    setJobId(null);
+    setJobResult(null);
+    setJobError(null);
+    setJobNotice(null);
+    setRateLimitScope(null);
+    setPanelDismissed(false);
+    setUploadPercent(0);
+    setUploadSpeedKBs(0);
+    setUploadRemainingSecs(0);
+    setUploadedBytes(0);
+    setUploadTotalBytes(0);
+  }, []);
+
+  const handleProcess = useCallback(async () => {
+    if (!fileMeta) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file_id", fileMeta.file_id);
+    formData.append("language", settings.language);
+    formData.append("output_format", settings.outputFormat);
+    formData.append("dpi", String(settings.dpi));
+    formData.append("output_filename", settings.outputFilename.trim());
+    formData.append("password", settings.pdfPassword);
+    const controller = new AbortController();
+    processAbortRef.current?.abort();
+    processAbortRef.current = controller;
+    setJobState("queued");
+    setJobError(null);
+    setJobResult(null);
+    setJobNotice(null);
+    setRateLimitScope(null);
+    setPanelDismissed(false);
+
+    try {
+      const response = await fetch(toApiPath("ocr"), {
+        body: formData,
+        method: "POST",
+        signal: controller.signal,
+      });
+      const data = (await response.json()) as { bucket?: string; detail?: string; error?: string; job_id?: string; retry_after_seconds?: number };
+      if (response.status === 429) {
+        const retryAfterSeconds = parseRetryAfterSeconds(response, data);
+        throw new ApiRateLimitError(formatRateLimitMessage("job", retryAfterSeconds), {
+          bucket: typeof data.bucket === "string" ? data.bucket : undefined,
+          retryAfterSeconds,
+          scope: "job",
+        });
+      }
+      if (!response.ok || !data.job_id) {
+        throw new Error(data.detail || data.error || "Unable to start OCR");
+      }
+      setJobId(data.job_id);
+      syncQuery({ file_id: fileMeta.file_id, job_id: data.job_id });
+      const finalStatus = await pollJobStatus("image", data.job_id, controller.signal, (status) => {
+        setJobResult(status);
+        setJobNotice(status.notice ?? null);
+        setRateLimitScope(status.notice ? "status" : null);
+        if (status.status === "queued" || status.status === "processing") {
+          setJobState(status.status);
+        }
+      }, "ocr");
+      setJobResult(finalStatus);
+      setJobState(finalStatus.status);
+      setJobError(finalStatus.error ?? null);
+      setJobNotice(null);
+      setRateLimitScope(null);
+    } catch (caughtError) {
+      if (controller.signal.aborted) {
+        return;
+      }
+      if (caughtError instanceof ApiRateLimitError && caughtError.scope === "job") {
+        setJobState("failure");
+        setJobError(caughtError.message);
+        setJobNotice(null);
+        setRateLimitScope("job");
+        return;
+      }
+      setJobState("failure");
+      setJobNotice(null);
+      setRateLimitScope(null);
+      setJobError(caughtError instanceof Error ? caughtError.message : "Unable to run OCR");
+    }
+  }, [fileMeta, parseRetryAfterSeconds, settings, syncQuery]);
+
+  useEffect(() => {
+    const fileId = searchParams.get("file_id");
+    if (!fileId || fileMeta?.file_id === fileId) {
+      return;
+    }
+    let cancelled = false;
+    getFileMetadata(fileId)
+      .then((metadata) => {
+        if (!cancelled) {
+          setFile(null);
+          setFileMeta(metadata);
+          setUploadState("idle");
+        }
+      })
+      .catch((caughtError: unknown) => {
+        if (!cancelled) {
+          setUploadState("failure");
+          setUploadError(caughtError instanceof Error ? caughtError.message : "Uploaded file could not be loaded.");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fileMeta?.file_id, searchParams]);
+
+  useEffect(() => {
+    const queryJobId = searchParams.get("job_id");
+    if (queryJobId && !jobId) {
+      setJobId(queryJobId);
+    }
+  }, [jobId, searchParams]);
+
+  const processingLabel = useMemo(() => {
+    if (uploadState === "uploading") {
+      return "Uploading";
+    }
+    if (uploadState === "failure") {
+      return uploadError ?? "Upload failed";
+    }
+    if (jobNotice && rateLimitScope === "status" && (jobState === "queued" || jobState === "processing")) {
+      return jobNotice;
+    }
+    if (jobState === "queued") {
+      return "Preparing pages";
+    }
+    if (jobState === "processing") {
+      return "Running OCR";
+    }
+    if (jobState === "success") {
+      return "Ready";
+    }
+    if (jobState === "failure") {
+      return jobError ?? "OCR failed";
+    }
+    return null;
+  }, [jobError, jobNotice, jobState, rateLimitScope, uploadError, uploadState]);
+
+  const handleDownload = useCallback(async () => {
+    if (!jobId) {
+      return;
+    }
+    try {
+      await downloadFile("image", jobId, outputName);
+      setJobNotice(null);
+      setRateLimitScope(null);
+    } catch (caughtError) {
+      if (caughtError instanceof ApiRateLimitError && caughtError.scope === "download") {
+        setJobNotice(caughtError.message);
+        setRateLimitScope("download");
+        return;
+      }
+      setJobNotice(caughtError instanceof Error ? caughtError.message : "Download could not be started.");
+      setRateLimitScope(null);
+    }
+  }, [jobId, outputName]);
+
+  const sections: Array<ControlSection<OcrSettings>> = useMemo(
+    () => [
+      {
+        key: "language",
+        label: "Language",
+        fields: [
+          {
+            key: "language",
+            label: "OCR language",
+            type: "select",
+            options: [{ label: "English", value: "eng" }],
+          },
+          {
+            key: "dpi",
+            label: "PDF rasterization DPI",
+            type: "select",
+            options: [
+              { label: "200 DPI", value: 200 },
+              { label: "300 DPI", value: 300 },
+              { label: "400 DPI", value: 400 },
+            ],
+          },
+          {
+            key: "pdfPassword",
+            label: "PDF password",
+            type: "password",
+            placeholder: "Required for protected PDFs",
+            show: () => Boolean(isPdf),
+          },
+        ],
+      },
+      {
+        key: "output",
+        label: "Output",
+        fields: [
+          {
+            key: "outputFormat",
+            label: "Output format",
+            type: "radioCards",
+            options: [
+              { label: "TXT", description: "Plain extracted text", value: "txt" },
+              { label: "JSON", description: "Text and word boxes", value: "json" },
+              { label: "Searchable PDF", description: "PDF with invisible text layer", value: "searchable_pdf" },
+              { label: "DOCX", description: "Word document with page headings", value: "docx" },
+              { label: "HOCR", description: "HTML OCR output", value: "hocr" },
+            ],
+          },
+          { key: "outputFilename", label: "Output filename", type: "text", placeholder: "ocr-output" },
+        ],
+      },
+    ],
+    [isPdf],
+  );
+
+  const previewBadges = fileMeta
+    ? [
+        formatFileType(fileMeta.mime_type, fileMeta.extension),
+        formatBytes(fileMeta.size_bytes),
+        isPdf
+          ? `${pageCount || 1} pages`
+          : preview && preview.width > 0
+            ? `${preview.width} x ${preview.height} px`
+            : undefined,
+        pdfNeedsPassword ? "Encrypted" : undefined,
+      ].filter(Boolean) as string[]
+    : [];
+
+  const compactPreview = fileMeta ? (
+    <PreviewCard
+      badges={previewBadges}
+      description={pdfNeedsPassword ? "Password required before OCR can run." : "Compact preview for this OCR job."}
+      title={fileMeta.original_name}
+    >
+      {isPdf ? (
+        <img
+          alt={`Preview of ${fileMeta.original_name}`}
+          className="max-h-[320px] w-auto max-w-full rounded-lg border border-zinc-200 bg-white object-contain shadow-sm dark:border-white/10"
+          src={getPdfPagePreviewUrl(fileMeta.file_id, 1, 100)}
+        />
+      ) : preview ? (
+        <img
+          alt={fileMeta.original_name}
+          className="max-h-[320px] w-auto max-w-full rounded-lg border border-zinc-200 bg-white object-contain shadow-sm dark:border-white/10"
+          src={preview.dataUrl}
+        />
+      ) : null}
+    </PreviewCard>
+  ) : null;
+
+  return (
+    <CompactWorkspaceShell
+      title="OCR"
+      preview={compactPreview}
+      countLabel={isPdf ? `${pageCount} pages` : preview && preview.width > 0 ? `${preview.width} x ${preview.height} px` : undefined}
+      description="Extract text from PDFs and images, including searchable PDF output."
+      downloadPanel={
+        jobState !== "idle" && !panelDismissed ? (
+          <DownloadPanel
+            error={jobError}
+            errorDetails={null}
+            estimatedTime={fileMeta ? estimateProcessingTime(fileMeta.size_bytes, isPdf ? pageCount || 3 : 1) : undefined}
+            jobId={jobId}
+            notice={jobNotice}
+            onDownload={jobState === "success" && jobId ? () => void handleDownload() : undefined}
+            onProcessAnother={() => {
+              setFile(null);
+              setFileMeta(null);
+              setJobState("idle");
+              setJobId(null);
+              setJobResult(null);
+              setJobError(null);
+              setJobNotice(null);
+              setRateLimitScope(null);
+              syncQuery({ file_id: null, job_id: null });
+            }}
+            onReedit={() => setPanelDismissed(true)}
+            outputFilename={jobState === "success" ? outputName : undefined}
+            rateLimitScope={rateLimitScope}
+            state={jobState === "success" ? "success" : jobState === "failure" ? "failure" : jobState}
+            statusText={processingLabel ?? undefined}
+          />
+        ) : null
+      }
+      emptyState={
+        <EmptyWorkspaceState
+          accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,.webp,image/*,application/pdf"
+          description="Upload a PDF or image to extract text."
+          onFilesSelected={(files) => {
+            void handleFilesSelected(files);
+          }}
+        />
+      }
+      estimatedTime={fileMeta ? estimateProcessingTime(fileMeta.size_bytes, isPdf ? pageCount || 3 : 1) : undefined}
+      fileInfo={isPdf ? uploadedFileSummary(fileMeta) : uploadedFileSummary(fileMeta) ?? imageSummary(preview)}
+      fileName={fileMeta?.original_name}
+      hasContent={Boolean(fileMeta)}
+      infoContent={infoContent}
+      onDownload={jobState === "success" && jobId ? () => void handleDownload() : undefined}
+      onFilesDropped={(files) => {
+        void handleFilesSelected(files);
+      }}
+      onProcess={handleProcess}
+      onReset={() => {
+        setFile(null);
+        setFileMeta(null);
+        setJobState("idle");
+        setJobId(null);
+        setJobResult(null);
+        setJobError(null);
+        setJobNotice(null);
+        setRateLimitScope(null);
+        syncQuery({ file_id: null, job_id: null });
+      }}
+      processButtonDisabled={!fileMeta}
+      processButtonLabel="Run OCR"
+      processingLabel={processingLabel}
+      settingsPanel={
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-[13px] font-medium leading-6 text-slate-600 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300">
+            {pdfNeedsPassword && !settings.pdfPassword
+              ? "This PDF is password-protected. Enter the password before running OCR."
+              : uploadState === "failure"
+              ? uploadError ?? "Upload failed."
+              : jobState === "failure"
+                ? jobError ?? "OCR failed."
+                : "Stages: Uploading, Preparing pages, Running OCR, Building output, Ready."}
+          </div>
+          <WorkspaceControls sections={sections} state={settings} update={update} />
+        </div>
+      }
+      uploadOverlay={
+        file && uploadState === "uploading" ? (
+          <UploadProgress
+            fileLabel="Uploading"
+            fileName={file.name}
+            fileSize={file.size}
+            onCancel={cancelUpload}
+            percent={uploadPercent}
+            remainingSecs={uploadRemainingSecs}
+            speedKBs={uploadSpeedKBs}
+            totalBytes={uploadTotalBytes}
+            uploadedBytes={uploadedBytes}
+          />
+        ) : null
+      }
+    />
+  );
+}

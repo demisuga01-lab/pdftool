@@ -1,0 +1,642 @@
+import asyncio
+import mimetypes
+import zipfile
+from pathlib import Path
+from typing import Annotated, Any
+from uuid import uuid4
+
+from celery.result import AsyncResult
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
+
+from app.core.config import Settings
+from app.core.dependencies import (
+    get_app_settings,
+    save_temp_upload,
+    validate_optional_upload,
+    validate_saved_upload_path,
+    validate_saved_upload_paths,
+    validate_upload_batch,
+    validate_upload_file_size,
+    validate_upload_files_size,
+)
+from app.services.file_store import resolve_upload_path
+from app.services.image_service import IMAGE_OUTPUT_FORMAT_ERROR, ImageService, normalize_image_output_format
+from app.workers.celery_app import celery_app
+from app.workers.image_tasks import (
+    batch_resize_task,
+    compress_image_task,
+    convert_image_task,
+    crop_image_task,
+    ocr_image_task,
+    remove_background_task,
+    resize_image_task,
+    rotate_image_task,
+    watermark_image_task,
+)
+
+router = APIRouter()
+
+ValidatedUpload = Annotated[UploadFile, Depends(validate_upload_file_size)]
+ValidatedUploads = Annotated[list[UploadFile], Depends(validate_upload_files_size)]
+AppSettings = Annotated[Settings, Depends(get_app_settings)]
+
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff", ".avif", ".bmp", ".svg", ".pdf"}
+
+
+def _queued_response(job_id: str, message: str) -> dict[str, str]:
+    return {"job_id": job_id, "status": "queued", "message": message}
+
+
+def _extension_from_format(format: str | None, fallback: str | None = None) -> str:
+    normalized = normalize_image_output_format(format)
+    if normalized in {"", "auto"}:
+        normalized = normalize_image_output_format(fallback or "jpg")
+    if normalized not in {"jpg", "png", "webp", "tiff", "avif", "bmp", "pdf", "eps"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=IMAGE_OUTPUT_FORMAT_ERROR,
+        )
+    return f".{normalized}"
+
+
+def _safe_suffix(filename: str | None, fallback: str = ".jpg") -> str:
+    suffix = Path(filename or "").suffix.lower()
+    return suffix if suffix else fallback
+
+
+def _safe_stem(value: str | None, fallback_stem: str) -> str:
+    stem = Path(str(value or "").strip()).stem
+    safe = "".join(char if char.isalnum() or char in "._-" else "-" for char in stem).strip(".-")
+    fallback = "".join(char if char.isalnum() or char in "._-" else "-" for char in fallback_stem).strip(".-")
+    return safe or fallback or "output"
+
+
+def _output_path(settings: Settings, suffix: str = ".jpg", requested_name: str | None = None, fallback_stem: str = "output") -> Path:
+    settings.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    if requested_name and requested_name.strip():
+        return settings.OUTPUT_DIR / f"{_safe_stem(requested_name, fallback_stem)}{suffix}"
+    return settings.OUTPUT_DIR / f"{uuid4().hex}{suffix}"
+
+
+def _safe_output_name(value: str, fallback_stem: str, suffix: str) -> Path:
+    if not value.strip():
+        return Path(f"{uuid4().hex}{suffix}")
+    return Path(f"{_safe_stem(value, fallback_stem)}{suffix}")
+
+
+def _output_dir(settings: Settings) -> Path:
+    output_dir = settings.OUTPUT_DIR / uuid4().hex
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
+
+
+async def _save_uploads(files: list[UploadFile], settings: Settings) -> list[Path]:
+    validate_upload_batch(files, settings)
+    return [await save_temp_upload(file, settings) for file in files]
+
+
+async def _input_path_from_file_or_id(
+    settings: Settings,
+    file: UploadFile | None = None,
+    file_id: str | None = None,
+) -> Path:
+    if file_id:
+        path = resolve_upload_path(file_id, settings)
+        validate_saved_upload_path(path, settings)
+        return path
+    if file is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide either file_id or file",
+        )
+    validate_optional_upload(file, settings)
+    return await save_temp_upload(file, settings)
+
+
+async def _input_paths_from_files_or_ids(
+    settings: Settings,
+    files: list[UploadFile] | None = None,
+    file_ids: list[str] | None = None,
+) -> list[Path]:
+    clean_ids = [file_id for file_id in (file_ids or []) if file_id]
+    if clean_ids:
+        paths = [resolve_upload_path(file_id, settings) for file_id in clean_ids]
+        validate_saved_upload_paths(paths, settings)
+        return paths
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide either file_ids or files",
+        )
+    return await _save_uploads(files, settings)
+
+
+def _task_progress(state: str) -> int:
+    return {
+        "PENDING": 0,
+        "RECEIVED": 10,
+        "STARTED": 50,
+        "RETRY": 50,
+        "SUCCESS": 100,
+        "FAILURE": 100,
+        "REVOKED": 100,
+    }.get(state, 0)
+
+
+def _normalized_task_state(state: str) -> str:
+    normalized = state.upper()
+    if normalized == "SUCCESS":
+        return "success"
+    if normalized in {"FAILURE", "REVOKED"}:
+        return "failure"
+    if normalized in {"STARTED", "RETRY", "RECEIVED"}:
+        return "processing"
+    return "queued"
+
+
+def _task_result(job_id: str) -> AsyncResult:
+    return AsyncResult(job_id, app=celery_app)
+
+
+def _safe_output_path(path: str, settings: Settings) -> Path:
+    candidate = Path(path).resolve(strict=False)
+    output_root = settings.OUTPUT_DIR.resolve(strict=False)
+
+    if not candidate.is_relative_to(output_root):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Task output is outside the configured output directory",
+        )
+
+    if not candidate.exists() or not candidate.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Output file not found",
+        )
+
+    return candidate
+
+
+async def _zip_outputs(job_id: str, output_paths: list[str], settings: Settings, filename: str | None = None) -> Path:
+    zip_path = settings.OUTPUT_DIR / (Path(filename).name if filename else f"{job_id}.zip")
+    files = [_safe_output_path(path, settings) for path in output_paths]
+
+    def write_zip() -> None:
+        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for file_path in files:
+                archive.write(file_path, arcname=file_path.name)
+
+    await asyncio.to_thread(write_zip)
+    return zip_path
+
+
+async def _extract_zip_images(zip_path: Path, settings: Settings) -> list[Path]:
+    extract_dir = settings.TEMP_DIR / uuid4().hex
+    extract_dir.mkdir(parents=True, exist_ok=True)
+
+    max_total = settings.MAX_ARCHIVE_EXTRACTED_BYTES
+    max_files = settings.MAX_ARCHIVE_FILES
+
+    def extract() -> list[Path]:
+        extracted: list[Path] = []
+        total_bytes = 0
+        with zipfile.ZipFile(zip_path) as archive:
+            members = archive.infolist()
+            if len(members) > max_files * 2:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Zip contains too many entries.",
+                )
+
+            for member in members:
+                if member.is_dir():
+                    continue
+
+                member_name = Path(member.filename)
+                if (
+                    member_name.is_absolute()
+                    or ".." in member_name.parts
+                    or any(part.startswith(".") and part != "." for part in member_name.parts)
+                    or "\x00" in member.filename
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Zip contains an unsafe path",
+                    )
+
+                if member.file_size and member.file_size > max_total:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Zip member exceeds the allowed size.",
+                    )
+
+                suffix = member_name.suffix.lower()
+                if suffix not in IMAGE_EXTENSIONS:
+                    continue
+
+                destination = extract_dir / f"{uuid4().hex}{suffix}"
+                with archive.open(member) as source, destination.open("wb") as target:
+                    while True:
+                        chunk = source.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        total_bytes += len(chunk)
+                        if total_bytes > max_total:
+                            destination.unlink(missing_ok=True)
+                            raise HTTPException(
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="Zip extraction exceeds the allowed size.",
+                            )
+                        target.write(chunk)
+                extracted.append(destination)
+                if len(extracted) > max_files:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Zip contains too many files.",
+                    )
+
+        if not extracted:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Zip file does not contain supported images",
+            )
+
+        return extracted
+
+    try:
+        return await asyncio.to_thread(extract)
+    except HTTPException:
+        raise
+    except zipfile.BadZipFile as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is not a valid zip archive",
+        ) from exc
+
+
+@router.post("/convert")
+async def convert_image(
+    settings: AppSettings,
+    format: Annotated[str, Form()],
+    file: Annotated[UploadFile | None, File()] = None,
+    file_id: Annotated[str | None, Form()] = None,
+    quality: Annotated[int, Form()] = 85,
+    preserve_metadata: Annotated[bool, Form()] = False,
+    color_space: Annotated[str, Form()] = "srgb",
+    output_filename: Annotated[str, Form()] = "",
+) -> dict[str, str]:
+    input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
+    original_name = file.filename if file is not None else input_path.name
+    suffix = _extension_from_format(format, fallback=_safe_suffix(original_name))
+    requested_name = _safe_output_name(output_filename, Path(original_name or "converted").stem, suffix)
+    output_path = settings.OUTPUT_DIR / requested_name
+    task = convert_image_task.apply_async(
+        args=[str(input_path), str(output_path), format, quality, preserve_metadata, color_space],
+        queue="fast",
+    )
+    return _queued_response(str(task.id), "Image conversion queued")
+
+
+@router.post("/resize")
+async def resize_image(
+    settings: AppSettings,
+    file: Annotated[UploadFile | None, File()] = None,
+    file_id: Annotated[str | None, Form()] = None,
+    width: Annotated[int | None, Form()] = None,
+    height: Annotated[int | None, Form()] = None,
+    mode: Annotated[str, Form()] = "pixels",
+    percentage: Annotated[float | None, Form()] = None,
+    fit: Annotated[str, Form()] = "cover",
+    allow_upscale: Annotated[bool, Form()] = True,
+    background: Annotated[str, Form()] = "#ffffff",
+    kernel: Annotated[str, Form()] = "lanczos3",
+    without_enlargement: Annotated[bool, Form()] = False,
+    quality: Annotated[int, Form()] = 85,
+    output_format: Annotated[str | None, Form()] = None,
+    output_filename: Annotated[str, Form()] = "",
+) -> dict[str, str]:
+    input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
+    original_name = file.filename if file is not None else input_path.name
+    suffix = _extension_from_format(output_format or "auto", fallback=_safe_suffix(original_name))
+    output_path = _output_path(settings, suffix, output_filename, Path(original_name).stem)
+    task = resize_image_task.apply_async(
+        args=[
+            str(input_path),
+            str(output_path),
+            width,
+            height,
+            fit,
+            kernel,
+            without_enlargement or not allow_upscale,
+            quality,
+            mode,
+            percentage,
+            allow_upscale,
+            background,
+        ],
+        queue="fast",
+    )
+    return _queued_response(str(task.id), "Image resize queued")
+
+
+@router.post("/compress")
+async def compress_image(
+    settings: AppSettings,
+    file: Annotated[UploadFile | None, File()] = None,
+    file_id: Annotated[str | None, Form()] = None,
+    quality: Annotated[int, Form()] = 85,
+    format: Annotated[str | None, Form()] = None,
+    progressive: Annotated[bool, Form()] = False,
+    strip_metadata: Annotated[bool, Form()] = False,
+    png_compression: Annotated[int, Form()] = 6,
+    force_recompress: Annotated[bool, Form()] = False,
+) -> dict[str, str]:
+    input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
+    original_name = file.filename if file is not None else input_path.name
+    normalized_format = format or "auto"
+    output_path = _output_path(settings, _extension_from_format(normalized_format, fallback=_safe_suffix(original_name)))
+    task = compress_image_task.apply_async(
+        args=[
+            str(input_path),
+            str(output_path),
+            quality,
+            normalized_format,
+            progressive,
+            strip_metadata,
+            png_compression,
+            force_recompress,
+        ],
+        queue="fast",
+    )
+    return _queued_response(str(task.id), "Image compression queued")
+
+
+@router.post("/crop")
+async def crop_image(
+    settings: AppSettings,
+    x: Annotated[int, Form()],
+    y: Annotated[int, Form()],
+    width: Annotated[int, Form()],
+    height: Annotated[int, Form()],
+    file: Annotated[UploadFile | None, File()] = None,
+    file_id: Annotated[str | None, Form()] = None,
+) -> dict[str, str]:
+    input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
+    original_name = file.filename if file is not None else input_path.name
+    output_path = _output_path(settings, _safe_suffix(original_name))
+    task = crop_image_task.apply_async(
+        args=[str(input_path), str(output_path), x, y, width, height],
+        queue="fast",
+    )
+    return _queued_response(str(task.id), "Image crop queued")
+
+
+@router.post("/rotate")
+async def rotate_image(
+    settings: AppSettings,
+    angle: Annotated[int, Form()],
+    file: Annotated[UploadFile | None, File()] = None,
+    file_id: Annotated[str | None, Form()] = None,
+    flip_horizontal: Annotated[bool, Form()] = False,
+    flip_vertical: Annotated[bool, Form()] = False,
+    output_format: Annotated[str | None, Form()] = None,
+    expand_canvas: Annotated[bool, Form()] = True,
+    background: Annotated[str, Form()] = "#00000000",
+    auto_crop: Annotated[bool, Form()] = False,
+    output_filename: Annotated[str, Form()] = "",
+) -> dict[str, str]:
+    input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
+    original_name = file.filename if file is not None else input_path.name
+    suffix = _extension_from_format(output_format or "auto", fallback=_safe_suffix(original_name))
+    output_path = _output_path(settings, suffix, output_filename, Path(original_name).stem)
+    task = rotate_image_task.apply_async(
+        args=[str(input_path), str(output_path), angle, flip_horizontal, flip_vertical, output_format, expand_canvas, background, auto_crop],
+        queue="fast",
+    )
+    return _queued_response(str(task.id), "Image rotation queued")
+
+
+@router.post("/watermark")
+async def watermark_image(
+    settings: AppSettings,
+    text: Annotated[str, Form()] = "",
+    file: Annotated[UploadFile | None, File()] = None,
+    file_id: Annotated[str | None, Form()] = None,
+    watermark_file: Annotated[UploadFile | None, File()] = None,
+    uploaded_watermark_file_id: Annotated[str | None, Form()] = None,
+    watermark_file_id: Annotated[str | None, Form()] = None,
+    watermark_type: Annotated[str, Form()] = "text",
+    opacity: Annotated[float, Form()] = 0.5,
+    position: Annotated[str, Form()] = "bottom-right",
+    position_preset: Annotated[str, Form()] = "",
+    x_percent: Annotated[float | None, Form()] = None,
+    y_percent: Annotated[float | None, Form()] = None,
+    width_percent: Annotated[float, Form()] = 22,
+    height_percent: Annotated[float | None, Form()] = None,
+    scale: Annotated[float | None, Form()] = None,
+    rotation: Annotated[float, Form()] = 0,
+    font_size: Annotated[int, Form()] = 36,
+    font_color: Annotated[str, Form()] = "#ffffff",
+    font_weight: Annotated[str, Form()] = "bold",
+    font_family: Annotated[str, Form()] = "Arial",
+    italic: Annotated[bool, Form()] = False,
+    tile: Annotated[bool, Form()] = False,
+    output_filename: Annotated[str, Form()] = "",
+) -> dict[str, str]:
+    input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
+    original_name = file.filename if file is not None else input_path.name
+    output_path = _output_path(settings, _safe_suffix(original_name), output_filename, Path(original_name).stem)
+    watermark_path: Path | None = None
+    asset_id = uploaded_watermark_file_id or watermark_file_id
+    if asset_id:
+        watermark_path = resolve_upload_path(asset_id, settings)
+        validate_saved_upload_path(watermark_path, settings)
+    elif watermark_file is not None:
+        validate_optional_upload(watermark_file, settings)
+        watermark_path = await save_temp_upload(watermark_file, settings)
+    task = watermark_image_task.apply_async(
+        args=[
+            str(input_path),
+            str(output_path),
+            watermark_type,
+            text,
+            str(watermark_path) if watermark_path else None,
+            opacity,
+            position_preset or position,
+            x_percent,
+            y_percent,
+            width_percent if scale is None else width_percent * scale,
+            height_percent,
+            font_size,
+            font_color,
+            font_weight,
+            font_family,
+            italic,
+            rotation,
+            tile,
+        ],
+        queue="fast",
+    )
+    return _queued_response(str(task.id), "Image watermark queued")
+
+
+@router.post("/remove-background")
+async def remove_background(
+    settings: AppSettings,
+    file: Annotated[UploadFile | None, File()] = None,
+    file_id: Annotated[str | None, Form()] = None,
+) -> dict[str, str]:
+    input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
+    output_path = _output_path(settings, ".png")
+    task = remove_background_task.apply_async(args=[str(input_path), str(output_path)], queue="fast")
+    return _queued_response(str(task.id), "Background removal queued")
+
+
+@router.post("/ocr")
+async def ocr_image(
+    settings: AppSettings,
+    file: Annotated[UploadFile | None, File()] = None,
+    file_id: Annotated[str | None, Form()] = None,
+    language: Annotated[str, Form()] = "eng",
+    output_format: Annotated[str, Form()] = "txt",
+    dpi: Annotated[int, Form()] = 300,
+    input_type: Annotated[str, Form()] = "auto",
+    page_range: Annotated[str, Form()] = "all",
+    deskew: Annotated[bool, Form()] = False,
+    denoise: Annotated[bool, Form()] = False,
+    enhance_contrast: Annotated[bool, Form()] = False,
+) -> dict[str, Any]:
+    input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
+    output_dir = _output_dir(settings)
+    task = ocr_image_task.apply_async(
+        args=[str(input_path), str(output_dir), language, output_format, input_type, page_range, deskew, denoise, enhance_contrast, dpi],
+        queue="heavy",
+    )
+    return _queued_response(str(task.id), "OCR queued")
+
+
+@router.post("/batch-resize")
+async def batch_resize(
+    settings: AppSettings,
+    width: Annotated[int, Form()],
+    height: Annotated[int, Form()],
+    files: Annotated[list[UploadFile] | None, File()] = None,
+    file_ids: Annotated[list[str] | None, Form()] = None,
+) -> dict[str, str]:
+    if file_ids:
+        input_paths = await _input_paths_from_files_or_ids(settings, files=files, file_ids=file_ids)
+    elif not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one image is required",
+        )
+    elif len(files) == 1 and Path(files[0].filename or "").suffix.lower() == ".zip":
+        zip_path = await save_temp_upload(files[0], settings)
+        input_paths = await _extract_zip_images(zip_path, settings)
+    else:
+        input_paths = await _save_uploads(files, settings)
+    output_dir = _output_dir(settings)
+    task = batch_resize_task.apply_async(
+        args=[[str(path) for path in input_paths], str(output_dir), width, height],
+        queue="heavy",
+    )
+    return _queued_response(str(task.id), "Batch image resize queued")
+
+
+@router.post("/info")
+async def get_image_info(
+    settings: AppSettings,
+    file: Annotated[UploadFile | None, File()] = None,
+    file_id: Annotated[str | None, Form()] = None,
+) -> dict[str, Any]:
+    input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
+    info = await ImageService().get_image_info(input_path)
+    return {"status": "success", "result": info, "error": None}
+
+
+@router.get("/status/{job_id}")
+async def get_status(job_id: str) -> dict[str, Any]:
+    task = _task_result(job_id)
+    response: dict[str, Any] = {
+        "job_id": job_id,
+        "status": _normalized_task_state(task.state),
+        "stage": "queued" if _normalized_task_state(task.state) == "queued" else "processing",
+        "progress": _task_progress(task.state),
+    }
+
+    if task.successful():
+        result = task.result or {}
+        if isinstance(result, dict):
+            response["status"] = "failure" if result.get("status") in {"failure", "failed"} else "success"
+            response["stage"] = result.get("stage", "finalizing")
+            response["progress"] = result.get("progress", 100)
+            response["output_path"] = result.get("output_path")
+            response["output_paths"] = result.get("output_paths")
+            response["output_filename"] = result.get("output_filename")
+            response["media_type"] = result.get("media_type")
+            response["extension"] = result.get("extension")
+            from app.core.errors import sanitize_error_message
+
+            response["result"] = result.get("result")
+            raw_error = result.get("error")
+            response["error"] = sanitize_error_message(str(raw_error)) if raw_error else None
+    elif task.failed():
+        from app.core.errors import sanitize_error_message
+
+        response["status"] = "failure"
+        response["stage"] = "processing"
+        response["error"] = sanitize_error_message(str(task.result) if task.result else None)
+
+    return response
+
+
+@router.get("/download/{job_id}")
+async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
+    task = _task_result(job_id)
+
+    if not task.ready():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Task is not complete yet",
+        )
+
+    if task.failed():
+        from app.core.errors import sanitize_error_message
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=sanitize_error_message(str(task.result) if task.result else None),
+        )
+
+    result = task.result or {}
+    if not isinstance(result, dict) or result.get("status") == "failed":
+        from app.core.errors import sanitize_error_message
+
+        raw = result.get("error") if isinstance(result, dict) else None
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=sanitize_error_message(str(raw) if raw is not None else None),
+        )
+
+    output_path = result.get("output_path")
+    output_paths = result.get("output_paths")
+    output_filename = str(result.get("output_filename") or "").strip() or None
+    media_type = str(result.get("media_type") or "").strip() or None
+
+    if output_path:
+        file_path = _safe_output_path(str(output_path), settings)
+    elif isinstance(output_paths, list) and output_paths:
+        file_path = await _zip_outputs(job_id, [str(path) for path in output_paths], settings, output_filename)
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Output file not found. The job may have failed or expired.",
+        )
+
+    return FileResponse(
+        path=file_path,
+        media_type=media_type or mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",
+        filename=output_filename or file_path.name,
+        headers={"Cache-Control": "no-store"},
+    )
