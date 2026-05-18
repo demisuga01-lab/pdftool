@@ -4,12 +4,14 @@ import html
 import logging
 import mimetypes
 import re
+import shutil
 import zipfile
 from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException, status
 
+from app.services.command_runner import run_command
 from app.services.image_service import ImageService
 from app.services.ocr_service import OCRService
 from app.services.pdf_service import PDFService
@@ -33,8 +35,30 @@ SVG_FORMATS = {"svg"}
 
 logger = logging.getLogger(__name__)
 
+SELECTED_ENGINE_UNAVAILABLE = "Selected engine is not available on this server. Try Auto."
+SELECTED_ENGINE_UNSUPPORTED = "Selected engine does not support this conversion. Try Auto."
+
 
 class ConversionService:
+    def _selected_engine(self, options: dict[str, Any]) -> str:
+        return str(options.get("engine") or "auto").strip().lower() or "auto"
+
+    def _reject_engine(self) -> None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=SELECTED_ENGINE_UNSUPPORTED,
+        )
+
+    def _require_executable(self, *executables: str) -> str:
+        for executable in executables:
+            found = shutil.which(executable)
+            if found:
+                return executable
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=SELECTED_ENGINE_UNAVAILABLE,
+        )
+
     def _safe_filename(self, value: str | None, fallback_stem: str, extension: str) -> str:
         requested = Path(str(value or "").strip()).name
         safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(requested).stem if requested else fallback_stem).strip(".-") or fallback_stem
@@ -235,6 +259,29 @@ class ConversionService:
         await asyncio.to_thread(write)
         return str(output_path)
 
+    async def _convert_image_with_imagemagick(
+        self,
+        input_path: Path,
+        output_path: Path,
+        target_format: str,
+        *,
+        quality: int,
+        preserve_metadata: bool,
+    ) -> str:
+        command = [self._require_executable("convert", "magick"), str(input_path)]
+        if not preserve_metadata:
+            command.append("-strip")
+        if target_format in {"jpg", "jpeg", "webp", "avif"}:
+            command.extend(["-quality", str(quality)])
+        command.append(str(output_path))
+        await run_command(
+            command,
+            failure_status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            timeout_seconds=120,
+            timeout_detail="Image conversion took too long to finish.",
+        )
+        return str(output_path)
+
     async def convert(
         self,
         input_path: str | Path,
@@ -252,25 +299,40 @@ class ConversionService:
         target_format = self.normalize_output_format(to_format)
         requested_name = str(options.get("output_filename") or "").strip()
         original_name = source.name
+        engine = self._selected_engine(options)
 
         if input_format in PDF_FORMATS:
+            if engine not in {"auto", "mutool"}:
+                self._reject_engine()
             if target_format == "docx":
+                if engine != "auto":
+                    self._reject_engine()
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "docx"))
                 await PDFService().pdf_to_docx(source, output_path)
                 return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("docx"))
             if target_format == "xlsx":
+                if engine != "auto":
+                    self._reject_engine()
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "xlsx"))
                 await PDFService().pdf_to_excel(source, output_path)
                 return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("xlsx"))
             if target_format == "txt":
+                if engine != "auto":
+                    self._reject_engine()
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "txt"))
                 await PDFService().extract_text(source, output_path, layout=True, output_format="txt")
                 return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("txt"))
             if target_format == "html":
+                if engine != "auto":
+                    self._reject_engine()
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "html"))
                 await PDFService().pdf_to_html(source, output_path)
                 return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("html"))
             if target_format in {"png", "jpg", "webp"}:
+                if engine == "mutool":
+                    self._require_executable("mutool")
+                elif engine != "auto":
+                    self._reject_engine()
                 dpi = int(options.get("dpi", 180))
                 jpeg_quality = int(options.get("quality", 85))
                 page_base = re.sub(r"[^A-Za-z0-9._-]+", "-", (requested_name or source.stem)).strip(".-") or source.stem
@@ -328,6 +390,8 @@ class ConversionService:
                     original_name=original_name,
                 )
             if target_format in {"searchable_pdf", "pdf"}:
+                if engine != "auto":
+                    self._reject_engine()
                 output_name = self._safe_filename(requested_name, source.stem, "pdf")
                 output_path = await OCRService().ocr(
                     source,
@@ -345,6 +409,10 @@ class ConversionService:
 
         if input_format in OFFICE_FORMATS or input_format in {"txt", "html", "rtf"}:
             if target_format == "pdf":
+                if engine == "libreoffice":
+                    self._require_executable("libreoffice")
+                elif engine != "auto":
+                    self._reject_engine()
                 output_path = Path(await PDFService().office_to_pdf(source, destination_root))
                 desired = destination_root / self._safe_filename(requested_name, source.stem, "pdf")
                 if output_path.name != desired.name:
@@ -352,24 +420,36 @@ class ConversionService:
                     output_path = desired
                 return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("pdf"))
             if input_format == "xlsx" and target_format == "csv":
+                if engine != "auto":
+                    self._reject_engine()
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "csv"))
                 await self._xlsx_to_csv(source, output_path)
                 return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("csv"))
             if input_format in {"txt", "html"} and target_format == "zip":
+                if engine != "auto":
+                    self._reject_engine()
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "zip"))
                 await self._zip_single(source, output_path)
                 return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("zip"))
             if input_format == "txt" and target_format == "html":
+                if engine != "auto":
+                    self._reject_engine()
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "html"))
                 await self._text_to_html(source, output_path)
                 return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("html"))
             if input_format == "html" and target_format == "txt":
+                if engine != "auto":
+                    self._reject_engine()
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "txt"))
                 await self._html_to_txt(source, output_path)
                 return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("txt"))
 
         if input_format == "csv":
             if target_format == "pdf":
+                if engine == "libreoffice":
+                    self._require_executable("libreoffice")
+                elif engine != "auto":
+                    self._reject_engine()
                 output_path = Path(await PDFService().office_to_pdf(source, destination_root))
                 desired = destination_root / self._safe_filename(requested_name, source.stem, "pdf")
                 if output_path.name != desired.name:
@@ -377,16 +457,24 @@ class ConversionService:
                     output_path = desired
                 return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("pdf"))
             if target_format == "xlsx":
+                if engine != "auto":
+                    self._reject_engine()
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "xlsx"))
                 await self._csv_to_xlsx(source, output_path)
                 return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("xlsx"))
             if target_format == "zip":
+                if engine != "auto":
+                    self._reject_engine()
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "zip"))
                 await self._zip_single(source, output_path)
                 return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("zip"))
 
         if input_format in SVG_FORMATS:
             if target_format in {"png", "pdf", "eps"}:
+                if engine == "inkscape":
+                    self._require_executable("inkscape")
+                elif engine != "auto":
+                    self._reject_engine()
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, target_format))
                 await ImageService().convert_image(
                     source,
@@ -401,6 +489,17 @@ class ConversionService:
         if input_format in IMAGE_FORMATS:
             if target_format in {"jpg", "png", "webp", "avif", "tiff", "bmp"}:
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, target_format))
+                if engine == "imagemagick":
+                    converted = await self._convert_image_with_imagemagick(
+                        source,
+                        output_path,
+                        target_format,
+                        quality=int(options.get("quality", 85)),
+                        preserve_metadata=bool(options.get("preserve_metadata", False)),
+                    )
+                    return self._single_result(Path(converted), original_name=original_name, media_type=self.media_type_for(target_format))
+                if engine != "auto":
+                    self._reject_engine()
                 converted = await ImageService().convert_image(
                     source,
                     output_path,
@@ -413,6 +512,8 @@ class ConversionService:
                     return converted
                 return self._single_result(Path(converted), original_name=original_name, media_type=self.media_type_for(target_format))
             if target_format == "pdf":
+                if engine != "auto":
+                    self._reject_engine()
                 output_path = self._safe_output_path(destination_root, self._safe_filename(requested_name, source.stem, "pdf"))
                 await PDFService().images_to_pdf([source], output_path)
                 return self._single_result(output_path, original_name=original_name, media_type=self.media_type_for("pdf"))
