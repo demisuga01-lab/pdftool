@@ -15,6 +15,8 @@ from typing import Any
 from fastapi import HTTPException, status
 
 from app.core.config import get_settings
+from app.services.command_runner import redact_command
+from app.services.engine_registry import validate_engine_for_workflow
 from app.services.image_service import normalize_image_output_format
 from app.services.svg_rasterizer import validate_svg_file
 
@@ -74,6 +76,13 @@ class CompressionService:
         output_directory.mkdir(parents=True, exist_ok=True)
         normalized_settings = self._settings(settings)
         category = self._detect_category(input_file, normalized_settings)
+        normalized_settings["engine"] = validate_engine_for_workflow(
+            normalized_settings.get("engine"),
+            "compress",
+            category,
+            input_extension=input_file.suffix.lower().lstrip("."),
+            output_format=self._engine_output_format(input_file, category, normalized_settings),
+        )
 
         # Image compression must never enqueue archive outputs unless the user
         # explicitly opted in. Strip stray archive flags carried over from
@@ -134,6 +143,7 @@ class CompressionService:
         data = dict(settings or {})
         mode = str(data.get("mode") or "smart").lower()
         data["mode"] = mode
+        data["engine"] = str(data.get("engine") or "auto").strip().lower()
         data["strip_metadata"] = self._bool(data.get("strip_metadata"), False)
         data["force_recompress"] = self._bool(data.get("force_recompress"), False)
         data["keep_original_if_smaller"] = self._bool(data.get("keep_original_if_smaller"), True)
@@ -173,6 +183,27 @@ class CompressionService:
             return "archive"
         return "unsupported"
 
+    def _engine_output_format(self, input_file: Path, category: str, settings: dict[str, Any]) -> str:
+        engine = str(settings.get("engine") or "auto").lower()
+        if category == "pdf":
+            return "pdf"
+        if category == "image":
+            raw_format = str(settings.get("output_format") or "keep").lower()
+            if raw_format in {"", "keep", "keep original", "keep_original", "auto"}:
+                return input_file.suffix.lower().lstrip(".") or "image"
+            return normalize_image_output_format(raw_format).lstrip(".")
+        if category == "archive":
+            if engine == "sevenzip" or self._bool(settings.get("recompress_as_7z"), False):
+                return "7z"
+            return "zip"
+        if category == "text":
+            if engine == "brotli" or self._bool(settings.get("brotli_output"), False):
+                return "br"
+            if engine == "sevenzip" or self._bool(settings.get("seven_zip_output"), False):
+                return "7z"
+            return input_file.suffix.lower().lstrip(".") or "text"
+        return input_file.suffix.lower().lstrip(".") or category
+
     async def _compress_pdf(self, input_file: Path, temp_dir: Path, settings: dict[str, Any]) -> list[dict[str, Any]]:
         temp_dir.mkdir(parents=True, exist_ok=True)
         candidates: list[dict[str, Any]] = []
@@ -180,6 +211,32 @@ class CompressionService:
         requested_dpi = self._int(settings.get("image_dpi"), 150, 72, 600)
         grayscale = self._bool(settings.get("grayscale") or settings.get("convert_to_grayscale"), False)
         target_size = settings.get("target_size_bytes")
+        engine = str(settings.get("engine") or "auto")
+
+        if engine == "qpdf":
+            output = temp_dir / "qpdf-linearized.pdf"
+            if await self._try_command(["qpdf", "--linearize", str(input_file), str(output)]) and await self._valid_pdf(output):
+                return [{"path": output, "method": "qpdf", "message": "Compressed successfully"}]
+            return []
+
+        if engine == "ocrmypdf":
+            output = temp_dir / "ocrmypdf.pdf"
+            optimize_level = "3" if settings["mode"] == "maximum" else "2"
+            output_type = "pdfa" if self._bool(settings.get("pdfa_output"), False) else "pdf"
+            if await self._try_command(
+                [
+                    "ocrmypdf",
+                    "--skip-text",
+                    "--optimize",
+                    optimize_level,
+                    "--output-type",
+                    output_type,
+                    str(input_file),
+                    str(output),
+                ]
+            ) and await self._valid_pdf(output):
+                return [{"path": output, "method": "ocrmypdf", "message": "Compressed successfully"}]
+            return []
 
         if target_size:
             reached = False
@@ -208,6 +265,9 @@ class CompressionService:
             command = self._ghostscript_command(input_file, gs_output, requested_quality, requested_dpi, grayscale, settings["quality"])
             if await self._try_command(command) and await self._valid_pdf(gs_output):
                 candidates.append({"path": gs_output, "method": "ghostscript", "message": "Compressed successfully"})
+
+        if engine == "ghostscript":
+            return candidates
 
         base_for_optional = self._smallest_path(candidates) or input_file
 
@@ -290,6 +350,20 @@ class CompressionService:
 
         def target_reached(path: Path) -> bool:
             return bool(target_size and self._valid_nonempty(path) and path.stat().st_size <= int(target_size))
+
+        engine = str(settings.get("engine") or "auto")
+        if engine != "auto":
+            return await self._compress_image_with_engine(
+                engine,
+                input_file,
+                temp_dir,
+                target_suffix,
+                settings,
+                quality,
+                strip,
+                lossless,
+                oxipng_level,
+            )
 
         if target_suffix in {".jpg", ".jpeg"}:
             for current_quality in quality_steps():
@@ -411,6 +485,93 @@ class CompressionService:
             logger.info("Image compression produced no candidates and archive packaging was not requested; skipping ZIP fallback")
         return [candidate for candidate in candidates if self._valid_nonempty(Path(candidate["path"]))]
 
+    async def _compress_image_with_engine(
+        self,
+        engine: str,
+        input_file: Path,
+        temp_dir: Path,
+        target_suffix: str,
+        settings: dict[str, Any],
+        quality: int,
+        strip: bool,
+        lossless: bool,
+        oxipng_level: str,
+    ) -> list[dict[str, Any]]:
+        candidates: list[dict[str, Any]] = []
+
+        if engine == "jpegoptim":
+            output = temp_dir / "image-jpegoptim.jpg"
+            shutil.copy2(input_file, output)
+            command = ["jpegoptim", "--quiet", f"--max={quality}"]
+            if strip:
+                command.append("--strip-all")
+            command.append(str(output))
+            if await self._try_command(command):
+                candidates.append({"path": output, "method": "jpegoptim", "message": "Compressed successfully"})
+
+        elif engine == "pngquant":
+            output = temp_dir / "image-pngquant.png"
+            minimum = max(1, quality - 15)
+            command = [
+                "pngquant",
+                "--quality",
+                f"{minimum}-{quality}",
+                "--force",
+                "--output",
+                str(output),
+                str(input_file),
+            ]
+            if strip:
+                command.insert(3, "--strip")
+            if await self._try_command(command):
+                candidates.append({"path": output, "method": "pngquant", "message": "Compressed successfully"})
+
+        elif engine == "oxipng":
+            output = temp_dir / "image-oxipng.png"
+            shutil.copy2(input_file, output)
+            if await self._try_command(["oxipng", "-o", oxipng_level, "--strip", "safe", str(output)]):
+                candidates.append({"path": output, "method": f"oxipng-o{oxipng_level}", "message": "Compressed successfully"})
+
+        elif engine == "optipng":
+            output = temp_dir / "image-optipng.png"
+            shutil.copy2(input_file, output)
+            if await self._try_command(["optipng", "-o7", str(output)]):
+                candidates.append({"path": output, "method": "optipng", "message": "Compressed successfully"})
+
+        elif engine == "cwebp":
+            output = temp_dir / "image-cwebp.webp"
+            command = ["cwebp", "-quiet"]
+            command.extend(["-lossless"] if lossless else ["-q", str(quality)])
+            command.extend([str(input_file), "-o", str(output)])
+            if await self._try_command(command):
+                candidates.append({"path": output, "method": "cwebp", "message": "Compressed successfully"})
+
+        elif engine == "avifenc":
+            output = temp_dir / "image-avifenc.avif"
+            if await self._try_command(["avifenc", "-q", str(quality), str(input_file), str(output)]):
+                candidates.append({"path": output, "method": "avifenc", "message": "Compressed successfully"})
+
+        elif engine == "gifsicle":
+            output = temp_dir / "image-gifsicle.gif"
+            if await self._try_command(["gifsicle", "-O3", "-o", str(output), str(input_file)]):
+                candidates.append({"path": output, "method": "gifsicle", "message": "Compressed successfully"})
+
+        elif engine == "imagemagick":
+            suffix = target_suffix if target_suffix not in {"", ".svg"} else input_file.suffix.lower()
+            output = temp_dir / f"image-imagemagick{suffix}"
+            cmd = [get_imagemagick_command(), str(input_file)]
+            if strip:
+                cmd.append("-strip")
+            if suffix in {".jpg", ".jpeg", ".webp", ".avif"}:
+                cmd.extend(["-quality", str(quality)])
+            elif suffix in {".tif", ".tiff"}:
+                cmd.extend(["-compress", "Zip"])
+            cmd.append(str(output))
+            if await self._try_command(cmd):
+                candidates.append({"path": output, "method": "imagemagick", "message": "Compressed successfully"})
+
+        return [candidate for candidate in candidates if self._valid_nonempty(Path(candidate["path"]))]
+
     async def _compress_office(self, input_file: Path, temp_dir: Path, settings: dict[str, Any]) -> list[dict[str, Any]]:
         candidates: list[dict[str, Any]] = []
         if self._bool(settings.get("convert_to_pdf_and_compress"), False):
@@ -437,6 +598,7 @@ class CompressionService:
         candidates: list[dict[str, Any]] = []
         preserve_extension = self._bool(settings.get("preserve_original_extension"), True)
         minify = self._bool(settings.get("minify"), settings["mode"] != "lossless")
+        engine = str(settings.get("engine") or "auto")
 
         if minify and input_file.suffix.lower() in TEXT_EXTENSIONS:
             minified = temp_dir / input_file.name
@@ -446,6 +608,16 @@ class CompressionService:
                 candidates.append({"path": minified, "method": "minify", "message": "Compressed successfully"})
 
         source_for_package = Path(candidates[-1]["path"]) if candidates and preserve_extension else input_file
+        if engine == "brotli":
+            brotli_path = temp_dir / f"{input_file.name}.br"
+            if await self._try_command(["brotli", "-f", "-q", "11", "-o", str(brotli_path), str(source_for_package)]):
+                return [{"path": brotli_path, "method": "brotli", "message": "Compressed successfully"}]
+            return []
+
+        if engine == "sevenzip":
+            packaged = await self._seven_zip_single(source_for_package, temp_dir / f"{input_file.stem}.7z", settings)
+            return [packaged] if packaged else []
+
         if self._bool(settings.get("gzip_output"), False):
             gzip_path = temp_dir / f"{input_file.name}.gz"
             await asyncio.to_thread(self._write_gzip, source_for_package, gzip_path)
@@ -472,7 +644,8 @@ class CompressionService:
         if input_file.suffix.lower() != ".zip" or not zipfile.is_zipfile(input_file):
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=UNSUPPORTED_ARCHIVE_MESSAGE)
 
-        output_suffix = ".7z" if self._bool(settings.get("recompress_as_7z"), False) else ".zip"
+        engine = str(settings.get("engine") or "auto")
+        output_suffix = ".7z" if engine == "sevenzip" or self._bool(settings.get("recompress_as_7z"), False) else ".zip"
         output = temp_dir / f"{input_file.stem}{output_suffix}"
         extract_dir = temp_dir / "archive-extract"
         self._safe_extract_zip(input_file, extract_dir)
@@ -480,7 +653,7 @@ class CompressionService:
             packaged = await self._seven_zip_dir(extract_dir, output, settings, "archive-7z")
             return [packaged] if packaged else []
         recompressed = await self._zip_dir(extract_dir, output, settings, "archive-zip")
-        if shutil.which("advzip"):
+        if engine == "advzip" or (engine == "auto" and shutil.which("advzip")):
             if await self._try_command(["advzip", "-z", "-4", str(recompressed["path"])]):
                 recompressed["method"] = "archive-zip+advzip"
         return [recompressed]
@@ -766,7 +939,7 @@ class CompressionService:
             logger.info("Compression command unavailable: %s", command[0])
             return False
         effective_timeout = timeout if timeout is not None else TOOL_TIMEOUTS.get(command[0], COMMAND_TIMEOUT_SECONDS)
-        logger.info("Running compression command (timeout=%ss): %s", effective_timeout, " ".join(command))
+        logger.info("Running compression command (timeout=%ss): %s", effective_timeout, " ".join(redact_command(command)))
         try:
             process = await asyncio.create_subprocess_exec(
                 *command,

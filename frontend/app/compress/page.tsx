@@ -22,6 +22,22 @@ import { useWorkspaceJob } from "@/lib/workspace-job";
 import { uploadedFileDetails, uploadedFileSummary, useObjectState, useUploadedPdfPageItems } from "@/lib/workspace-data";
 
 type CompressionFileType = "auto" | "pdf" | "image" | "office" | "text" | "archive";
+type CompressionEngine =
+  | "auto"
+  | "ghostscript"
+  | "qpdf"
+  | "ocrmypdf"
+  | "pngquant"
+  | "oxipng"
+  | "optipng"
+  | "jpegoptim"
+  | "cwebp"
+  | "avifenc"
+  | "gifsicle"
+  | "imagemagick"
+  | "sevenzip"
+  | "advzip"
+  | "brotli";
 
 type CompressionSettings = {
   archiveLevel: number;
@@ -33,6 +49,7 @@ type CompressionSettings = {
   fileType: CompressionFileType;
   forceRecompress: boolean;
   gzipOutput: boolean;
+  engine: CompressionEngine;
   imageDpi: 72 | 96 | 150 | 200 | 300;
   imageLossless: boolean;
   imageOutputFormat: "keep" | "jpg" | "png" | "webp" | "avif" | "tiff" | "bmp";
@@ -41,6 +58,7 @@ type CompressionSettings = {
   keepOriginalFormat: boolean;
   keepOriginalIfSmaller: boolean;
   linearize: boolean;
+  manualEngine: boolean;
   minify: boolean;
   mode: "smart" | "lossless" | "balanced" | "maximum" | "custom";
   ocrOptimize: boolean;
@@ -84,6 +102,7 @@ const initialSettings: CompressionSettings = {
   fileType: "auto",
   forceRecompress: false,
   gzipOutput: false,
+  engine: "auto",
   imageDpi: 150,
   imageLossless: false,
   imageOutputFormat: "keep",
@@ -92,6 +111,7 @@ const initialSettings: CompressionSettings = {
   keepOriginalFormat: true,
   keepOriginalIfSmaller: true,
   linearize: true,
+  manualEngine: false,
   minify: true,
   mode: "smart",
   ocrOptimize: false,
@@ -110,6 +130,69 @@ const initialSettings: CompressionSettings = {
   targetSizeUnit: "MB",
   targetSizeValue: 1,
   zipOutput: false,
+};
+
+const ENGINE_DETAILS: Record<CompressionEngine, { description: string; label: string }> = {
+  auto: {
+    label: "Auto recommended",
+    description: "PDFTools chooses the best available method for this file.",
+  },
+  ghostscript: {
+    label: "Ghostscript",
+    description: "Good for reducing image-heavy PDFs. May change compression quality.",
+  },
+  qpdf: {
+    label: "qpdf",
+    description: "Lossless PDF structure optimization. Usually safer with smaller savings.",
+  },
+  ocrmypdf: {
+    label: "OCRmyPDF",
+    description: "Uses OCRmyPDF's PDF optimizer when it is installed on the server.",
+  },
+  pngquant: {
+    label: "pngquant",
+    description: "Smaller PNGs using palette reduction.",
+  },
+  oxipng: {
+    label: "oxipng",
+    description: "Lossless PNG optimization.",
+  },
+  optipng: {
+    label: "optipng",
+    description: "Lossless PNG optimization with broad compatibility.",
+  },
+  jpegoptim: {
+    label: "jpegoptim",
+    description: "JPEG optimization for photos and scanned images.",
+  },
+  cwebp: {
+    label: "cwebp",
+    description: "Encodes the output as WebP.",
+  },
+  avifenc: {
+    label: "avifenc",
+    description: "Encodes the output as AVIF.",
+  },
+  gifsicle: {
+    label: "gifsicle",
+    description: "Optimizes GIF files.",
+  },
+  imagemagick: {
+    label: "ImageMagick",
+    description: "General image fallback. Output depends on installed delegates.",
+  },
+  sevenzip: {
+    label: "7z",
+    description: "Repackages text files or ZIP archives as 7z.",
+  },
+  advzip: {
+    label: "advzip",
+    description: "Optimizes ZIP output after safe repacking.",
+  },
+  brotli: {
+    label: "Brotli",
+    description: "Compresses text and data files to .br output.",
+  },
 };
 
 function detectedFileType(file: UploadedFileMetadata | null, fallback: CompressionFileType): CompressionFileType {
@@ -140,6 +223,52 @@ function fileFromMetadata(metadata: UploadedFileMetadata): File {
   return new File([], metadata.original_name || metadata.filename, {
     type: metadata.mime_type || "application/octet-stream",
   });
+}
+
+function engineOptionsFor(
+  type: CompressionFileType,
+  extension: string | undefined,
+  settings: CompressionSettings,
+) {
+  const normalizedExtension = (extension || "").toLowerCase();
+  const outputFormat =
+    settings.imageOutputFormat === "keep"
+      ? normalizedExtension === "jpeg"
+        ? "jpg"
+        : normalizedExtension
+      : settings.imageOutputFormat;
+  const engines: CompressionEngine[] = ["auto"];
+
+  if (type === "pdf") {
+    engines.push("ghostscript", "qpdf", "ocrmypdf");
+  } else if (type === "image" && normalizedExtension && normalizedExtension !== "svg") {
+    if (normalizedExtension === "png" && ["keep", "png"].includes(settings.imageOutputFormat)) {
+      engines.push("pngquant", "oxipng", "optipng");
+    }
+    if (["jpg", "jpeg"].includes(normalizedExtension) && ["keep", "jpg"].includes(settings.imageOutputFormat)) {
+      engines.push("jpegoptim");
+    }
+    if (outputFormat === "webp") {
+      engines.push("cwebp");
+    }
+    if (outputFormat === "avif") {
+      engines.push("avifenc");
+    }
+    if (normalizedExtension === "gif" && ["keep", "gif"].includes(settings.imageOutputFormat as string)) {
+      engines.push("gifsicle");
+    }
+    engines.push("imagemagick");
+  } else if (type === "archive" && normalizedExtension === "zip") {
+    engines.push("sevenzip", "advzip");
+  } else if (type === "text") {
+    engines.push("brotli", "sevenzip");
+  }
+
+  return engines.map((engine) => ({
+    value: engine,
+    label: ENGINE_DETAILS[engine].label,
+    description: ENGINE_DETAILS[engine].description,
+  }));
 }
 
 function targetSizeBytes(settings: CompressionSettings): number | null {
@@ -264,7 +393,10 @@ function FileTypePreview({ file, type }: { file: UploadedFileMetadata; type: Com
   );
 }
 
-function sectionsFor(type: CompressionFileType): Array<ControlSection<CompressionSettings>> {
+function sectionsFor(
+  type: CompressionFileType,
+  engineOptions: ReturnType<typeof engineOptionsFor>,
+): Array<ControlSection<CompressionSettings>> {
   return [
     {
       key: "mode",
@@ -292,6 +424,25 @@ function sectionsFor(type: CompressionFileType): Array<ControlSection<Compressio
         { key: "forceRecompress", label: "Force recompress", type: "toggle" },
         { key: "keepOriginalIfSmaller", label: "Keep original if smaller", type: "toggle" },
         { key: "outputSuffix", label: "Output suffix", type: "text", placeholder: "-compressed" },
+      ],
+    },
+    {
+      key: "engine",
+      label: "Processing engine",
+      fields: [
+        {
+          key: "manualEngine",
+          label: "Choose engine manually",
+          type: "toggle",
+          helpText: "Auto is recommended. Manual selection is useful when you know which method works best for this file.",
+        },
+        {
+          key: "engine",
+          label: "Engine",
+          type: "radioCards",
+          options: engineOptions,
+          show: (settings) => settings.manualEngine,
+        },
       ],
     },
     {
@@ -455,6 +606,7 @@ function toBackendSettings(settings: CompressionSettings, fileType: CompressionF
     compress_embedded_images: settings.compressEmbeddedImages,
     convert_to_grayscale: settings.convertToGrayscale,
     convert_to_pdf_and_compress: settings.convertToPdfAndCompress,
+    engine: settings.manualEngine ? settings.engine : "auto",
     force_recompress: settings.forceRecompress,
     gzip_output: settings.gzipOutput,
     image_dpi: settings.imageDpi,
@@ -507,6 +659,11 @@ export default function CompressPage() {
       ? (rawQueryType as CompressionFileType)
       : "auto";
   const activeType = detectedFileType(fileMeta, settings.fileType === "auto" ? queryType : settings.fileType);
+  const engineOptions = useMemo(
+    () => engineOptionsFor(activeType, fileMeta?.extension, settings),
+    [activeType, fileMeta?.extension, settings],
+  );
+  const engineOptionValues = useMemo(() => engineOptions.map((option) => String(option.value)).join("|"), [engineOptions]);
   const initialPageCount = Number(fileMeta?.metadata?.page_count ?? fileMeta?.pages ?? 0);
   const pdfPreview = useUploadedPdfPageItems(activeType === "pdf" ? fileMeta?.file_id ?? null : null, initialPageCount);
   const currentFile = file ?? (fileMeta ? fileFromMetadata(fileMeta) : null);
@@ -542,6 +699,16 @@ export default function CompressPage() {
       merge({ fileType: type as CompressionFileType });
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!settings.manualEngine || settings.engine === "auto") {
+      return;
+    }
+    const compatible = engineOptions.some((option) => option.value === settings.engine);
+    if (!compatible) {
+      merge({ engine: "auto", manualEngine: false });
+    }
+  }, [engineOptionValues, engineOptions, merge, settings.engine, settings.manualEngine]);
 
   const syncFileQuery = useCallback(
     (fileId: string | null) => {
@@ -804,7 +971,7 @@ export default function CompressPage() {
                     ? `File type: ${activeType === "auto" ? "unknown" : activeType}`
                     : "Upload a file to configure compression settings."}
           </div>
-          <WorkspaceControls sections={sectionsFor(activeType)} state={{ ...settings, fileType: activeType }} update={update} />
+          <WorkspaceControls sections={sectionsFor(activeType, engineOptions)} state={{ ...settings, fileType: activeType }} update={update} />
         </div>
       }
       uploadOverlay={
