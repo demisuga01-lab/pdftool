@@ -80,26 +80,33 @@ function SectionLabel({ children }: { children: ReactNode }) {
 }
 
 function Toggle({
+  label,
   checked,
   onChange,
 }: {
+  label: string;
   checked: boolean;
   onChange: (value: boolean) => void;
 }) {
   return (
     <button
-      aria-pressed={checked}
+      aria-checked={checked}
+      aria-label={label}
       className={[
-        "relative inline-flex h-6 w-11 items-center rounded-full transition",
-        checked ? "bg-[#059669]" : "bg-slate-300 dark:bg-zinc-700",
+        "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:focus-visible:ring-emerald-700/45",
+        checked
+          ? "border-emerald-600 bg-emerald-600 dark:border-emerald-800 dark:bg-emerald-800"
+          : "border-zinc-300 bg-zinc-200 dark:border-zinc-600 dark:bg-zinc-700",
       ].join(" ")}
       onClick={() => onChange(!checked)}
+      role="switch"
       type="button"
     >
       <span
+        aria-hidden="true"
         className={[
-          "inline-block h-5 w-5 rounded-full bg-white transition",
-          checked ? "translate-x-5" : "translate-x-0.5",
+          "pointer-events-none inline-block h-4.5 w-4.5 rounded-full border bg-white shadow-sm transition-transform dark:border-zinc-500 dark:bg-zinc-100",
+          checked ? "translate-x-[1.3rem] border-white/70" : "translate-x-[0.2rem] border-zinc-200",
         ].join(" ")}
       />
     </button>
@@ -147,7 +154,7 @@ export function WorkspaceControls<T extends Record<string, any>>({
                     <label className="block text-[13px] font-medium text-slate-700 dark:text-zinc-200">{field.label}</label>
                     {field.helpText ? <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">{field.helpText}</p> : null}
                   </div>
-                  <Toggle checked={Boolean(value)} onChange={(next) => update(field.key, next as T[keyof T])} />
+                  <Toggle checked={Boolean(value)} label={field.label} onChange={(next) => update(field.key, next as T[keyof T])} />
                 </div>
               );
             }
@@ -162,9 +169,9 @@ export function WorkspaceControls<T extends Record<string, any>>({
                       return (
                         <button
                           className={[
-                            "rounded-xl border px-3.5 py-3 text-left transition",
+                            "rounded-xl border px-3.5 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:focus-visible:ring-emerald-700/45",
                             isSelected
-                              ? "border-emerald-500 bg-emerald-50 shadow-sm shadow-emerald-600/5 dark:border-emerald-900 dark:bg-emerald-950"
+                              ? "border-emerald-500 bg-emerald-50 shadow-sm shadow-black/[0.03] dark:border-emerald-800 dark:bg-emerald-950/30"
                               : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50 dark:border-white/10 dark:bg-[#111111] dark:hover:border-zinc-600 dark:hover:bg-zinc-900",
                           ].join(" ")}
                           key={String(option.value)}
@@ -173,12 +180,21 @@ export function WorkspaceControls<T extends Record<string, any>>({
                         >
                           <div className="flex items-start gap-3">
                             {option.icon ? (
-                              <span className="mt-0.5 text-emerald-600 dark:text-emerald-400">{option.icon}</span>
+                              <span className="mt-0.5 text-emerald-600 dark:text-emerald-500">{option.icon}</span>
                             ) : null}
                             <div className="space-y-1">
-                              <p className="text-[15px] font-semibold text-slate-900 dark:text-zinc-100">{option.label}</p>
+                              <p className={["text-[15px] font-semibold", isSelected ? "text-slate-900 dark:text-emerald-100" : "text-slate-900 dark:text-zinc-100"].join(" ")}>
+                                {option.label}
+                              </p>
                               {option.description ? (
-                                <p className="text-[13px] font-medium leading-5 text-slate-500 dark:text-zinc-400">{option.description}</p>
+                                <p
+                                  className={[
+                                    "text-[13px] font-medium leading-5",
+                                    isSelected ? "text-slate-600 dark:text-emerald-100/75" : "text-slate-500 dark:text-zinc-400",
+                                  ].join(" ")}
+                                >
+                                  {option.description}
+                                </p>
                               ) : null}
                             </div>
                           </div>
@@ -198,9 +214,9 @@ export function WorkspaceControls<T extends Record<string, any>>({
                     {field.options.map((option) => (
                       <button
                         className={[
-                          "rounded-lg border px-3 py-2 text-sm font-medium transition",
+                          "rounded-lg border px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:focus-visible:ring-emerald-700/45",
                           value === option.value
-                            ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+                            ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
                             : "border-zinc-200 bg-white text-slate-600 hover:border-zinc-300 dark:border-white/10 dark:bg-[#111111] dark:text-zinc-300 dark:hover:border-zinc-500",
                         ].join(" ")}
                         key={String(option.value)}

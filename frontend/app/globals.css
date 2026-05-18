@@ -33,14 +33,14 @@
     --muted-foreground: #a1a1aa;
     --border: rgba(255, 255, 255, 0.1);
     --input: rgba(255, 255, 255, 0.12);
-    --primary: #34d399;
-    --primary-foreground: #052e16;
-    --accent: rgba(52, 211, 153, 0.12);
-    --accent-foreground: #6ee7b7;
-    --success: #34d399;
+    --primary: #047857;
+    --primary-foreground: #f0fdf4;
+    --accent: rgba(6, 95, 70, 0.2);
+    --accent-foreground: #d1fae5;
+    --success: #059669;
     --warning: #f59e0b;
     --danger: #f87171;
-    --ring: rgba(52, 211, 153, 0.38);
+    --ring: rgba(5, 150, 105, 0.26);
     --page-gradient: none;
     --panel-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
   }
@@ -162,12 +162,14 @@
   }
 
   .primary-button {
-    @apply inline-flex h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:focus-visible:ring-emerald-700/45;
     background-color: var(--primary);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.14);
   }
 
   .primary-button:hover {
     background-color: color-mix(in srgb, var(--primary) 86%, black);
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.14);
   }
 
   .secondary-button {

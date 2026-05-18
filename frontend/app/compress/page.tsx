@@ -383,7 +383,7 @@ function FileTypePreview({ file, type }: { file: UploadedFileMetadata; type: Com
         : FileText;
   return (
     <div className="flex flex-col items-center justify-center gap-3 text-center">
-      <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#ECFDF5] text-[#059669] dark:bg-emerald-500/10 dark:text-emerald-300">
+      <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#ECFDF5] text-[#059669] dark:bg-emerald-950/40 dark:text-emerald-200">
         <Icon className="h-6 w-6" />
       </span>
       <p className="max-w-md text-sm font-medium leading-6 text-slate-500 dark:text-zinc-400">
@@ -957,7 +957,7 @@ export default function CompressPage() {
               uploadState === "failure" || job.state === "failure"
                 ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200"
                 : job.state === "success"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-100"
                   : "border-zinc-200 bg-zinc-50 text-slate-600 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300",
             ].join(" ")}
           >

@@ -432,7 +432,7 @@ function FileWorkflowPanel() {
             <div className="relative" key={step.title}>
               {index > 0 ? <div className="absolute -top-3 left-[1.35rem] h-3 border-l border-dashed border-zinc-300 dark:border-zinc-700" /> : null}
               <div className="flex gap-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-950">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-200">
                   <Icon className="h-5 w-5" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -567,7 +567,7 @@ export default function HomePage() {
             </p>
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link className="primary-button h-12 rounded-2xl px-5 shadow-sm hover:shadow" href="#tools">
+              <Link className="primary-button h-12 rounded-2xl px-5" href="#tools">
                 Start with a tool
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
@@ -575,7 +575,7 @@ export default function HomePage() {
                 View docs
               </Link>
               <Link
-                className="inline-flex h-12 items-center justify-center rounded-2xl px-2 text-sm font-semibold text-zinc-600 transition hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:text-zinc-300 dark:hover:text-emerald-300"
+                className="inline-flex h-12 items-center justify-center rounded-2xl px-2 text-sm font-semibold text-zinc-600 transition hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:text-zinc-300 dark:hover:text-emerald-200"
                 href="#lifecycle"
               >
                 See file lifecycle
@@ -638,7 +638,7 @@ export default function HomePage() {
           <LifecycleStepper />
         </div>
         <div className="mt-5 rounded-3xl border border-zinc-200/90 bg-white p-5 text-sm leading-7 text-zinc-600 shadow-sm dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300">
-          Results depend on file complexity. When a job fails, the app keeps the message clear; include the job ID when available if you contact <a className="font-semibold text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200" href="mailto:support@wellfriend.online">support@wellfriend.online</a>.
+          Results depend on file complexity. When a job fails, the app keeps the message clear; include the job ID when available if you contact <a className="font-semibold text-emerald-700 hover:text-emerald-800 dark:text-emerald-200 dark:hover:text-emerald-100" href="mailto:support@wellfriend.online">support@wellfriend.online</a>.
         </div>
       </section>
 
@@ -662,7 +662,7 @@ export default function HomePage() {
 
           <div className="rounded-3xl border border-zinc-200/90 bg-zinc-950 p-6 text-white shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-7">
             <div className="flex h-full flex-col">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-400/25 bg-emerald-400/10 text-emerald-200">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-900/70 bg-emerald-950/40 text-emerald-200">
                 <GitBranch className="h-5 w-5" />
               </div>
               <h2 className="mt-6 text-3xl font-semibold tracking-tight">Open-source and self-hostable.</h2>
@@ -714,7 +714,7 @@ export default function HomePage() {
                 { href: "#image-tools", label: "Image tools" },
               ].map((item) => (
                 <Link
-                  className="inline-flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 text-sm font-semibold text-zinc-800 transition hover:border-emerald-300 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-emerald-400/40 dark:hover:bg-emerald-500/10"
+                  className="inline-flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 text-sm font-semibold text-zinc-800 transition hover:border-emerald-300 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-emerald-900 dark:hover:bg-emerald-950/30"
                   href={item.href}
                   key={item.href}
                 >
