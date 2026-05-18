@@ -9,12 +9,24 @@ from typing import Literal
 
 from fastapi import HTTPException, status
 
+from app.services.command_runner import run_command, run_command_result
+
 logger = logging.getLogger(__name__)
 
 PdfQuality = Literal["screen", "ebook", "printer", "prepress"]
 ImageFormat = Literal["png", "jpg", "jpeg", "pam", "pbm", "pgm", "ppm", "pnm"]
 ColorMode = Literal["rgb", "cmyk", "gray"]
 CompatibilityLevel = Literal["1.4", "1.5", "1.6", "1.7"]
+PDF_COMMAND_TIMEOUT_SECONDS = 180
+SAFE_SPLIT_NAME_MAX_LENGTH = 120
+RESERVED_WINDOWS_NAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{index}" for index in range(1, 10)),
+    *(f"LPT{index}" for index in range(1, 10)),
+}
 
 
 class PDFService:
@@ -23,72 +35,99 @@ class PDFService:
         command: list[str],
         *,
         failure_status: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
+        timeout_seconds: int = PDF_COMMAND_TIMEOUT_SECONDS,
     ) -> None:
-        logger.info("Running command: %s", " ".join(command))
-
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await process.communicate()
-        except FileNotFoundError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Required command not found: {command[0]}",
-            ) from exc
-        except OSError as exc:
-            raise HTTPException(
-                status_code=failure_status,
-                detail=f"Failed to run command: {command[0]}",
-            ) from exc
-
-        if process.returncode != 0:
-            error = stderr.decode("utf-8", errors="replace").strip()
-            output = stdout.decode("utf-8", errors="replace").strip()
-            detail = error or output or f"{command[0]} exited with code {process.returncode}"
-            raise HTTPException(status_code=failure_status, detail=detail)
+        await run_command(
+            command,
+            failure_status=failure_status,
+            timeout_seconds=timeout_seconds,
+            timeout_detail="PDF processing took too long to finish.",
+        )
 
     async def _run_command_output(
         self,
         command: list[str],
         *,
         failure_status: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
+        timeout_seconds: int = PDF_COMMAND_TIMEOUT_SECONDS,
     ) -> tuple[str, str]:
-        logger.info("Running command: %s", " ".join(command))
-
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await process.communicate()
-        except FileNotFoundError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Required command not found: {command[0]}",
-            ) from exc
-        except OSError as exc:
-            raise HTTPException(
-                status_code=failure_status,
-                detail=f"Failed to run command: {command[0]}",
-            ) from exc
-
-        stdout_text = stdout.decode("utf-8", errors="replace")
-        stderr_text = stderr.decode("utf-8", errors="replace")
-
-        if process.returncode != 0:
-            detail = stderr_text.strip() or stdout_text.strip() or f"{command[0]} exited with code {process.returncode}"
-            raise HTTPException(status_code=failure_status, detail=detail)
-
-        return stdout_text, stderr_text
+        return await run_command(
+            command,
+            failure_status=failure_status,
+            timeout_seconds=timeout_seconds,
+            timeout_detail="PDF processing took too long to finish.",
+        )
 
     def _ensure_parent(self, output_path: str | Path) -> Path:
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         return path
+
+    def _validate_split_naming_template(self, pattern: str) -> str:
+        template = (pattern or "page-{n}").strip()
+        if not template:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Split output naming pattern cannot be empty.",
+            )
+        if len(template) > SAFE_SPLIT_NAME_MAX_LENGTH:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Split output naming pattern is too long.",
+            )
+        if any(ord(char) < 32 or ord(char) == 127 for char in template) or "\x00" in template:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Split output naming pattern contains unsafe characters.",
+            )
+        if any(char in template for char in '/\\<>:"|?*'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Split output naming pattern must be a filename, not a path.",
+            )
+        if ".." in template:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Split output naming pattern cannot contain '..'.",
+            )
+
+        placeholder_stripped = template.replace("{n}", "").replace("{original}", "")
+        if "{" in placeholder_stripped or "}" in placeholder_stripped:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Split output naming pattern only supports {n} and {original}.",
+            )
+        return template
+
+    def _sanitize_split_output_stem(self, stem: str) -> str:
+        if any(char in stem for char in '/\\<>:"|?*') or ".." in stem or "\x00" in stem:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Split output filename contains unsafe characters.",
+            )
+        safe = "".join(
+            char
+            for char in stem
+            if char.isalnum() or char in {" ", "-", "_", ".", "(", ")"}
+        ).strip(" .")
+        if not safe:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Split output filename cannot be empty.",
+            )
+        if safe.upper() in RESERVED_WINDOWS_NAMES:
+            safe = f"{safe}-file"
+        return safe[:SAFE_SPLIT_NAME_MAX_LENGTH].rstrip(" .") or "page"
+
+    def _safe_split_output_path(self, output_directory: Path, output_name: str) -> Path:
+        root = output_directory.resolve(strict=False)
+        candidate = (output_directory / f"{output_name}.pdf").resolve(strict=False)
+        if not candidate.is_relative_to(root):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Split output filename is outside the job output directory.",
+            )
+        return candidate
 
     async def _strip_pdf_metadata(self, path: Path) -> Path:
         sanitized_path = path.with_name(f"{path.stem}-sanitized{path.suffix}")
@@ -133,7 +172,9 @@ class PDFService:
         return path
 
     def _format_output_name(self, pattern: str, original_stem: str, index: int) -> str:
-        return pattern.replace("{n}", str(index)).replace("{original}", original_stem)
+        template = self._validate_split_naming_template(pattern)
+        output_name = template.replace("{n}", str(index)).replace("{original}", original_stem)
+        return self._sanitize_split_output_stem(output_name)
 
     def _normalize_ocr_output_format(self, output_format: str) -> str:
         normalized = output_format.lower().strip()
@@ -367,7 +408,7 @@ class PDFService:
 
         for index, selection in enumerate(selections, start=1):
             output_name = self._format_output_name(naming_pattern, input_stem, index)
-            output = output_directory / f"{output_name}.pdf"
+            output = self._safe_split_output_path(output_directory, output_name)
             command = ["qpdf", str(input_path), "--pages", ".", selection, "--", str(output)]
             await self._run_command(command)
             outputs.append(str(output))
@@ -718,30 +759,22 @@ class PDFService:
         if transparent and format == "png":
             command.extend(["-c", "rgba"])
         command.append(str(input_path))
-        logger.info("Running command: %s", " ".join(command))
-
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await process.communicate()
-        except FileNotFoundError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Required command not found: mutool",
-            ) from exc
+        result = await run_command_result(
+            command,
+            check=False,
+            timeout_seconds=PDF_COMMAND_TIMEOUT_SECONDS,
+            timeout_detail="PDF page rendering took too long to finish.",
+        )
 
         outputs = sorted(output_directory.glob(f"page-*.{mutool_format}"))
-        stderr_text = stderr.decode("utf-8", errors="replace").strip()
-        stdout_text = stdout.decode("utf-8", errors="replace").strip()
+        stderr_text = result.stderr.strip()
+        stdout_text = result.stdout.strip()
         meaningful_error = "\n".join(
             line for line in stderr_text.splitlines() if "icc support is not available" not in line.lower()
         ).strip()
 
-        if process.returncode != 0 and not any(path.exists() and path.stat().st_size > 0 for path in outputs):
-            detail = meaningful_error or stdout_text or f"mutool exited with code {process.returncode}"
+        if result.returncode != 0 and not any(path.exists() and path.stat().st_size > 0 for path in outputs):
+            detail = meaningful_error or stdout_text or f"mutool exited with code {result.returncode}"
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail)
 
         if format == "webp":

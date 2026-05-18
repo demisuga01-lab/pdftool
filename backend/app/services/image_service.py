@@ -9,11 +9,15 @@ from typing import Any, Literal
 
 from fastapi import HTTPException, status
 
+from app.services.command_runner import run_command
+from app.services.svg_rasterizer import validate_svg_file
+
 logger = logging.getLogger(__name__)
 
 ImageFormat = Literal["auto", "jpg", "jpeg", "png", "webp", "tiff", "tif", "avif", "bmp", "pdf", "eps"]
 ResizeFit = Literal["cover", "contain", "fill", "inside", "outside", "stretch"]
 IMAGE_OUTPUT_FORMAT_ERROR = "Output format is invalid. Please choose Same as input, JPG, PNG, WebP, TIFF, AVIF, or BMP."
+IMAGE_COMMAND_TIMEOUT_SECONDS = 120
 
 
 def get_imagemagick_command() -> str:
@@ -73,35 +77,15 @@ class ImageService:
         command: list[str],
         *,
         failure_status: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
+        timeout_seconds: int = IMAGE_COMMAND_TIMEOUT_SECONDS,
     ) -> tuple[str, str]:
-        logger.info("Running command: %s", " ".join(command))
-
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await process.communicate()
-        except FileNotFoundError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Required command not found: {command[0]}",
-            ) from exc
-        except OSError as exc:
-            raise HTTPException(
-                status_code=failure_status,
-                detail=f"Failed to run command: {command[0]}",
-            ) from exc
-
-        stdout_text = stdout.decode("utf-8", errors="replace").strip()
-        stderr_text = stderr.decode("utf-8", errors="replace").strip()
-
-        if process.returncode != 0:
-            detail = stderr_text or stdout_text or f"{command[0]} exited with code {process.returncode}"
-            raise HTTPException(status_code=failure_status, detail=detail)
-
-        return stdout_text, stderr_text
+        stdout, stderr = await run_command(
+            command,
+            failure_status=failure_status,
+            timeout_seconds=timeout_seconds,
+            timeout_detail="Image processing took too long to finish.",
+        )
+        return stdout.strip(), stderr.strip()
 
     def _ensure_parent(self, output_path: str | Path) -> Path:
         path = Path(output_path)
@@ -271,6 +255,7 @@ class ImageService:
         input_file = Path(input_path)
 
         if input_file.suffix.lower() == ".svg":
+            await asyncio.to_thread(validate_svg_file, input_file)
             if target_format not in {"png", "pdf", "eps"}:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,

@@ -9,7 +9,10 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
+from app.services.command_runner import run_command, run_command_result
+
 logger = logging.getLogger(__name__)
+OCR_COMMAND_TIMEOUT_SECONDS = 300
 
 
 class OCRService:
@@ -18,34 +21,14 @@ class OCRService:
         command: list[str],
         *,
         failure_status: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
+        timeout_seconds: int = OCR_COMMAND_TIMEOUT_SECONDS,
     ) -> tuple[str, str]:
-        logger.info("Running command: %s", " ".join(command))
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await process.communicate()
-        except FileNotFoundError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Required command not found: {command[0]}",
-            ) from exc
-        except OSError as exc:
-            raise HTTPException(
-                status_code=failure_status,
-                detail=f"Failed to run command: {command[0]}",
-            ) from exc
-
-        stdout_text = stdout.decode("utf-8", errors="replace")
-        stderr_text = stderr.decode("utf-8", errors="replace")
-        if process.returncode != 0:
-            raise HTTPException(
-                status_code=failure_status,
-                detail=stderr_text.strip() or stdout_text.strip() or f"{command[0]} exited with code {process.returncode}",
-            )
-        return stdout_text, stderr_text
+        return await run_command(
+            command,
+            failure_status=failure_status,
+            timeout_seconds=timeout_seconds,
+            timeout_detail="OCR processing took too long to finish.",
+        )
 
     def _ensure_parent(self, output_path: str | Path) -> Path:
         output = Path(output_path)
@@ -141,20 +124,18 @@ class OCRService:
             command.extend(["-p", password])
         command.extend(["-r", str(safe_dpi), "-F", "png", "-o", str(page_pattern), str(render_source)])
 
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await process.communicate()
-        except FileNotFoundError as exc:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Required command not found: mutool") from exc
+        result = await run_command_result(
+            command,
+            check=False,
+            failure_status=status.HTTP_400_BAD_REQUEST,
+            timeout_seconds=OCR_COMMAND_TIMEOUT_SECONDS,
+            timeout_detail="OCR page rendering took too long to finish.",
+        )
+        stdout_text = result.stdout.strip()
+        stderr_text = result.stderr.strip()
 
         pages = sorted(output_dir.glob("page-*.png"))
-        stderr_text = stderr.decode("utf-8", errors="replace").strip()
-        stdout_text = stdout.decode("utf-8", errors="replace").strip()
-        if process.returncode != 0 and not pages:
+        if result.returncode != 0 and not pages:
             detail = stderr_text or stdout_text or "Failed to render PDF pages before OCR"
             if self._looks_like_password_error(detail):
                 detail = self._password_error_message()

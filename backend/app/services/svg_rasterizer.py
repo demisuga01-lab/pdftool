@@ -38,6 +38,7 @@ _SUSPICIOUS_PATTERNS = (
     re.compile(r"<\s*!ENTITY", re.IGNORECASE),
 )
 _DATA_URI_PATTERN = re.compile(r"data:[^\"]+;base64,([A-Za-z0-9+/=]+)", re.IGNORECASE)
+UNSAFE_SVG_DETAIL = "SVG could not be processed safely. Upload PNG, JPG, or WebP instead."
 
 
 def _looks_suspicious(content: str) -> str | None:
@@ -67,6 +68,34 @@ def is_svg(path: str | Path) -> bool:
     return Path(path).suffix.lower() == ".svg"
 
 
+def validate_svg_file(svg_path: str | Path) -> Path:
+    source = Path(svg_path)
+
+    if not source.exists():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="SVG file was not found.",
+        )
+
+    size = source.stat().st_size
+    if size > MAX_SVG_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="SVG is too large to process.",
+        )
+
+    content = _read_text(source)
+    suspicious_reason = _looks_suspicious(content)
+    if suspicious_reason:
+        logger.warning("Rejected SVG: %s (path=%s)", suspicious_reason, source)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=UNSAFE_SVG_DETAIL,
+        )
+
+    return source
+
+
 def rasterize_svg_to_png(svg_path: str | Path, output_path: str | Path, *, width: int = 1024) -> Path:
     """Rasterize ``svg_path`` to ``output_path`` (PNG) using Inkscape.
 
@@ -74,33 +103,8 @@ def rasterize_svg_to_png(svg_path: str | Path, output_path: str | Path, *, width
     error is logged.
     """
 
-    source = Path(svg_path)
+    source = validate_svg_file(svg_path)
     target = Path(output_path)
-
-    if not source.exists():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Watermark file was not found.",
-        )
-
-    size = source.stat().st_size
-    if size > MAX_SVG_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="SVG watermark is too large to process.",
-        )
-
-    content = _read_text(source)
-    suspicious_reason = _looks_suspicious(content)
-    if suspicious_reason:
-        logger.warning("Rejected SVG watermark: %s (path=%s)", suspicious_reason, source)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "This SVG could not be processed safely. "
-                "Upload a PNG, JPG, or WebP watermark instead."
-            ),
-        )
 
     inkscape = shutil.which("inkscape")
     if not inkscape:
@@ -109,10 +113,7 @@ def rasterize_svg_to_png(svg_path: str | Path, output_path: str | Path, *, width
         if not magick:
             raise HTTPException(
                 status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                detail=(
-                    "SVG watermark could not be processed. "
-                    "Upload PNG, JPG, or WebP instead."
-                ),
+                detail="SVG could not be processed. Upload PNG, JPG, or WebP instead.",
             )
         target.parent.mkdir(parents=True, exist_ok=True)
         command = [
@@ -145,10 +146,7 @@ def rasterize_svg_to_png(svg_path: str | Path, output_path: str | Path, *, width
             )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "SVG watermark could not be processed. "
-                    "Upload PNG, JPG, or WebP instead."
-                ),
+                detail="SVG could not be processed. Upload PNG, JPG, or WebP instead.",
             )
         return target
 
@@ -185,9 +183,6 @@ def rasterize_svg_to_png(svg_path: str | Path, output_path: str | Path, *, width
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "SVG watermark could not be processed. "
-                "Upload PNG, JPG, or WebP instead."
-            ),
+            detail="SVG could not be processed. Upload PNG, JPG, or WebP instead.",
         )
     return target

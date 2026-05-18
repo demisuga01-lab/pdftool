@@ -11,10 +11,13 @@ import aiofiles
 from fastapi import HTTPException, UploadFile, status
 
 from app.core.config import Settings
+from app.services.command_runner import run_command
+from app.services.svg_rasterizer import rasterize_svg_to_png
 
 SAFE_FILE_ID_RE = re.compile(r"^[a-fA-F0-9]{32}$")
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff", ".avif", ".bmp", ".gif", ".svg"}
-BROWSER_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".svg", ".avif"}
+BROWSER_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif"}
+PREVIEW_COMMAND_TIMEOUT_SECONDS = 20
 
 
 def get_imagemagick_command() -> str:
@@ -65,32 +68,12 @@ def _validate_file_id(file_id: str) -> None:
 
 
 async def _run_command(command: list[str]) -> tuple[str, str]:
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await process.communicate()
-    except FileNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Required command not found: {command[0]}",
-        ) from exc
-    except OSError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to run command: {command[0]}",
-        ) from exc
-
-    stdout_text = stdout.decode("utf-8", errors="replace").strip()
-    stderr_text = stderr.decode("utf-8", errors="replace").strip()
-    if process.returncode != 0:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=stderr_text or stdout_text or f"{command[0]} exited with code {process.returncode}",
-        )
-    return stdout_text, stderr_text
+    stdout, stderr = await run_command(
+        command,
+        timeout_seconds=PREVIEW_COMMAND_TIMEOUT_SECONDS,
+        timeout_detail="Preview generation took too long to finish.",
+    )
+    return stdout.strip(), stderr.strip()
 
 
 async def _pdf_page_count(file_path: Path) -> int:
@@ -375,6 +358,10 @@ async def thumbnail_path(file_id: str, settings: Settings) -> Path:
         )
         return output
 
+    if suffix == ".svg":
+        await asyncio.to_thread(rasterize_svg_to_png, file_path, output, width=480)
+        return output
+
     if suffix in IMAGE_EXTENSIONS:
         def render() -> None:
             import pyvips
@@ -395,6 +382,11 @@ async def thumbnail_path(file_id: str, settings: Settings) -> Path:
 async def browser_safe_preview_path(file_id: str, settings: Settings) -> tuple[Path, str | None]:
     file_path = resolve_upload_path(file_id, settings)
     suffix = file_path.suffix.lower()
+    if suffix == ".svg":
+        output = preview_cache_path(settings, file_id, "preview.png")
+        if not output.exists() or output.stat().st_size == 0:
+            await asyncio.to_thread(rasterize_svg_to_png, file_path, output, width=1600)
+        return output, "image/png"
     if suffix in BROWSER_IMAGE_EXTENSIONS or suffix == ".pdf":
         return file_path, mimetypes.guess_type(file_path.name)[0]
     if suffix in IMAGE_EXTENSIONS:

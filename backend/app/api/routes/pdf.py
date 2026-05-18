@@ -27,6 +27,7 @@ from app.services.file_store import (
     resolve_upload_path,
     save_upload_file as save_workspace_upload,
 )
+from app.services.command_runner import run_command
 from app.workers.celery_app import celery_app
 from app.workers.pdf_tasks import (
     compress_pdf_task,
@@ -134,20 +135,12 @@ def _meta_path(file_path: Path) -> Path:
 
 
 async def _page_count(file_path: Path) -> int:
-    process = await asyncio.create_subprocess_exec(
-        "qpdf",
-        "--show-npages",
-        str(file_path),
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
+    stdout, _ = await run_command(
+        ["qpdf", "--show-npages", str(file_path)],
+        timeout_seconds=15,
+        timeout_detail="PDF page count took too long to finish.",
     )
-    stdout, stderr = await process.communicate()
-    if process.returncode != 0:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=stderr.decode("utf-8", errors="replace").strip() or "Unable to count PDF pages",
-        )
-    return int(stdout.decode("utf-8", errors="replace").strip() or 0)
+    return int(stdout.strip() or 0)
 
 
 async def _write_upload_metadata(file_path: Path, *, filename: str, size: int, pages: int = 0) -> None:

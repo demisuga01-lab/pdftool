@@ -5,6 +5,7 @@ import logging
 import mimetypes
 import re
 import shutil
+import stat
 import tempfile
 import time
 import zipfile
@@ -13,7 +14,9 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
+from app.core.config import get_settings
 from app.services.image_service import normalize_image_output_format
+from app.services.svg_rasterizer import validate_svg_file
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +31,6 @@ ORIGINAL_BELOW_TARGET_MESSAGE = "Original file is already below the target size.
 TARGET_NOT_REACHED_MESSAGE = "Could not reach the exact target size safely. This is the smallest valid output produced."
 UNSUPPORTED_MESSAGE = "This format cannot be compressed meaningfully. Use ZIP or 7z packaging instead."
 UNSUPPORTED_ARCHIVE_MESSAGE = "This archive type is not safely supported for extraction yet. You can package it as ZIP/7z instead."
-MAX_ARCHIVE_MEMBERS = 10_000
-MAX_ARCHIVE_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024
 COMMAND_TIMEOUT_SECONDS = 60
 
 # Per-tool timeouts (seconds). Keep these short so a single stuck tool cannot
@@ -66,6 +67,8 @@ class CompressionService:
         input_file = Path(input_path)
         if not input_file.exists() or not input_file.is_file():
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Input file not found")
+        if input_file.suffix.lower() == ".svg":
+            validate_svg_file(input_file)
 
         output_directory = Path(output_dir)
         output_directory.mkdir(parents=True, exist_ok=True)
@@ -689,21 +692,41 @@ class CompressionService:
     def _safe_extract_zip(self, zip_path: Path, extract_dir: Path) -> None:
         extract_dir.mkdir(parents=True, exist_ok=True)
         root = extract_dir.resolve(strict=False)
+        settings = get_settings()
+        max_members = settings.MAX_ARCHIVE_FILES
+        max_uncompressed_bytes = settings.MAX_ARCHIVE_EXTRACTED_BYTES
         with zipfile.ZipFile(zip_path) as archive:
             members = archive.infolist()
-            if len(members) > MAX_ARCHIVE_MEMBERS:
-                raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Zip contains too many files to extract safely")
-            total_size = sum(max(member.file_size, 0) for member in members)
-            if total_size > MAX_ARCHIVE_UNCOMPRESSED_BYTES:
-                raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Zip is too large to extract safely")
+            if len(members) > max_members:
+                raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Archive contains too many files.")
+            declared_total_size = sum(max(member.file_size, 0) for member in members if not member.is_dir())
+            if declared_total_size > max_uncompressed_bytes:
+                raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Archive is too large to process safely.")
+            total_written = 0
             for member in members:
+                if not member.filename.strip() or "\x00" in member.filename or "\\" in member.filename:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Zip contains an unsafe path")
                 member_path = Path(member.filename)
                 if member_path.is_absolute() or ".." in member_path.parts:
                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Zip contains an unsafe path")
                 destination = (extract_dir / member.filename).resolve(strict=False)
                 if not destination.is_relative_to(root):
                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Zip contains an unsafe path")
-            archive.extractall(extract_dir)
+                mode = member.external_attr >> 16
+                if stat.S_ISLNK(mode):
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Zip contains an unsafe path")
+                if member.is_dir():
+                    destination.mkdir(parents=True, exist_ok=True)
+                    continue
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                with archive.open(member) as source, destination.open("wb") as target:
+                    while chunk := source.read(1024 * 1024):
+                        total_written += len(chunk)
+                        if total_written > max_uncompressed_bytes:
+                            target.close()
+                            destination.unlink(missing_ok=True)
+                            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Archive is too large to process safely.")
+                        target.write(chunk)
 
     async def _strip_pdf_metadata(self, input_file: Path, output: Path) -> Path | None:
         try:
