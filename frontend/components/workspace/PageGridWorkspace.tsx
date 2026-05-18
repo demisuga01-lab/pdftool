@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import {
   memo,
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -223,6 +224,47 @@ export function GridThumbnail({
 // Generic preview modal
 // ---------------------------------------------------------------------------
 
+const PREVIEW_ZOOM_MIN = 50;
+const PREVIEW_ZOOM_MAX = 300;
+const PREVIEW_ZOOM_STEP = 25;
+
+function PreviewImage({ alt, src, zoom }: { alt: string; src: string | undefined; zoom: number }) {
+  const [state, setState] = useState<"loading" | "loaded" | "failed">(src ? "loading" : "failed");
+
+  if (!src || state === "failed") {
+    return (
+      <div className="mx-auto max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium leading-6 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+        {src ? "Preview could not be loaded. You can still process this item." : "No preview available for this item."}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative mx-auto flex w-fit min-w-0 items-start justify-center">
+      {state === "loading" ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-md bg-zinc-100 text-sm font-medium text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading preview…
+        </div>
+      ) : null}
+      <img
+        alt={alt}
+        className="mx-auto block bg-white shadow-md"
+        onError={() => setState("failed")}
+        onLoad={() => {
+          setState("loaded");
+        }}
+        src={src}
+        style={{
+          maxWidth: zoom <= 100 ? "100%" : "none",
+          transition: "width 0.15s ease",
+          width: `${zoom}%`,
+        }}
+      />
+    </div>
+  );
+}
+
 function GenericPreviewModal<T extends GridWorkspaceItemBase>({
   items,
   labels,
@@ -242,30 +284,44 @@ function GenericPreviewModal<T extends GridWorkspaceItemBase>({
 }) {
   const currentIndex = useMemo(() => items.findIndex((item) => item.id === pageId), [items, pageId]);
   const item = currentIndex >= 0 ? items[currentIndex] : null;
-  const [previewState, setPreviewState] = useState<"loading" | "loaded" | "failed">("loading");
+  const [previewZoom, setPreviewZoom] = useState(100);
   const canGoPrevious = currentIndex > 0;
   const canGoNext = currentIndex >= 0 && currentIndex < items.length - 1;
-
-  useEffect(() => {
-    setPreviewState("loading");
-  }, [pageId]);
+  const closeModal = useCallback(() => {
+    setPreviewZoom(100);
+    onClose();
+  }, [onClose]);
+  const goPrevious = useCallback(() => {
+    if (!canGoPrevious) {
+      return;
+    }
+    setPreviewZoom(100);
+    onPageChange(items[currentIndex - 1].id);
+  }, [canGoPrevious, currentIndex, items, onPageChange]);
+  const goNext = useCallback(() => {
+    if (!canGoNext) {
+      return;
+    }
+    setPreviewZoom(100);
+    onPageChange(items[currentIndex + 1].id);
+  }, [canGoNext, currentIndex, items, onPageChange]);
 
   useEffect(() => {
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        closeModal();
       }
       if (event.key === "ArrowLeft" && canGoPrevious) {
-        onPageChange(items[currentIndex - 1].id);
+        goPrevious();
       }
       if (event.key === "ArrowRight" && canGoNext) {
-        onPageChange(items[currentIndex + 1].id);
+        goNext();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [canGoNext, canGoPrevious, currentIndex, items, onClose, onPageChange]);
+  }, [canGoNext, canGoPrevious, closeModal, goNext, goPrevious]);
 
   if (!item) {
     return null;
@@ -299,87 +355,89 @@ function GenericPreviewModal<T extends GridWorkspaceItemBase>({
     <div
       aria-label={`${pageLabel} preview`}
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/70 p-3 sm:p-6"
-      onClick={onClose}
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-zinc-950/80 p-4"
+      onClick={closeModal}
       role="dialog"
     >
       <div
-        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-900"
+        className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 px-3 py-3 dark:border-white/10 sm:px-4">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{pageLabel}</p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              {positionLabel} / {selected ? "Selected for output" : removed ? "Removed from output" : "Not selected"}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               aria-label="Previous"
               className="secondary-button h-9 w-9 p-0"
               disabled={!canGoPrevious}
-              onClick={() => onPageChange(items[currentIndex - 1].id)}
+              onClick={goPrevious}
               type="button"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
+            <span className="truncate text-sm text-zinc-600 dark:text-zinc-400">
+              {positionLabel} · {selected ? "Selected" : "Not selected"}
+            </span>
             <button
               aria-label="Next"
               className="secondary-button h-9 w-9 p-0"
               disabled={!canGoNext}
-              onClick={() => onPageChange(items[currentIndex + 1].id)}
+              onClick={goNext}
               type="button"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
             <button
               className="secondary-button h-9 px-3 text-xs"
               disabled={removed}
               onClick={toggleSelection}
               type="button"
             >
-              {selected ? "Unselect" : "Select"}
+              {selected ? "Deselect" : "Select"}
             </button>
             {showRemoveAction ? (
               <button className="secondary-button h-9 px-3 text-xs" onClick={toggleRemoved} type="button">
                 {removed ? "Restore" : "Remove from output"}
               </button>
             ) : null}
-            <button aria-label="Close preview" className="secondary-button h-9 w-9 p-0" onClick={onClose} type="button">
+            <button aria-label="Close preview" className="secondary-button h-9 w-9 p-0" onClick={closeModal} type="button">
               <X className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto bg-zinc-100 p-3 dark:bg-zinc-950 sm:p-6">
-          {previewState === "failed" ? (
-            <div className="mx-auto max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium leading-6 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
-              Preview could not be loaded. You can still process this item.
-            </div>
-          ) : (
-            <div className="relative mx-auto flex w-fit items-center justify-center">
-              {previewState === "loading" ? (
-                <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-md bg-zinc-100/80 text-sm font-medium text-zinc-500 dark:bg-zinc-950/80 dark:text-zinc-400">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading preview…
-                </div>
-              ) : null}
-              {previewSrc ? (
-                <img
-                  alt={`Preview of ${pageLabel}`}
-                  className="max-h-[calc(100dvh-12rem)] w-auto max-w-full rounded-md border border-zinc-300 bg-white shadow-md dark:border-white/10"
-                  onError={() => setPreviewState("failed")}
-                  onLoad={() => setPreviewState("loaded")}
-                  src={previewSrc}
-                />
-              ) : (
-                <div className="rounded-md border border-dashed border-zinc-300 bg-white px-6 py-10 text-sm text-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-400">
-                  No preview available for this item.
-                </div>
-              )}
-            </div>
-          )}
+        <div className="flex-1 overflow-auto bg-zinc-100 p-6 dark:bg-zinc-900">
+          <PreviewImage alt={`Preview of ${pageLabel}`} key={pageId} src={previewSrc} zoom={previewZoom} />
+        </div>
+
+        <div className="flex items-center justify-center gap-3 border-t border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
+          <button
+            aria-label="Zoom out"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-sm hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+            disabled={previewZoom <= PREVIEW_ZOOM_MIN}
+            onClick={() => setPreviewZoom((zoom) => Math.max(PREVIEW_ZOOM_MIN, zoom - PREVIEW_ZOOM_STEP))}
+            type="button"
+          >
+            -
+          </button>
+          <button
+            aria-label="Reset zoom"
+            className="min-w-[4rem] rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs tabular-nums text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+            onClick={() => setPreviewZoom(100)}
+            type="button"
+          >
+            {previewZoom}%
+          </button>
+          <button
+            aria-label="Zoom in"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-sm hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+            disabled={previewZoom >= PREVIEW_ZOOM_MAX}
+            onClick={() => setPreviewZoom((zoom) => Math.min(PREVIEW_ZOOM_MAX, zoom + PREVIEW_ZOOM_STEP))}
+            type="button"
+          >
+            +
+          </button>
         </div>
       </div>
     </div>
@@ -561,6 +619,8 @@ export function GridWorkspace<T extends GridWorkspaceItemBase>({
   const widthForZoom = cardWidth ?? ((zoom: WorkspaceZoomLevel) => Math.round(170 + (zoom - 100) * 1.2));
   const computedWidth = widthForZoom(zoomLevel);
   const gridStyle: CSSProperties = {
+    display: "grid",
+    gap: "12px",
     gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${computedWidth}px), 1fr))`,
   };
 
@@ -690,7 +750,7 @@ export function GridWorkspace<T extends GridWorkspaceItemBase>({
           sensors={sensors}
         >
           <SortableContext items={items.map((item) => item.id)} strategy={rectSortingStrategy}>
-            <div className="grid min-w-0 gap-3" style={gridStyle}>
+            <div className="min-w-0" style={gridStyle}>
               {items.map((item, index) => (
                 <SortableCardWrapper<T>
                   dragEnabled={dragEnabled}
@@ -745,6 +805,8 @@ function PageCard({
   const { attributes, dragEnabled, index, isDragging, item, listeners, onClick, onKeyDown, onMove, onPreview, onRemoveToggle, setActivatorNodeRef, setNodeRef, style, total } = args;
   const removed = item.removed;
   const selected = item.selected && !removed;
+  const rotation = item.rotation ?? 0;
+  const rotatedSideways = rotation % 180 !== 0;
 
   return (
     <article
@@ -803,12 +865,33 @@ function PageCard({
         }}
         type="button"
       >
-        <GridThumbnail
-          alt={`Page ${item.originalPageNumber}`}
-          className="aspect-[1/1.38] w-full rounded border border-zinc-200 bg-white object-cover dark:border-white/10"
-          src={item.thumbnailUrl}
-          style={item.rotation ? { transform: `rotate(${item.rotation}deg)` } : undefined}
-        />
+        <div
+          style={{
+            alignItems: "center",
+            aspectRatio: "1 / 1",
+            display: "flex",
+            justifyContent: "center",
+            overflow: "hidden",
+            position: "relative",
+            width: "100%",
+          }}
+        >
+          <GridThumbnail
+            alt={`Page ${item.originalPageNumber}`}
+            className="rounded border border-zinc-200 bg-white object-contain dark:border-white/10"
+            src={item.thumbnailUrl}
+            style={{
+              height: rotatedSideways ? "100%" : "auto",
+              maxHeight: "100%",
+              maxWidth: rotatedSideways ? "none" : "100%",
+              objectFit: "contain",
+              transform: `rotate(${rotation}deg)`,
+              transformOrigin: "center center",
+              transition: "transform 0.2s ease",
+              width: rotatedSideways ? "auto" : "100%",
+            }}
+          />
+        </div>
       </button>
 
       <div className="mt-2 flex items-center justify-between gap-2">

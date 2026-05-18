@@ -65,16 +65,19 @@ def convert_file_task(
     from_format: str | None = None,
     mime_type: str | None = None,
     settings: dict[str, Any] | None = None,
+    engine: str = "auto",
 ) -> dict[str, Any]:
     try:
         service = ConversionService()
         normalized_to_format = service.normalize_output_format(to_format)
+        conversion_settings = {**(settings or {}), "engine": engine or "auto"}
         logger.info(
-            "Starting convert task job_id=%s requested_format=%s normalized_format=%s input_extension=%s",
+            "Starting convert task job_id=%s requested_format=%s normalized_format=%s input_extension=%s engine=%s",
             _task_id(self),
             to_format,
             normalized_to_format,
             Path(input_path).suffix.lower().lstrip("."),
+            conversion_settings["engine"],
         )
         result = _run_service(
             service.convert(
@@ -83,7 +86,7 @@ def convert_file_task(
                 normalized_to_format,
                 from_format=from_format,
                 mime_type=mime_type,
-                settings=settings,
+                settings=conversion_settings,
             )
         )
         return _success(self, **result)

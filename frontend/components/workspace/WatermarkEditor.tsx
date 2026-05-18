@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Poin
 
 import { EditorCanvas } from "@/components/workspace/WorkspaceShells";
 import { clamp } from "@/lib/format";
-import { INTERACTIVE_PAN_GUARD_SELECTORS } from "@/lib/use-workspace-zoom";
 
 /**
  * Mobile gesture priority (also the order in which the watermark overlay
@@ -171,6 +170,7 @@ export function WatermarkEditor({
   const stateRef = useRef(state);
   const onChangeRef = useRef(onChange);
   const [selected, setSelected] = useState(true);
+  const [editingInline, setEditingInline] = useState(false);
   const [naturalSize, setNaturalSize] = useState<{ height: number; width: number } | null>(null);
 
   // Keep refs in sync so pointer handlers always read current state without
@@ -191,11 +191,12 @@ export function WatermarkEditor({
     if (!overlay) {
       return;
     }
+    const activePointers = pointersRef.current;
 
     const isInteractiveTarget = (target: EventTarget | null) =>
       target instanceof Element &&
       target !== overlay &&
-      Boolean(target.closest(`${INTERACTIVE_PAN_GUARD_SELECTORS},[data-resize-handle]`));
+      Boolean(target.closest("button,input,select,label,[data-resize-handle],[data-no-pan]"));
 
     const startGesture = () => {
       const frame = frameRef.current;
@@ -355,7 +356,7 @@ export function WatermarkEditor({
       overlay.removeEventListener("pointerup", handlePointerUp);
       overlay.removeEventListener("pointercancel", handlePointerCancel);
       overlay.removeEventListener("lostpointercapture", handlePointerCancel);
-      pointersRef.current.clear();
+      activePointers.clear();
       gestureRef.current = null;
     };
   }, []);
@@ -411,6 +412,47 @@ export function WatermarkEditor({
     [onChange, state.type, state.widthPercent, state.fontSize],
   );
 
+  const startHandleDrag = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelected(true);
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture is best-effort; document listeners below keep fast drags working.
+    }
+
+    const moveWatermark = (moveEvent: PointerEvent) => {
+      moveEvent.preventDefault();
+      moveEvent.stopPropagation();
+      const frame = frameRef.current;
+      if (!frame) {
+        return;
+      }
+      const bounds = frame.getBoundingClientRect();
+      if (bounds.width <= 0 || bounds.height <= 0) {
+        return;
+      }
+      onChangeRef.current({
+        positionPreset: "custom",
+        xPercent: clamp(Number((((moveEvent.clientX - bounds.left) / bounds.width) * 100).toFixed(2)), 0, 100),
+        yPercent: clamp(Number((((moveEvent.clientY - bounds.top) / bounds.height) * 100).toFixed(2)), 0, 100),
+      });
+    };
+
+    const endDrag = () => {
+      document.removeEventListener("pointermove", moveWatermark);
+      document.removeEventListener("pointerup", endDrag);
+      document.removeEventListener("pointercancel", endDrag);
+    };
+
+    moveWatermark(event.nativeEvent);
+    document.addEventListener("pointermove", moveWatermark);
+    document.addEventListener("pointerup", endDrag, { once: true });
+    document.addEventListener("pointercancel", endDrag, { once: true });
+  }, []);
+
   const nudge = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
       return;
@@ -429,6 +471,7 @@ export function WatermarkEditor({
     opacity: state.opacity / 100,
     top: `${state.yPercent}%`,
     transform: `translate(-50%, -50%) rotate(${state.rotation}deg)`,
+    transformOrigin: "center",
   };
 
   const tilePreview = state.positionPreset === "tiled";
@@ -449,7 +492,9 @@ export function WatermarkEditor({
       pageCount={pageCount}
       selected={selected}
       setNaturalSize={setNaturalSize}
-      setSelected={setSelected}
+      editingInline={editingInline}
+      setEditingInline={setEditingInline}
+      startHandleDrag={startHandleDrag}
       startResize={startResize}
       state={state}
       tilePreview={tilePreview}
@@ -476,7 +521,9 @@ function WatermarkEditorCanvas({
   pageCount,
   selected,
   setNaturalSize,
-  setSelected,
+  editingInline,
+  setEditingInline,
+  startHandleDrag,
   startResize,
   state,
   tilePreview,
@@ -492,12 +539,14 @@ function WatermarkEditorCanvas({
   onChange: (patch: Partial<WatermarkEditorState>) => void;
   onPageChange?: (page: number) => void;
   onRemoveAsset?: () => void;
-  overlayCommon: { left: string; opacity: number; top: string; transform: string };
+  overlayCommon: { left: string; opacity: number; top: string; transform: string; transformOrigin: string };
   overlayRef: React.MutableRefObject<HTMLDivElement | null>;
   pageCount?: number;
   selected: boolean;
   setNaturalSize: (size: { height: number; width: number } | null) => void;
-  setSelected: (selected: boolean) => void;
+  editingInline: boolean;
+  setEditingInline: (editing: boolean) => void;
+  startHandleDrag: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   startResize: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   state: WatermarkEditorState;
   tilePreview: boolean;
@@ -613,10 +662,11 @@ function WatermarkEditorCanvas({
       {({ effectiveZoom, mode }) => {
         const displayWidth = naturalSize ? (naturalSize.width * effectiveZoom) / 100 : undefined;
         const displayHeight = naturalSize ? (naturalSize.height * effectiveZoom) / 100 : undefined;
+        const displayFontSize = Math.max(TEXT_FONT_MIN_PX, (state.fontSize * effectiveZoom) / 100);
 
         return (
           <div
-            className="preview-checkerboard relative shrink-0 overflow-visible rounded-lg"
+            className="relative shrink-0 overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-950"
             ref={frameRef}
             style={
               displayWidth && displayHeight
@@ -628,7 +678,7 @@ function WatermarkEditorCanvas({
           >
             <img
               alt={baseAlt}
-              className="block rounded-lg border border-slate-300 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.12)]"
+              className="block rounded-lg border border-zinc-300 bg-white shadow-sm dark:border-zinc-800"
               draggable={false}
               onLoad={(event) => {
                 if (event.currentTarget.naturalWidth > 0 && event.currentTarget.naturalHeight > 0) {
@@ -677,7 +727,7 @@ function WatermarkEditorCanvas({
                       style={{
                         color: state.color,
                         fontFamily: state.fontFamily,
-                        fontSize: `${Math.max(12, state.fontSize * 0.65)}px`,
+                        fontSize: `${Math.max(12, displayFontSize * 0.65)}px`,
                         fontStyle: state.italic ? "italic" : "normal",
                         fontWeight: state.bold ? 800 : 600,
                         left: `${x}%`,
@@ -693,83 +743,141 @@ function WatermarkEditorCanvas({
               </div>
             ) : null}
 
-            <div
-              className={[
-                "absolute touch-none outline-none",
-                selected ? "ring-2 ring-[#059669] ring-offset-2 ring-offset-white dark:ring-emerald-400 dark:ring-offset-zinc-950" : "",
-              ].join(" ")}
-              data-draggable-overlay
-              data-no-pan
-              onKeyDown={nudge}
-              ref={overlayRef}
-              role="button"
-              style={state.type === "image" ? { ...overlayCommon, width: `${state.widthPercent}%` } : overlayCommon}
-              tabIndex={0}
-            >
-              {state.type === "image" ? (
-                asset ? (
-                  <img
-                    alt={asset.name}
-                    className="block max-w-none rounded-sm"
-                    draggable={false}
-                    src={asset.src}
-                    style={{ width: "100%" }}
+            <div className="pointer-events-none absolute inset-0">
+              <div
+                className={[
+                  "pointer-events-auto absolute touch-none outline-none",
+                  selected ? "ring-2 ring-emerald-600 ring-offset-2 ring-offset-white dark:ring-emerald-400 dark:ring-offset-zinc-950" : "",
+                ].join(" ")}
+                data-draggable-overlay
+                data-no-pan
+                onClick={(event) => event.stopPropagation()}
+                onKeyDown={nudge}
+                onPointerDown={(event) => event.stopPropagation()}
+                ref={overlayRef}
+                role="button"
+                style={state.type === "image" ? { ...overlayCommon, width: `${state.widthPercent}%` } : overlayCommon}
+                tabIndex={0}
+              >
+                {state.type === "image" ? (
+                  asset ? (
+                    <img
+                      alt={asset.name}
+                      className="block max-w-none rounded-sm"
+                      draggable={false}
+                      src={asset.src}
+                      style={{ width: "100%" }}
+                    />
+                  ) : (
+                    <label className="flex min-h-24 min-w-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-emerald-700 bg-white px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-500 dark:bg-zinc-900 dark:text-emerald-300">
+                      <ImageIcon className="h-5 w-5" />
+                      Upload logo
+                      <input
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(event) => onAssetSelected(Array.from(event.target.files ?? []))}
+                        type="file"
+                      />
+                    </label>
+                  )
+                ) : editingInline ? (
+                  <textarea
+                    aria-label="Edit watermark text"
+                    autoFocus
+                    onBlur={() => setEditingInline(false)}
+                    onChange={(event) => onChange({ text: event.target.value })}
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => {
+                      event.stopPropagation();
+                      if (event.key === "Escape") {
+                        setEditingInline(false);
+                      }
+                    }}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    rows={2}
+                    style={{
+                      background: "transparent",
+                      border: "1.5px dashed rgba(255,255,255,0.7)",
+                      borderRadius: "4px",
+                      color: state.color,
+                      cursor: "text",
+                      fontFamily: state.fontFamily,
+                      fontSize: `${displayFontSize}px`,
+                      fontStyle: state.italic ? "italic" : "normal",
+                      fontWeight: state.bold ? 800 : 600,
+                      minHeight: "44px",
+                      opacity: 1,
+                      outline: "none",
+                      padding: "2px 4px",
+                      resize: "none",
+                      textAlign: "center",
+                      textShadow: "0 2px 12px rgba(0,0,0,0.25)",
+                      width: "100%",
+                    }}
+                    value={state.text}
                   />
                 ) : (
-                  <label className="flex min-h-24 min-w-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[#059669] bg-white/90 px-4 py-3 text-sm font-semibold text-[#059669] dark:bg-zinc-900/90 dark:text-emerald-300">
-                    <ImageIcon className="h-5 w-5" />
-                    Upload logo
-                    <input
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(event) => onAssetSelected(Array.from(event.target.files ?? []))}
-                      type="file"
-                    />
-                  </label>
-                )
-              ) : (
-                <textarea
-                  aria-label="Watermark text"
-                  className="min-h-[54px] min-w-[180px] resize-none overflow-hidden rounded-sm border border-white/50 bg-black/10 px-2 py-1 text-center leading-tight outline-none dark:border-white/20"
-                  onChange={(event) => onChange({ text: event.target.value })}
-                  onFocus={() => setSelected(true)}
-                  spellCheck={false}
-                  style={{
-                    color: state.color,
-                    fontFamily: state.fontFamily,
-                    fontSize: `${state.fontSize}px`,
-                    fontStyle: state.italic ? "italic" : "normal",
-                    fontWeight: state.bold ? 800 : 600,
-                    textShadow: "0 2px 12px rgba(0,0,0,0.25)",
-                  }}
-                  value={state.text}
-                />
-              )}
+                  <div
+                    aria-label="Watermark text"
+                    className="min-w-[3rem] whitespace-pre rounded-sm border border-white/60 bg-black/10 px-2 py-1 text-center leading-tight dark:border-white/20"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setEditingInline(true);
+                    }}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    style={{
+                      color: state.color,
+                      cursor: "text",
+                      fontFamily: state.fontFamily,
+                      fontSize: `${displayFontSize}px`,
+                      fontStyle: state.italic ? "italic" : "normal",
+                      fontWeight: state.bold ? 800 : 600,
+                      textShadow: "0 2px 12px rgba(0,0,0,0.25)",
+                      userSelect: "none",
+                    }}
+                    title="Click to edit text"
+                  >
+                    {state.text || "Watermark"}
+                  </div>
+                )}
 
-              {selected ? (
-                <>
-                  <span className="absolute -left-3 -top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#059669] text-white shadow">
-                    <Move className="h-3.5 w-3.5" />
-                  </span>
-                  <button
-                    aria-label="Resize watermark"
-                    className="absolute -bottom-3 -right-3 hidden h-8 w-8 rounded-full border-2 border-[#059669] bg-white shadow dark:bg-zinc-900 sm:block"
-                    data-resize-handle
-                    onPointerDown={startResize}
-                    type="button"
-                  />
-                  {state.type === "image" && asset && onRemoveAsset ? (
+                {selected ? (
+                  <>
+                    {!editingInline ? (
+                      <button
+                        aria-label="Move watermark"
+                        className="absolute -left-2.5 -top-2.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-700 text-white shadow-sm dark:bg-emerald-600"
+                        onClick={(event) => event.stopPropagation()}
+                        onPointerDown={startHandleDrag}
+                        type="button"
+                      >
+                        <Move className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
                     <button
-                      aria-label="Remove watermark image"
-                      className="absolute -right-3 -top-3 inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 bg-white text-rose-600 shadow dark:border-rose-400/30 dark:bg-zinc-900"
-                      onClick={onRemoveAsset}
+                      aria-label="Resize watermark"
+                      className="absolute -bottom-2.5 -right-2.5 hidden h-7 w-7 rounded-full border-2 border-emerald-700 bg-white shadow-sm dark:border-emerald-500 dark:bg-zinc-900 sm:block"
+                      data-resize-handle
+                      onClick={(event) => event.stopPropagation()}
+                      onPointerDown={startResize}
                       type="button"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  ) : null}
-                </>
-              ) : null}
+                    />
+                    {state.type === "image" && asset && onRemoveAsset ? (
+                      <button
+                        aria-label="Remove watermark image"
+                        className="absolute -right-3 -top-3 inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 bg-white text-rose-600 shadow dark:border-rose-400/30 dark:bg-zinc-900"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onRemoveAsset();
+                        }}
+                        type="button"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
             </div>
           </div>
         );

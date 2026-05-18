@@ -5,7 +5,8 @@ import { FileText, Upload } from "lucide-react";
 
 import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
-import { EmptyPdfWorkspaceState } from "@/components/workspace/PDFWorkspace";
+import { EmptyPdfWorkspaceState, type PdfPageCard } from "@/components/workspace/PDFWorkspace";
+import { PageGridWorkspace, type PageGridItem } from "@/components/workspace/PageGridWorkspace";
 import {
   WatermarkEditor,
   WatermarkPresetControls,
@@ -87,7 +88,7 @@ export default function PdfWatermarkPage() {
   const [asset, setAsset] = useState<UploadedWatermarkAsset | null>(null);
   const [assetError, setAssetError] = useState<string | null>(null);
   const { state: settings, setState } = useObjectState<PdfWatermarkSettings>(initialSettings);
-  const { pageCount } = useUploadedPdfPageItems(fileMeta?.file_id ?? null, Number(fileMeta?.metadata?.page_count ?? fileMeta?.pages ?? 0));
+  const { items: pageItems, pageCount } = useUploadedPdfPageItems(fileMeta?.file_id ?? null, Number(fileMeta?.metadata?.page_count ?? fileMeta?.pages ?? 0));
 
   const outputName = file ? `${settings.outputFilename.trim() || `${slugifyBaseName(file.name)}-watermarked`}.pdf` : "watermarked.pdf";
   const job = useWorkspaceJob({
@@ -250,6 +251,37 @@ export default function PdfWatermarkPage() {
   const baseSrc = fileMeta ? getPdfPagePreviewUrl(fileMeta.file_id, currentPage, 100) : "";
   const statusError = uploadError ?? assetError ?? job.error;
 
+  const gridItems: PageGridItem[] = useMemo(
+    () =>
+      pageItems.map((item: PdfPageCard, index): PageGridItem => {
+        const originalPageNumber = item.originalPageNumber ?? item.pageNumber;
+        const rotation = ((item.rotation ?? 0) % 360 + 360) % 360 as 0 | 90 | 180 | 270;
+        return {
+          currentIndex: item.currentIndex ?? index,
+          id: item.id || `page-${originalPageNumber}`,
+          loadState: item.loadState ?? "idle",
+          originalPageNumber,
+          pageNumber: item.pageNumber,
+          previewUrl: item.previewUrl,
+          removed: false,
+          rotation,
+          selected: Boolean(item.selected),
+          thumbnail: item.thumbnail,
+          thumbnailUrl: item.thumbnailUrl ?? item.thumbnail,
+        };
+      }),
+    [pageItems],
+  );
+
+  // Sync selection back to settings.selectedPages so "Apply to: selected pages" works.
+  const applySelectionToSettings = useCallback(
+    (next: PageGridItem[]) => {
+      const selected = next.filter((item) => item.selected).map((item) => item.originalPageNumber);
+      updateSettings({ selectedPages: selected.join(",") });
+    },
+    [updateSettings],
+  );
+
   return (
     <VisualEditorWorkspaceShell
       countLabel={fileMeta ? `${totalPages} pages` : undefined}
@@ -281,18 +313,59 @@ export default function PdfWatermarkPage() {
       }
       editor={
         fileMeta ? (
-          <WatermarkEditor
-            asset={asset}
-            baseAlt={fileMeta.original_name}
-            baseSrc={baseSrc}
-            currentPage={currentPage}
-            onAssetSelected={handleAssetSelected}
-            onChange={updateSettings}
-            onPageChange={setCurrentPage}
-            onRemoveAsset={() => setAsset(null)}
-            pageCount={totalPages}
-            state={settings}
-          />
+          <div className="space-y-4">
+            <WatermarkEditor
+              asset={asset}
+              baseAlt={fileMeta.original_name}
+              baseSrc={baseSrc}
+              currentPage={currentPage}
+              onAssetSelected={handleAssetSelected}
+              onChange={updateSettings}
+              onPageChange={setCurrentPage}
+              onRemoveAsset={() => setAsset(null)}
+              pageCount={totalPages}
+              state={settings}
+            />
+            {gridItems.length > 1 ? (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">
+                    Pages
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Click a card to preview. Use Apply to: selected pages to limit which pages get the watermark.
+                  </p>
+                </div>
+                <PageGridWorkspace
+                  dragEnabled={false}
+                  dragDisabledReason="Watermark applies in original page order."
+                  items={gridItems}
+                  onItemsChange={(next) => {
+                    applySelectionToSettings(next);
+                  }}
+                  renderCardOverlay={(item) => (
+                    <button
+                      aria-label={`Preview page ${item.originalPageNumber}`}
+                      className={[
+                        "mt-2 h-8 w-full rounded-md border text-xs font-semibold transition",
+                        item.originalPageNumber === currentPage
+                          ? "border-emerald-600 bg-emerald-50 text-emerald-700 dark:border-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-300"
+                          : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300",
+                      ].join(" ")}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setCurrentPage(item.originalPageNumber);
+                      }}
+                      type="button"
+                    >
+                      {item.originalPageNumber === currentPage ? "Previewing" : "Preview here"}
+                    </button>
+                  )}
+                  summary={null}
+                />
+              </div>
+            ) : null}
+          </div>
         ) : null
       }
       emptyState={

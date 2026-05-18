@@ -14,9 +14,12 @@ import { useWorkspaceJob } from "@/lib/workspace-job";
 import { imageSummary, uploadedFileDetails, uploadedFileSummary, useObjectState, useUploadedPdfPageItems } from "@/lib/workspace-data";
 
 type ConvertKind = "pdf" | "office" | "spreadsheet" | "text" | "csv" | "image" | "svg" | "unknown";
+type ConvertEngine = "auto" | "imagemagick" | "inkscape" | "libreoffice" | "mutool";
 
 type ConvertSettings = {
   dpi: number;
+  engine: ConvertEngine;
+  manualEngine: boolean;
   outputFilename: string;
   preserveMetadata: boolean;
   quality: number;
@@ -28,6 +31,29 @@ type ConvertOption = {
   description: string;
   label: string;
   value: string;
+};
+
+const CONVERT_ENGINE_DETAILS: Record<ConvertEngine, { description: string; label: string }> = {
+  auto: {
+    label: "Auto recommended",
+    description: "PDFTools chooses the best available method for this conversion.",
+  },
+  imagemagick: {
+    label: "ImageMagick",
+    description: "General image conversion fallback. Output depends on installed delegates.",
+  },
+  inkscape: {
+    label: "Inkscape",
+    description: "Renders SVG files for conversion.",
+  },
+  libreoffice: {
+    label: "LibreOffice",
+    description: "Converts Office documents to PDF.",
+  },
+  mutool: {
+    label: "mutool",
+    description: "Renders PDF pages to image formats.",
+  },
 };
 
 const pdfFormats = new Set(["pdf"]);
@@ -132,6 +158,29 @@ function optionsForKind(kind: ConvertKind): ConvertOption[] {
   }
 }
 
+function engineOptionsForConvert(inputKind: ConvertKind, outputFormat: string) {
+  const engines: ConvertEngine[] = ["auto"];
+
+  if ((inputKind === "office" || inputKind === "spreadsheet") && outputFormat === "pdf") {
+    engines.push("libreoffice");
+  }
+  if (inputKind === "pdf" && ["png", "jpg", "jpeg"].includes(outputFormat)) {
+    engines.push("mutool");
+  }
+  if (inputKind === "svg") {
+    engines.push("inkscape");
+  }
+  if (inputKind === "image") {
+    engines.push("imagemagick");
+  }
+
+  return engines.map((engine) => ({
+    value: engine,
+    label: CONVERT_ENGINE_DETAILS[engine].label,
+    description: CONVERT_ENGINE_DETAILS[engine].description,
+  }));
+}
+
 function suggestedOutputName(fileMeta: UploadedFileMetadata | null, settings: ConvertSettings, outputExtension: string) {
   const originalName = fileMeta?.original_name ?? fileMeta?.filename ?? "converted-file";
   const base = settings.outputFilename.trim() || slugifyBaseName(originalName);
@@ -155,6 +204,8 @@ export default function ConvertPage() {
   const [uploadTotalBytes, setUploadTotalBytes] = useState(0);
   const { state: settings, update } = useObjectState<ConvertSettings>({
     dpi: 180,
+    engine: "auto",
+    manualEngine: false,
     outputFilename: "",
     preserveMetadata: false,
     quality: 85,
@@ -173,6 +224,11 @@ export default function ConvertPage() {
   );
   const queryTo = normalizeFormat(searchParams.get("to"));
   const outputFormat = selectedOutput;
+  const engineOptions = useMemo(
+    () => engineOptionsForConvert(inputKind, outputFormat),
+    [inputKind, outputFormat],
+  );
+  const engineOptionValues = useMemo(() => engineOptions.map((option) => String(option.value)).join("|"), [engineOptions]);
   const { pageCount } = useUploadedPdfPageItems(
     inputKind === "pdf" && fileMeta ? fileMeta.file_id : null,
     Number(fileMeta?.metadata?.page_count ?? fileMeta?.pages ?? 0),
@@ -265,13 +321,28 @@ export default function ConvertPage() {
     }
   }, [selectedOutput, settings.toFormat, update]);
 
+  useEffect(() => {
+    if (!settings.manualEngine || settings.engine === "auto") {
+      return;
+    }
+    const compatible = engineOptions.some((option) => option.value === settings.engine);
+    if (!compatible) {
+      update("engine", "auto");
+      update("manualEngine", false);
+    }
+  }, [engineOptionValues, engineOptions, settings.engine, settings.manualEngine, update]);
+
   const selectOutput = useCallback(
     (value: string) => {
       setSelectedOutput(value);
       update("toFormat", value);
+      if (!engineOptionsForConvert(inputKind, value).some((option) => option.value === settings.engine)) {
+        update("engine", "auto");
+        update("manualEngine", false);
+      }
       syncQuery({ file_id: fileMeta?.file_id ?? searchParams.get("file_id"), from: inputFormat || searchParams.get("from"), to: value });
     },
-    [fileMeta?.file_id, inputFormat, searchParams, syncQuery, update],
+    [fileMeta?.file_id, inputFormat, inputKind, searchParams, settings.engine, syncQuery, update],
   );
 
   const handleFilesSelected = useCallback(
@@ -361,11 +432,15 @@ export default function ConvertPage() {
     formData.append("file_id", fileMeta.file_id);
     formData.append("from_format", inputFormat);
     formData.append("to_format", selectedOutput);
+    if (settings.manualEngine && settings.engine !== "auto") {
+      formData.append("engine", settings.engine);
+    }
     formData.append("output_filename", settings.outputFilename.trim());
     formData.append(
       "settings",
       JSON.stringify({
         dpi: settings.dpi,
+        engine: settings.manualEngine ? settings.engine : "auto",
         output_filename: settings.outputFilename.trim(),
         preserve_metadata: settings.preserveMetadata,
         quality: settings.quality,
@@ -426,6 +501,29 @@ export default function ConvertPage() {
           },
         ],
       },
+      ...(engineOptions.length > 1
+        ? [
+            {
+              key: "engine",
+              label: "Processing engine",
+              fields: [
+                {
+                  key: "manualEngine",
+                  label: "Choose engine manually",
+                  type: "toggle",
+                  helpText: "Auto is recommended. Manual engines depend on server availability.",
+                },
+                {
+                  key: "engine",
+                  label: "Engine",
+                  type: "radioCards",
+                  options: engineOptions,
+                  show: (currentSettings) => currentSettings.manualEngine,
+                },
+              ],
+            } satisfies ControlSection<ConvertSettings>,
+          ]
+        : []),
       {
         key: "quality",
         label: "Quality",
@@ -462,7 +560,7 @@ export default function ConvertPage() {
         ],
       },
     ],
-    [inputKind, outputOptions, selectOutput, selectedOutput],
+    [engineOptions, inputKind, outputOptions, selectOutput, selectedOutput],
   );
 
   const previewContent = useMemo(() => {

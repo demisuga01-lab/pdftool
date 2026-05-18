@@ -163,7 +163,7 @@ export function CompactWorkspaceShell({
             {hasContent ? (
               preview
             ) : (
-              <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-6">
+              <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
                 <div className="flex min-h-[360px] items-center justify-center">{emptyState}</div>
               </div>
             )}
@@ -289,7 +289,7 @@ export function VisualEditorWorkspaceShell({
           {hasContent ? editor : <div className="flex min-h-[520px] items-center justify-center">{emptyState}</div>}
         </section>
 
-        <aside className="hidden w-[400px] shrink-0 border-l border-zinc-200 bg-zinc-50 px-5 py-5 dark:border-white/10 dark:bg-zinc-950 lg:block">
+        <aside className="hidden w-[400px] shrink-0 border-l border-zinc-200 bg-zinc-50 px-5 py-5 dark:border-zinc-800 dark:bg-zinc-950 lg:block">
           <div className="sticky top-24">
             <WorkspaceSettingsPanel
               bodyClassName="space-y-6 lg:max-h-[calc(100dvh-15rem)] lg:overflow-y-auto"

@@ -28,8 +28,15 @@ function ThemeIcon({ theme }: { theme: ThemeMode }) {
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme, theme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const buttonClassName =
+    "inline-flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-200 bg-white text-slate-600 shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-white dark:focus-visible:ring-emerald-400/35";
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -56,12 +63,24 @@ export function ThemeToggle() {
     };
   }, [open]);
 
+  if (!mounted) {
+    return (
+      <button
+        aria-label="Toggle theme"
+        className={buttonClassName}
+        type="button"
+      >
+        <Monitor aria-hidden="true" className="h-4 w-4" />
+      </button>
+    );
+  }
+
   return (
     <div className="relative" ref={rootRef}>
       <button
         aria-expanded={open}
         aria-label={`Theme: ${theme === "system" ? `System (${resolvedTheme})` : theme}`}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-200 bg-white text-slate-600 shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-white dark:focus-visible:ring-emerald-400/35"
+        className={buttonClassName}
         onClick={() => setOpen((current) => !current)}
         type="button"
       >

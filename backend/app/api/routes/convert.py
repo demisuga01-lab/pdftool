@@ -18,6 +18,7 @@ from app.core.dependencies import (
     validate_saved_upload_path,
 )
 from app.services.conversion_service import ConversionService
+from app.services.engine_registry import validate_engine_for_workflow
 from app.services.file_store import read_upload_metadata, resolve_upload_path
 from app.workers.celery_app import celery_app
 from app.workers.convert_tasks import convert_file_task
@@ -63,6 +64,19 @@ def _normalized_task_state(state: str) -> str:
     if normalized in {"STARTED", "RETRY", "RECEIVED"}:
         return "processing"
     return "queued"
+
+
+def _conversion_input_category(input_format: str) -> str:
+    normalized = ConversionService().normalize_output_format(input_format)
+    if normalized == "pdf":
+        return "pdf"
+    if normalized in {"doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "rtf"}:
+        return "office"
+    if normalized in {"jpg", "jpeg", "png", "webp", "avif", "tif", "tiff", "bmp", "svg"}:
+        return "image"
+    if normalized in {"txt", "html", "htm", "csv"}:
+        return "text"
+    return "unknown"
 
 
 def _safe_output_path(path: str, settings: Settings) -> Path:
@@ -157,6 +171,7 @@ async def convert_file(
     file: Annotated[UploadFile | None, File()] = None,
     file_id: Annotated[str | None, Form()] = None,
     from_format: Annotated[str | None, Form()] = None,
+    engine: Annotated[str | None, Form()] = None,
     output_filename: Annotated[str | None, Form()] = None,
     settings_json: Annotated[str | None, Form(alias="settings")] = None,
 ) -> dict[str, str]:
@@ -190,13 +205,24 @@ async def convert_file(
         from_format=from_format,
         mime_type=str(metadata.get("mime_type") or ""),
     )
-    task = convert_file_task.delay(
-        str(input_path),
-        str(_output_dir(settings)),
-        normalized_to_format,
-        detected_from,
-        str(metadata.get("mime_type") or ""),
-        parsed_settings,
+    validated_engine = validate_engine_for_workflow(
+        engine,
+        "convert",
+        _conversion_input_category(detected_from),
+        input_extension=Path(input_path).suffix.lower().lstrip(".") or detected_from,
+        output_format=normalized_to_format,
+    )
+    parsed_settings["engine"] = validated_engine
+    task = convert_file_task.apply_async(
+        args=[
+            str(input_path),
+            str(_output_dir(settings)),
+            normalized_to_format,
+            detected_from,
+            str(metadata.get("mime_type") or ""),
+            parsed_settings,
+        ],
+        kwargs={"engine": validated_engine},
     )
     logger.info(
         "Queued conversion task job_id=%s requested_format=%s normalized_format=%s input_extension=%s",

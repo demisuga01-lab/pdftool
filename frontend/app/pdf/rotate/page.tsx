@@ -12,7 +12,7 @@ import { UnifiedWorkspace } from "@/components/workspace/UnifiedWorkspace";
 import { estimateProcessingTime, formatBytes, slugifyBaseName } from "@/lib/format";
 import { useWorkspaceFiles } from "@/lib/use-workspace-files";
 import { useWorkspaceJob } from "@/lib/workspace-job";
-import { selectedPagesLabel, uploadedFileDetails, useUploadedPdfPageItems } from "@/lib/workspace-data";
+import { uploadedFileDetails, useUploadedPdfPageItems } from "@/lib/workspace-data";
 
 type RotateSettings = {
   angle: 90 | 180 | 270;
@@ -88,6 +88,9 @@ export default function PdfRotatePage() {
   });
 
   const selectionMatcher = (item: PdfPageCard) => {
+    if (item.removed) {
+      return false;
+    }
     if (settings.applyTo === "selected") {
       return Boolean(item.selected);
     }
@@ -101,7 +104,7 @@ export default function PdfRotatePage() {
   };
 
   const uniqueAngles = Array.from(new Set(items.filter((item) => (item.rotation ?? 0) > 0).map((item) => item.rotation ?? 0).filter(Boolean)));
-  const targetCount = items.filter(selectionMatcher).length;
+  const targetCount = items.filter((item) => selectionMatcher(item)).length;
   const fileInfo = fileRecord ? [fileRecord.page_count ? `${fileRecord.page_count} pages` : undefined, formatBytes(fileRecord.size_bytes)].filter(Boolean).join(" / ") : undefined;
 
   const infoContent = useMemo(() => {
@@ -132,11 +135,14 @@ export default function PdfRotatePage() {
 
     let pages = "all";
     if (settings.applyTo === "selected") {
-      pages = selectedPagesLabel(items);
+      pages = items
+        .filter((item) => item.selected && !item.removed)
+        .map((item) => item.pageNumber)
+        .join(",");
     } else if (settings.applyTo === "even") {
-      pages = items.filter((item) => item.pageNumber % 2 === 0).map((item) => item.pageNumber).join(",");
+      pages = items.filter((item) => !item.removed && item.pageNumber % 2 === 0).map((item) => item.pageNumber).join(",");
     } else if (settings.applyTo === "odd") {
-      pages = items.filter((item) => item.pageNumber % 2 === 1).map((item) => item.pageNumber).join(",");
+      pages = items.filter((item) => !item.removed && item.pageNumber % 2 === 1).map((item) => item.pageNumber).join(",");
     }
     formData.append("pages", pages);
     formData.append("output_filename", fileRecord.display_name ? `${slugifyBaseName(fileRecord.display_name)}-rotated` : "rotated");
@@ -239,7 +245,7 @@ export default function PdfRotatePage() {
                 )}
                 summary={
                   <div className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-sm leading-6 text-zinc-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300">
-                    {targetCount} pages will be rotated {settings.angle} degrees.
+                    {targetCount} page{targetCount !== 1 ? "s" : ""} will be rotated {settings.angle} degrees.
                   </div>
                 }
               />
@@ -283,7 +289,7 @@ export default function PdfRotatePage() {
         }
         resultPanel={
           <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-[13px] leading-6 text-zinc-600 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300">
-            {targetCount} pages will be rotated {settings.angle} degrees.
+            {targetCount} page{targetCount !== 1 ? "s" : ""} will be rotated {settings.angle} degrees.
           </div>
         }
         settingsPanel={
