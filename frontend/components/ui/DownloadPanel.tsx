@@ -37,6 +37,8 @@ export function DownloadPanel({
   outputSize,
   queuePosition,
   rateLimitScope,
+  readyTitle,
+  reportFields,
   routePath,
   state,
   statusText,
@@ -60,6 +62,8 @@ export function DownloadPanel({
   outputSize?: string;
   queuePosition?: number | null;
   rateLimitScope?: "job" | "status" | "download" | null;
+  readyTitle?: string;
+  reportFields?: Array<{ label: string; value?: string | number | null }>;
   routePath?: string;
   state: DownloadPanelState;
   statusText?: string;
@@ -80,6 +84,7 @@ export function DownloadPanel({
       ["File", cleanReportValue(fileName)],
       ["File type", cleanReportValue(fileType)],
       ["Approx size", cleanReportValue(approxFileSize)],
+      ...(reportFields ?? []).map((field) => [field.label, cleanReportValue(field.value == null ? undefined : String(field.value))]),
       ["Time", new Date().toISOString()],
       ["Status", state],
       ["Error", cleanReportValue(error) ?? "Processing failed."],
@@ -90,7 +95,7 @@ export function DownloadPanel({
       ...rows.map(([label, value]) => `${label}: ${value}`),
       "Support: support@wellfriend.online",
     ].join("\n");
-  }, [approxFileSize, error, fileName, fileType, jobId, resolvedRoute, state, toolName]);
+  }, [approxFileSize, error, fileName, fileType, jobId, reportFields, resolvedRoute, state, toolName]);
   const supportSubject = encodeURIComponent(`PDFTools job failure: ${toolName || resolvedRoute || "job"}`);
   const supportBody = encodeURIComponent(reportDetails);
   const mailtoHref = `mailto:support@wellfriend.online?subject=${supportSubject}&body=${supportBody}`;
@@ -108,7 +113,7 @@ export function DownloadPanel({
           <p className="text-sm font-semibold text-[#059669] dark:text-emerald-300">Download status</p>
           <h2 className="text-lg font-bold text-slate-900 dark:text-zinc-100 sm:text-xl">
             {isReady
-              ? "Your file is ready"
+              ? readyTitle?.trim() || "Your file is ready"
               : isJobRateLimited
                 ? "Rate limit reached"
                 : isFailed

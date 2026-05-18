@@ -6,6 +6,8 @@ Files are processed temporarily for the selected tool and are not kept as perman
 
 Files are used to complete the action you selected, such as compressing, converting, watermarking, merging, or extracting text. The service is meant for processing, not for storing a file library.
 
+Downloads are temporary. Save finished results when they are ready because generated files may be cleaned up after the retention window.
+
 ## Use caution with sensitive files
 
 Avoid uploading highly sensitive files unless you trust the service for that specific use. If a document contains legal, medical, financial, employment, identity, or confidential business information, consider whether it should be processed in a public web tool at all.
@@ -15,6 +17,13 @@ Avoid uploading highly sensitive files unless you trust the service for that spe
 - It does mean the service is designed for temporary processing rather than long-term storage.
 - It does not mean that files never touch server-side infrastructure while a job runs.
 - It does not guarantee that every file is appropriate for every privacy or compliance requirement.
+- It does not mean PDFTools performs malware or virus scanning.
+
+## Recent jobs and local browser storage
+
+Recent Jobs are saved only in your browser localStorage. They can include metadata such as job ID, tool name, route, original filename, file type, approximate size, status, timestamps, download URL, and safe error text.
+
+Recent Jobs do not store file contents, passwords, or secrets. Clearing browser storage or using another device/browser may remove this local history.
 
 ## If a job fails
 
@@ -27,3 +36,5 @@ When reporting a failed job, include:
 - the job ID if it is shown
 
 This gives the support team enough detail to investigate without unnecessary back-and-forth.
+
+Do not send passwords, private credentials, or unrelated sensitive data in a support report.

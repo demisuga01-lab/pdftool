@@ -1,1 +1,1 @@
-export { useWorkspaceJob } from "@/lib/use-workspace-job";
+export { useWorkspaceJob, type WorkspaceJobMetadata } from "@/lib/use-workspace-job";

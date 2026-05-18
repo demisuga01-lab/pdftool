@@ -37,7 +37,10 @@ OCR exists to extract text from scanned PDFs and images, and to produce searchab
 
 - shared page at `/tools/ocr`
 - route wrappers for `/pdf/ocr`, `/pdf/ocr-to-searchable`, and `/image/ocr`
-- current UI language choices are limited compared with what backend could theoretically support
+- supported controls include language, output format, DPI, and password where applicable
+- advanced cleanup options are planned and should not be documented as active controls unless verified
+
+Quality depends on scan quality, contrast, language, and installed server tools.
 
 ## Password-Protected PDFs
 
@@ -55,10 +58,10 @@ The OCR service checks for encrypted PDFs and returns a password-specific safe e
 - password-protected PDF without password
 - render failure before OCR
 - timeout on large OCR jobs
+- language data unavailable on the server
 
 ## Related Documents
 
 - [workers-and-queues.md](./workers-and-queues.md)
 - [external-tools.md](./external-tools.md)
 - [error-handling.md](./error-handling.md)
-

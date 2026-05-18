@@ -15,6 +15,8 @@ Use this help center to understand what each tool does, how uploads and download
 
 Files are processed temporarily for the selected tool and are not kept as permanent storage.
 
+Download results when they are ready. Results may be cleaned up after the retention window, and Recent Jobs are saved only in your browser.
+
 ## Need technical references?
 
 Architecture, backend, deployment, and operational references are still available in the developer and operator section of `/docs`.

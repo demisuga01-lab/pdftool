@@ -32,3 +32,6 @@ Matrix of non-Python/non-Node tools used by the current codebase.
 | PM2 | `pm2` | app process supervision | Operational | current deployment stack |
 | Celery | `celery` | worker inspection | Operational | backend queue system |
 
+## Readiness Check
+
+Run `python3 -m app.scripts.check_readiness` from the backend virtualenv to check Redis, writable runtime directories, critical CLI tools, optional optimizer tools, Python imports, and key config values. Missing optional tools are warnings; missing critical tools or failed critical checks should block readiness.

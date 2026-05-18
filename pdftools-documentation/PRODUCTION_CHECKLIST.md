@@ -35,6 +35,8 @@ This checklist assumes the current PM2 process names and current public policy i
 - `pdftool-worker-fast`
 - `pdftool-worker-heavy`
 
+The repository also includes a secret-free `ecosystem.config.js`. Review paths before use, run Git/build/PM2 app commands as the `pdftool` user, and keep Docker/system commands under root or sudo.
+
 ## Pre-Commit Checks
 
 ```powershell
@@ -86,6 +88,7 @@ cd /opt/pdftool/backend
 source venv/bin/activate
 pip install -r requirements.txt
 python3 -m compileall app
+python3 -m app.scripts.check_readiness
 ```
 
 ## Frontend Build
@@ -104,6 +107,15 @@ pnpm build
 pm2 restart pdftool-api pdftool-frontend pdftool-worker-fast pdftool-worker-heavy --update-env
 pm2 save
 pm2 list
+```
+
+Optional ecosystem-config flow after reviewing paths:
+
+```bash
+cd /opt/pdftool
+pm2 start ecosystem.config.js
+pm2 restart ecosystem.config.js --update-env
+pm2 save
 ```
 
 ## Redis and Queue Checks
@@ -154,7 +166,10 @@ curl -I https://tools.wellfriend.online
 - Image watermark works with text
 - SVG watermark either succeeds safely or fails with safe SVG message
 - Download works
+- Download panel mentions temporary results
+- Recent Jobs panel records metadata only and can clear/remove entries
 - Failed job panel points user to `support@wellfriend.online` with job ID
+- Failed job panel can copy report details without internal paths, tracebacks, logs, secrets, or command lines
 
 ## Rate-Limit Tests
 
@@ -200,5 +215,6 @@ pm2 save
 ## Known Risks
 
 - Some frontend control surfaces expose settings that current backend routes do not consume yet
+- Some advanced controls are planned and intentionally hidden, disabled, or documented as unavailable
 - Mobile interaction quality still benefits from real-device QA
 - OCR, conversion, compression, and watermark reliability depend on installed host tools

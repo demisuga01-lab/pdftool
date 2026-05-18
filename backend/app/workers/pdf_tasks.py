@@ -128,12 +128,28 @@ def split_pdf_task(
     pages: str,
     naming_pattern: str = "page-{n}",
     output_format: str = "ranges",
+    mode: str | None = None,
+    page_order: str = "",
+    ranges: str = "",
+    output_filename: str = "",
 ) -> dict[str, Any]:
     try:
-        outputs = _run_service(
-            PDFService().split_pdf(input_path, output_dir, pages, naming_pattern, output_format)
+        result = _run_service(
+            PDFService().split_pdf(
+                input_path,
+                output_dir,
+                pages,
+                naming_pattern,
+                output_format,
+                mode,
+                page_order,
+                ranges,
+                output_filename,
+            )
         )
-        return _success(self, output_paths=list(outputs))
+        if isinstance(result, dict):
+            return _success(self, **result)
+        return _success(self, output_paths=list(result))
     except Exception as exc:
         return _failure(self, exc)
 

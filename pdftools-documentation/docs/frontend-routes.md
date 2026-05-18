@@ -70,7 +70,7 @@ Inventory the current Next.js routes and explain what each page does.
 
 | URL | Purpose | File | Status |
 | --- | --- | --- | --- |
-| `/[category]/[tool]` | Generic placeholder page for tool definitions from `lib/tools.ts` | `frontend/app/[category]/[tool]/page.tsx` | Partially implemented placeholder |
+| `/[category]/[tool]` | Generic placeholder page for tool definitions from `lib/tools.ts` | `frontend/app/[category]/[tool]/page.tsx` | Placeholder shell |
 
 ## Route Behavior Notes
 
@@ -78,6 +78,10 @@ Inventory the current Next.js routes and explain what each page does.
 - Header mobile menu uses body-scroll locking.
 - Shared routes often carry query parameters like `from`, `to`, `input`, `output`, or `file_id`.
 - Some tool families intentionally funnel into shared routes instead of maintaining duplicate page implementations.
+- Workspace success panels mention temporary downloads.
+- Workspace failure panels include support-ready report details with copy and email actions.
+- Workspace pages can show Recent Jobs stored only in browser localStorage.
+- `/compress` includes a Processing Engine selector with Auto recommended and manual engines scoped by detected file type.
 
 ## Contact and Support Copy
 
@@ -94,4 +98,3 @@ Inventory the current Next.js routes and explain what each page does.
 - [workspace-system.md](./workspace-system.md)
 - [tool-workflows.md](./tool-workflows.md)
 - [known-limitations.md](./known-limitations.md)
-

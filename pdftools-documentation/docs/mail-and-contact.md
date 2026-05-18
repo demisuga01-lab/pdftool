@@ -20,6 +20,7 @@ Document mailbox usage and public contact ownership.
 - Keep `support@wellfriend.online` as the official path for bugs, processing failures, abuse, and security reports
 - Keep `contact@wellfriend.online` for API, product, feature, and business conversations
 - Use Discord for community discussion and quick help, not as a guaranteed official support SLA
+- Failed-job panels should point repeated processing failures to `support@wellfriend.online` with copyable report details
 
 ## Mail/DNS Notes From Current Project Context
 

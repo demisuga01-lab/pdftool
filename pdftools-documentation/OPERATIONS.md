@@ -58,6 +58,8 @@ python3 -m app.scripts.check_readiness
 
 `OK` means the check passed. `WARNING` means an optional tool or non-critical setting needs review. `MISSING` or `FAIL` on a critical check should be fixed before considering the deployment ready.
 
+The script checks Redis, writable runtime directories, critical CLI tools, optional optimizer tools, Python imports, and production config values. It redacts Redis credentials and does not connect to the public internet.
+
 ## Queue and Worker Checks
 
 ```bash
@@ -110,6 +112,8 @@ pm2 save
 ```
 
 Run Git, build, and PM2 app commands as the `pdftool` user. Run Docker and system service commands as root or through sudo according to the VPS playbook.
+
+The frontend process in the ecosystem file uses the current `pnpm start` runtime pattern. Only switch to a host-bound `next start -H 127.0.0.1` command after testing that the local Next.js setup and reverse proxy support it.
 
 ### Safe reboot preparation
 

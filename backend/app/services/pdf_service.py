@@ -5,7 +5,7 @@ import logging
 import re
 import shutil
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import HTTPException, status
 
@@ -17,8 +17,10 @@ PdfQuality = Literal["screen", "ebook", "printer", "prepress"]
 ImageFormat = Literal["png", "jpg", "jpeg", "pam", "pbm", "pgm", "ppm", "pnm"]
 ColorMode = Literal["rgb", "cmyk", "gray"]
 CompatibilityLevel = Literal["1.4", "1.5", "1.6", "1.7"]
+SplitMode = Literal["split_all", "extract_selected", "split_selected", "custom_ranges", "reorder_export"]
 PDF_COMMAND_TIMEOUT_SECONDS = 180
 SAFE_SPLIT_NAME_MAX_LENGTH = 120
+SPLIT_MODES: set[str] = {"split_all", "extract_selected", "split_selected", "custom_ranges", "reorder_export"}
 RESERVED_WINDOWS_NAMES = {
     "CON",
     "PRN",
@@ -91,11 +93,11 @@ class PDFService:
                 detail="Split output naming pattern cannot contain '..'.",
             )
 
-        placeholder_stripped = template.replace("{n}", "").replace("{original}", "")
+        placeholder_stripped = template.replace("{n}", "").replace("{original}", "").replace("{range}", "")
         if "{" in placeholder_stripped or "}" in placeholder_stripped:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Split output naming pattern only supports {n} and {original}.",
+                detail="Split output naming pattern only supports {n}, {range}, and {original}.",
             )
         return template
 
@@ -171,10 +173,159 @@ class PDFService:
         titled_path.replace(path)
         return path
 
-    def _format_output_name(self, pattern: str, original_stem: str, index: int) -> str:
+    def _format_output_name(self, pattern: str, original_stem: str, index: int, range_label: str = "") -> str:
         template = self._validate_split_naming_template(pattern)
-        output_name = template.replace("{n}", str(index)).replace("{original}", original_stem)
+        output_name = (
+            template
+            .replace("{n}", str(index))
+            .replace("{range}", range_label or str(index))
+            .replace("{original}", original_stem)
+        )
         return self._sanitize_split_output_stem(output_name)
+
+    def _safe_split_output_filename(self, requested_name: str, fallback_stem: str, suffix: str) -> str:
+        requested_stem = Path(str(requested_name or "").strip()).stem
+        stem = self._sanitize_split_output_stem(requested_stem or fallback_stem)
+        return f"{stem}{suffix}"
+
+    async def _pdf_page_count(self, input_path: str | Path) -> int:
+        stdout, _ = await self._run_command_output(
+            ["qpdf", "--show-npages", str(input_path)],
+            failure_status=status.HTTP_400_BAD_REQUEST,
+            timeout_seconds=15,
+        )
+        try:
+            page_count = int(stdout.strip() or 0)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unable to read PDF page count.",
+            ) from exc
+        if page_count < 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="PDF must contain at least one page.",
+            )
+        return page_count
+
+    def _normalize_split_mode(self, mode: str | None, pages: str, output_format: str) -> SplitMode:
+        normalized = (mode or "").strip().lower()
+        if not normalized:
+            normalized = "split_all" if pages.strip().lower() == "all" or output_format == "individual" else "custom_ranges"
+        if normalized not in SPLIT_MODES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="mode must be one of: split_all, extract_selected, split_selected, custom_ranges, reorder_export",
+            )
+        return normalized  # type: ignore[return-value]
+
+    def _validate_page_numbers(
+        self,
+        values: list[Any],
+        page_count: int,
+        field_name: str,
+        *,
+        allow_duplicates: bool = False,
+        dedupe: bool = True,
+    ) -> list[int]:
+        pages: list[int] = []
+        seen: set[int] = set()
+        for value in values:
+            if isinstance(value, bool):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{field_name} must contain page numbers.")
+            try:
+                page = int(value)
+            except (TypeError, ValueError) as exc:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{field_name} must contain page numbers.") from exc
+            if str(value).strip() != str(page):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{field_name} must contain integer page numbers.")
+            if page < 1 or page > page_count:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"{field_name} pages must be between 1 and {page_count}.",
+                )
+            if page in seen:
+                if allow_duplicates:
+                    pages.append(page)
+                elif not dedupe:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"{field_name} cannot contain duplicate pages.",
+                    )
+                continue
+            seen.add(page)
+            pages.append(page)
+        return pages
+
+    def _range_tokens_for_split(self, ranges: str, page_count: int) -> list[str]:
+        tokens = [token.strip() for token in ranges.split(",") if token.strip()]
+        if not tokens:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one page range is required.")
+        for token in tokens:
+            if not re.fullmatch(r"\d+(?:-\d+)?", token):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Page ranges must look like 1, 3-5, 8.")
+            start_text, end_text = token.split("-", 1) if "-" in token else (token, token)
+            start = int(start_text)
+            end = int(end_text)
+            if start < 1 or end < 1:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Page ranges cannot include page 0 or negative pages.")
+            if end < start:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Page ranges must start before they end.")
+            if end > page_count:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Page ranges must be between 1 and {page_count}.")
+        return tokens
+
+    def _expand_split_ranges(self, tokens: list[str]) -> list[int]:
+        pages: list[int] = []
+        for token in tokens:
+            if "-" not in token:
+                pages.append(int(token))
+                continue
+            start_text, end_text = token.split("-", 1)
+            pages.extend(range(int(start_text), int(end_text) + 1))
+        return pages
+
+    def _parse_page_selection(
+        self,
+        value: str,
+        page_count: int,
+        field_name: str,
+        *,
+        required: bool = True,
+        dedupe: bool = True,
+    ) -> list[int]:
+        raw = (value or "").strip()
+        if not raw or raw.lower() == "all":
+            if required:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{field_name} is required.")
+            return []
+        if raw.startswith("["):
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{field_name} must be valid JSON.") from exc
+            if not isinstance(parsed, list):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{field_name} must be a JSON array.")
+            return self._validate_page_numbers(parsed, page_count, field_name, dedupe=dedupe)
+        tokens = self._range_tokens_for_split(raw, page_count)
+        return self._validate_page_numbers(self._expand_split_ranges(tokens), page_count, field_name, dedupe=dedupe)
+
+    def _qpdf_page_selection(self, pages: list[int]) -> str:
+        return ",".join(str(page) for page in pages)
+
+    def _split_range_label(self, selection: str) -> str:
+        return self._sanitize_split_output_stem(selection.replace(",", "-").replace(" ", ""))
+
+    async def _write_pdf_selection(
+        self,
+        input_path: str | Path,
+        output_path: Path,
+        pages: list[int],
+    ) -> str:
+        if not pages:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one page is required.")
+        await self._run_command(["qpdf", str(input_path), "--pages", ".", self._qpdf_page_selection(pages), "--", str(output_path)])
+        return str(output_path)
 
     def _normalize_ocr_output_format(self, output_format: str) -> str:
         normalized = output_format.lower().strip()
@@ -395,25 +546,120 @@ class PDFService:
         self,
         input_path: str | Path,
         output_dir: str | Path,
-        pages: str,
+        pages: str = "",
         naming_pattern: str = "page-{n}",
         output_format: str = "ranges",
-    ) -> list[str]:
+        mode: str | None = None,
+        page_order: str = "",
+        ranges: str = "",
+        output_filename: str = "",
+    ) -> dict[str, Any]:
         output_directory = Path(output_dir)
         output_directory.mkdir(parents=True, exist_ok=True)
         input_stem = Path(input_path).stem
-        tokens = self._split_page_tokens(pages)
-        selections = tokens if output_format == "ranges" else self._expand_page_tokens(tokens)
-        outputs: list[str] = []
+        page_count = await self._pdf_page_count(input_path)
+        normalized_mode = self._normalize_split_mode(mode, pages, output_format)
 
+        if normalized_mode == "split_all":
+            selected_pages = self._parse_page_selection(pages, page_count, "pages", required=False) or list(range(1, page_count + 1))
+            outputs: list[str] = []
+            for index, page in enumerate(selected_pages, start=1):
+                range_label = str(page)
+                output_name = self._format_output_name(naming_pattern, input_stem, index, range_label)
+                output = self._safe_split_output_path(output_directory, output_name)
+                await self._write_pdf_selection(input_path, output, [page])
+                outputs.append(str(output))
+            return {
+                "output_paths": outputs,
+                "output_filename": self._safe_split_output_filename(output_filename, f"{input_stem}-split-pages", ".zip"),
+                "result": {
+                    "mode": normalized_mode,
+                    "output_type": "zip",
+                    "file_count": len(outputs),
+                    "page_count": page_count,
+                    "selected_page_count": len(selected_pages),
+                },
+            }
+
+        if normalized_mode == "split_selected":
+            selected_pages = self._parse_page_selection(pages, page_count, "pages")
+            outputs = []
+            for index, page in enumerate(selected_pages, start=1):
+                range_label = str(page)
+                output_name = self._format_output_name(naming_pattern, input_stem, index, range_label)
+                output = self._safe_split_output_path(output_directory, output_name)
+                await self._write_pdf_selection(input_path, output, [page])
+                outputs.append(str(output))
+            return {
+                "output_paths": outputs,
+                "output_filename": self._safe_split_output_filename(output_filename, f"{input_stem}-selected-pages", ".zip"),
+                "result": {
+                    "mode": normalized_mode,
+                    "output_type": "zip",
+                    "file_count": len(outputs),
+                    "page_count": page_count,
+                    "selected_page_count": len(selected_pages),
+                },
+            }
+
+        if normalized_mode == "extract_selected":
+            selected_pages = self._parse_page_selection(pages, page_count, "pages")
+            output_name = self._safe_split_output_filename(output_filename, f"{input_stem}-selected", ".pdf")
+            output = self._safe_split_output_path(output_directory, Path(output_name).stem)
+            await self._write_pdf_selection(input_path, output, selected_pages)
+            return {
+                "output_path": str(output),
+                "result": {
+                    "mode": normalized_mode,
+                    "output_type": "pdf",
+                    "file_count": 1,
+                    "page_count": page_count,
+                    "selected_page_count": len(selected_pages),
+                },
+            }
+
+        if normalized_mode == "reorder_export":
+            ordered_pages = self._parse_page_selection(page_order or pages, page_count, "page_order", dedupe=False)
+            output_name = self._safe_split_output_filename(output_filename, f"{input_stem}-organized", ".pdf")
+            output = self._safe_split_output_path(output_directory, Path(output_name).stem)
+            await self._write_pdf_selection(input_path, output, ordered_pages)
+            return {
+                "output_path": str(output),
+                "result": {
+                    "mode": normalized_mode,
+                    "output_type": "pdf",
+                    "file_count": 1,
+                    "page_count": page_count,
+                    "selected_page_count": len(ordered_pages),
+                },
+            }
+
+        range_text = ranges or pages
+        tokens = self._range_tokens_for_split(range_text, page_count)
+        selections = tokens if output_format == "ranges" else [str(page) for page in self._expand_split_ranges(tokens)]
+        outputs = []
         for index, selection in enumerate(selections, start=1):
-            output_name = self._format_output_name(naming_pattern, input_stem, index)
+            selection_pages = self._validate_page_numbers(self._expand_split_ranges([selection]), page_count, "ranges")
+            range_label = self._split_range_label(selection)
+            output_name = self._format_output_name(naming_pattern, input_stem, index, range_label)
             output = self._safe_split_output_path(output_directory, output_name)
-            command = ["qpdf", str(input_path), "--pages", ".", selection, "--", str(output)]
-            await self._run_command(command)
+            await self._write_pdf_selection(input_path, output, selection_pages)
             outputs.append(str(output))
 
-        return outputs
+        result = {
+            "mode": normalized_mode,
+            "output_type": "pdf" if len(outputs) == 1 else "zip",
+            "file_count": len(outputs),
+            "page_count": page_count,
+            "selected_page_count": len(self._expand_split_ranges(tokens)),
+        }
+        if len(outputs) == 1:
+            return {"output_path": outputs[0], "result": result}
+        return {
+            "output_paths": outputs,
+            "output_filename": self._safe_split_output_filename(output_filename, f"{input_stem}-ranges", ".zip"),
+            "result": result,
+        }
 
     async def rotate_pdf(
         self,

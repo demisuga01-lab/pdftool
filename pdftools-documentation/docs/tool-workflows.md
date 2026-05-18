@@ -28,7 +28,8 @@ Describe the generic lifecycle shared by most tools in PDFTools.
 14. Frontend polls a status endpoint.
 15. Success enables download.
 16. Failure returns a sanitized message.
-17. Cleanup removes files after retention.
+17. Success and failure metadata may update the browser-local Recent Jobs panel.
+18. Cleanup removes files after retention.
 
 ## Why Each Step Exists
 
@@ -40,6 +41,7 @@ Describe the generic lifecycle shared by most tools in PDFTools.
 | Celery queue | keep expensive processing off the request thread |
 | status polling | simple job UX without websockets |
 | output directory | separate originals from generated outputs |
+| Recent Jobs | keep lightweight job metadata in one browser without accounts |
 | cleanup | prevent unbounded disk growth |
 
 ## Files Involved
@@ -50,6 +52,7 @@ Describe the generic lifecycle shared by most tools in PDFTools.
 - backend routes: `backend/app/api/routes/*`
 - worker tasks: `backend/app/workers/*_tasks.py`
 - services: `backend/app/services/*`
+- browser-local recent jobs: `frontend/lib/recent-jobs.ts`, `frontend/components/workspace/RecentJobsPanel.tsx`
 
 ## ASCII Flow
 
@@ -67,6 +70,7 @@ Browser
 -> output file
 -> status endpoint
 -> download endpoint
+-> browser-local Recent Jobs metadata
 -> cleanup after retention window
 ```
 
@@ -79,16 +83,33 @@ Browser
 - job output missing
 - output expired before download
 
+## Split PDF Workspace Notes
+
+- The split page uses `/api/files/pdf-info/{file_id}` for page count and `/api/files/pdf-page/{file_id}/{page_number}` for thumbnails and preview.
+- The frontend sends an explicit split `mode` and page payload. It does not send every page for selected-page modes.
+- `split_all` creates one PDF per active page and downloads a ZIP.
+- `extract_selected` and `reorder_export` create one PDF.
+- `split_selected` creates a ZIP containing one PDF per selected page.
+- `custom_ranges` keeps range behavior and downloads one PDF or a ZIP depending on output count.
+- Recent Jobs may store safe metadata such as split mode, output type, and selected page count. File contents and passwords are not stored there.
+
 ## What Users See
 
 - upload progress
 - queue/processing state
 - safe error text
-- support contact guidance with job ID for failures
+- support-ready failure report with copy and email actions
+- temporary download reminder
+- Recent Jobs panel saved only in the current browser
+
+## Recent Jobs
+
+Recent Jobs are frontend-only. They store job metadata in localStorage with a maximum of 10 records and do not store file contents, passwords, or secrets.
+
+Stored metadata can include job ID, tool name, route, original filename, file type, approximate size, status, timestamps, download URL, output filename, and safe error message. Downloads remain temporary and can expire after backend cleanup.
 
 ## Related Documents
 
 - [upload-preview-download-flow.md](./upload-preview-download-flow.md)
 - [backend-api.md](./backend-api.md)
 - [celery-workers.md](./celery-workers.md)
-

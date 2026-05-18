@@ -132,6 +132,7 @@ function SortableCard({
 export type PdfPageCard = {
   id: string;
   pageNumber: number;
+  removed?: boolean;
   rotation?: number;
   selected?: boolean;
   thumbnail: string;

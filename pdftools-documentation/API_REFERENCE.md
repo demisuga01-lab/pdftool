@@ -166,6 +166,20 @@ Headers:
 - `GET /api/pdf/status/{job_id}`
 - `GET /api/pdf/download/{job_id}`
 
+#### `POST /api/pdf/split`
+
+Form fields:
+
+- `file` or `file_id`
+- `mode`: `split_all`, `extract_selected`, `split_selected`, `custom_ranges`, or `reorder_export`
+- `pages`: JSON page array such as `[2,5,7]`, `all`, or legacy range text depending on mode
+- `page_order`: JSON page array for `reorder_export`
+- `ranges`: custom range text such as `1,3-5,8`
+- `naming_pattern`: safe split-output template supporting `{original}`, `{n}`, and `{range}`
+- `output_filename`: optional safe filename for the final PDF or ZIP
+
+Selected-page modes validate 1-based page numbers against the uploaded PDF page count. Split-all is the only mode that intentionally processes every page. Multi-output jobs are packaged as ZIP on download; single-output jobs download as PDF.
+
 ### Image routes
 
 - `POST /api/image/convert`
@@ -184,7 +198,7 @@ Headers:
 ## Notes
 
 - The frontend uses only safe example IDs like `file_id=example-file-id` in docs. Real IDs are random hex values generated during upload.
-- Several UI pages submit fields that the backend currently ignores. These are documented in the deeper tool pages as `Partially implemented`.
+- Public tool pages should not expose active no-op controls. Unsupported advanced settings are hidden, disabled, or documented as planned in the deeper tool pages.
 - PDF to JPG is supported through format normalization. The backend canonical format is `jpg`, and downloads use `image/jpeg`.
 
 ## Related Documents

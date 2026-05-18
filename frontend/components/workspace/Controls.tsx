@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 type Option = {
   description?: string;
+  disabled?: boolean;
   icon?: ReactNode;
   label: string;
   value: string | number | boolean;
@@ -117,7 +118,7 @@ function fieldVisible<T>(field: ControlField<T>, state: T) {
   return field.show ? field.show(state) : true;
 }
 
-export function WorkspaceControls<T extends Record<string, any>>({
+export function WorkspaceControls<T extends Record<string, unknown>>({
   sections,
   state,
   update,
@@ -170,10 +171,12 @@ export function WorkspaceControls<T extends Record<string, any>>({
                         <button
                           className={[
                             "rounded-xl border px-3.5 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:focus-visible:ring-emerald-700/45",
+                            option.disabled ? "cursor-not-allowed opacity-50" : "",
                             isSelected
                               ? "border-emerald-500 bg-emerald-50 shadow-sm shadow-black/[0.03] dark:border-emerald-800 dark:bg-emerald-950/30"
                               : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50 dark:border-white/10 dark:bg-[#111111] dark:hover:border-zinc-600 dark:hover:bg-zinc-900",
                           ].join(" ")}
+                          disabled={option.disabled}
                           key={String(option.value)}
                           onClick={() => update(field.key, option.value as T[keyof T])}
                           type="button"
@@ -215,10 +218,12 @@ export function WorkspaceControls<T extends Record<string, any>>({
                       <button
                         className={[
                           "rounded-lg border px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:focus-visible:ring-emerald-700/45",
+                          option.disabled ? "cursor-not-allowed opacity-50" : "",
                           value === option.value
                             ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
                             : "border-zinc-200 bg-white text-slate-600 hover:border-zinc-300 dark:border-white/10 dark:bg-[#111111] dark:text-zinc-300 dark:hover:border-zinc-500",
                         ].join(" ")}
+                        disabled={option.disabled}
                         key={String(option.value)}
                         onClick={() => update(field.key, option.value as T[keyof T])}
                         type="button"
@@ -237,7 +242,7 @@ export function WorkspaceControls<T extends Record<string, any>>({
                   <div className="flex items-center justify-between gap-3">
                     <label className="block text-[13px] font-medium text-slate-700 dark:text-zinc-200">{field.label}</label>
                     <span className="text-sm font-medium text-slate-500 dark:text-zinc-400">
-                      {value}
+                      {String(value ?? "")}
                       {field.valueSuffix ?? ""}
                     </span>
                   </div>
@@ -269,7 +274,7 @@ export function WorkspaceControls<T extends Record<string, any>>({
                     value={String(value)}
                     >
                       {field.options.map((option) => (
-                        <option key={String(option.value)} value={String(option.value)}>
+                        <option disabled={option.disabled} key={String(option.value)} value={String(option.value)}>
                           {option.label}
                         </option>
                       ))}

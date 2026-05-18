@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Document the implemented PDF-related workflows and note where the frontend currently exposes options that the backend does not fully consume.
+Document the implemented PDF-related workflows and the current frontend/backend support boundaries.
 
 ## Audience
 
@@ -39,9 +39,10 @@ Behavior:
 - optional `add_bookmarks`
 - optional `metadata_title`
 
-Known gap:
+Current UI boundary:
 
-- several frontend metadata/bookmark options are UI-only today
+- basic bookmarks and title metadata are supported
+- advanced metadata, custom bookmark naming, blank pages, and page numbering are planned but are not active controls
 
 ## Split PDF
 
@@ -52,9 +53,15 @@ Known gap:
 
 Behavior:
 
-- accepts page ranges like `1,3-5`
-- can produce range-based or page-based outputs
-- multi-output download is packaged as ZIP if needed
+- opens a page-level workspace with PDF page thumbnails, selection, removal from output, visual preview, and reorder controls for organize-style export
+- supports explicit modes: split all pages, extract selected pages into one PDF, split selected pages into separate PDFs, custom ranges, and reorder/delete export as one PDF
+- accepts custom page ranges like `1,3-5,8`
+- selected-page modes process only the selected active pages
+- removed pages are not deleted from the original file; they are excluded from active-page outputs
+- split-all and split-selected modes download a ZIP of PDFs
+- extract-selected and reorder-export modes download one PDF
+- custom ranges download one PDF for a single range or a ZIP when multiple range outputs are created
+- outputs are temporary generated files; the original upload is not modified
 
 ## Rotate PDF
 
@@ -121,9 +128,11 @@ Implemented backend behavior:
 - encrypts with user password
 - optional owner password
 
-Known limitation:
+Current UI boundary:
 
-- frontend permission and encryption controls are richer than current backend enforcement
+- the public tool currently adds password protection
+- advanced permission controls and encryption-strength controls are not presented as enforceable settings
+- do not describe printing, copying, editing, or accessibility restrictions as enforced unless backend support is added
 
 ## Decrypt PDF
 
@@ -137,9 +146,10 @@ Implemented backend behavior:
 - requires password
 - outputs decrypted PDF
 
-Known limitation:
+Current UI boundary:
 
-- extra frontend flags are currently not consumed by the backend route
+- this tool removes password protection when the user knows the password
+- extra metadata and restriction options are not configurable in the current UI
 
 ## Extract Text
 
@@ -155,9 +165,15 @@ Implemented outputs:
 - HTML
 - JSON
 
-Known limitation:
+Implemented controls:
 
-- frontend exposes more extraction options than the backend currently uses
+- `layout`
+- `output_format`
+
+Current UI boundary:
+
+- advanced cleanup options are planned
+- page ranges, language hints, header/footer cleanup, form extraction, and encoding controls are not active settings
 
 ## PDF to Images
 
@@ -177,6 +193,11 @@ Download behavior:
 
 - multiple page images are delivered as ZIP
 
+Current UI boundary:
+
+- output format is supported
+- page selection and custom naming controls are planned if not currently supported by the route
+
 ## Images to PDF
 
 - Route: `/pdf/images-to-pdf`
@@ -185,9 +206,11 @@ Download behavior:
 - Service: `PDFService.images_to_pdf`
 - Dependency: `img2pdf`
 
-Known limitation:
+Current UI boundary:
 
-- frontend exposes page-size and margin settings that current backend route does not apply
+- image order and output filename are supported by the workspace flow
+- images are combined using the backend default layout
+- page size, orientation, margins, fit, compression, and quality controls are planned but are not active settings
 
 ## Office to PDF
 
@@ -197,9 +220,10 @@ Known limitation:
 - Service: `PDFService.office_to_pdf`
 - Dependency: `libreoffice`
 
-Known limitation:
+Current UI boundary:
 
-- current backend runs generic conversion and does not consume most export toggles sent by the page
+- current backend runs LibreOffice generic conversion using server defaults
+- do not claim PDF/A, a specific PDF version, hidden-slide behavior, first-sheet-only output, comment export, bookmark export, form-field handling, or image-compression controls unless backend support is added and verified
 
 ## PDF OCR
 
@@ -225,4 +249,3 @@ Known limitation:
 - [ocr.md](./ocr.md)
 - [watermarking.md](./watermarking.md)
 - [known-limitations.md](./known-limitations.md)
-

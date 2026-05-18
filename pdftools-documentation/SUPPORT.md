@@ -28,6 +28,7 @@ This file covers mailbox ownership, what users should include, and the minimum t
 - exact error text
 - screenshot if relevant
 - job ID if the failure happened after processing started
+- timestamp if shown in the failure report
 - whether the issue is reproducible
 
 ## What Users Should Not Send
@@ -39,7 +40,9 @@ This file covers mailbox ownership, what users should include, and the minimum t
 
 ## Processing Failure Guidance
 
-If the UI shows a job ID, ask the user to include it in the report. Current failure UI already points users toward `support@wellfriend.online` with the job ID when applicable.
+If the UI shows a failure report panel, ask the user to use "Copy report details" or the "Email support" link. The report is designed to include tool, route, job ID, file metadata, timestamp, status, and safe error text without exposing internal paths, tracebacks, raw logs, secrets, or command lines.
+
+If the report mentions an expired download from Recent Jobs, ask the user to rerun the tool. Recent Jobs are browser-local metadata only and do not preserve files.
 
 Discord can be offered as a community-help path, but it is not a replacement for the official support mailbox for bugs, failures, abuse, or security reports.
 

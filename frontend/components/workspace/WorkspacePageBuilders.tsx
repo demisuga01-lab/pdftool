@@ -24,7 +24,8 @@ import {
   type UploadedFileMetadata,
   type UploadProgressHandler,
 } from "@/lib/files";
-import { useWorkspaceJob } from "@/lib/workspace-job";
+import { useWorkspaceJob, type WorkspaceJobMetadata } from "@/lib/workspace-job";
+import type { JobStatus } from "@/lib/api";
 import {
   imageSummary,
   uploadedFileDetails,
@@ -442,9 +443,11 @@ type SinglePdfWorkspacePageProps<T extends Record<string, unknown>> = {
   initialSettings: T;
   layoutKind?: "compact" | "editor";
   presets?: Array<PresetButton<T>>;
-  processDisabled?: (args: { file: File | null; items: PdfPageCard[]; settings: T }) => boolean;
+  processButtonLabel?: string;
+  processDisabled?: (args: { file: File | null; items: PdfPageCard[]; pageCount: number; settings: T }) => boolean;
   renderCenter?: (args: {
     file: File;
+    fileId: string;
     items: PdfPageCard[];
     pageCount: number;
     selectedPages: string;
@@ -452,8 +455,37 @@ type SinglePdfWorkspacePageProps<T extends Record<string, unknown>> = {
     settings: T;
     update: <K extends keyof T>(key: K, value: T[K]) => void;
   }) => ReactNode;
-  rightPanelFooter?: ReactNode;
-  sections: Array<ControlSection<T>>;
+  downloadPanelProps?: (args: {
+    items: PdfPageCard[];
+    result: JobStatus | null;
+    settings: T;
+  }) => {
+    downloadLabel?: string;
+    helperText?: string;
+    outputFilename?: string;
+    readyTitle?: string;
+  };
+  recentJobMetadata?: (args: {
+    items: PdfPageCard[];
+    pageCount: number;
+    settings: T;
+  }) => WorkspaceJobMetadata;
+  reportFields?: (args: {
+    items: PdfPageCard[];
+    pageCount: number;
+    settings: T;
+  }) => Array<{ label: string; value?: string | number | null }>;
+  rightPanelFooter?: ReactNode | ((args: {
+    items: PdfPageCard[];
+    pageCount: number;
+    settings: T;
+    update: <K extends keyof T>(key: K, value: T[K]) => void;
+  }) => ReactNode);
+  sections: Array<ControlSection<T>> | ((args: {
+    items: PdfPageCard[];
+    pageCount: number;
+    settings: T;
+  }) => Array<ControlSection<T>>);
   showSelectionBar?: boolean;
   showSizeToggle?: boolean;
   title: string;
@@ -497,8 +529,12 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
   initialSettings,
   layoutKind = "compact",
   presets = [],
+  processButtonLabel,
   processDisabled,
   renderCenter,
+  downloadPanelProps,
+  recentJobMetadata,
+  reportFields,
   rightPanelFooter,
   sections,
   showSelectionBar = true,
@@ -622,7 +658,9 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
     const formData = buildFormData({ file: currentFile, items, settings });
     formData.delete("file");
     formData.append("file_id", fileMeta.file_id);
-    job.process(endpoint, formData);
+    job.process(endpoint, formData, {
+      recentMetadata: recentJobMetadata?.({ items, pageCount, settings }),
+    });
   };
 
   useEffect(() => {
@@ -676,17 +714,22 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
     window.localStorage.setItem(workspaceSettingsKey(endpoint, fileMeta.file_id), JSON.stringify(settings));
   }, [endpoint, fileMeta?.file_id, settings]);
 
-  const disabled = processDisabled?.({ file: currentFile, items, settings }) ?? !fileMeta;
+  const disabled = processDisabled?.({ file: currentFile, items, pageCount, settings }) ?? !fileMeta;
   const selectedPages = selectedPagesLabel(items);
+  const resolvedSections = typeof sections === "function" ? sections({ items, pageCount, settings }) : sections;
+  const panelProps = downloadPanelProps?.({ items, result: job.result, settings }) ?? {};
+  const currentReportFields = reportFields?.({ items, pageCount, settings });
   const downloadPanelContent =
     fileMeta && currentFile && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
       <DownloadPanel
         error={job.error}
         errorDetails={job.errorDetails ?? null}
+        downloadLabel={panelProps.downloadLabel}
         estimatedTime={estimateProcessingTime(fileMeta.size_bytes, pageCount)}
         approxFileSize={formatBytes(fileMeta.size_bytes)}
         fileName={fileMeta.original_name}
         fileType={fileMeta.extension}
+        helperText={panelProps.helperText}
         jobId={job.jobId}
         notice={job.notice}
         onDownload={job.state === "success" ? job.download : undefined}
@@ -697,8 +740,11 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
           job.reset();
           syncFileQuery(null);
         }}
+        outputFilename={panelProps.outputFilename ?? job.result?.output_filename}
         onReedit={job.dismissPanel}
         rateLimitScope={job.rateLimitScope}
+        readyTitle={panelProps.readyTitle}
+        reportFields={currentReportFields}
         routePath={pathname}
         state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
         statusText={job.processingLabel ?? undefined}
@@ -721,8 +767,10 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
         state={uploadState === "failure" ? "failure" : job.state}
       />
       <PresetRow onApply={merge} presets={presets} />
-      <WorkspaceControls sections={sections} state={settings} update={update} />
-      {rightPanelFooter}
+      <WorkspaceControls sections={resolvedSections} state={settings} update={update} />
+      {typeof rightPanelFooter === "function"
+        ? rightPanelFooter({ items, pageCount, settings, update })
+        : rightPanelFooter}
     </div>
   );
   const processingLabel =
@@ -751,6 +799,7 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
       renderCenter ? (
         renderCenter({
           file: currentFile ?? fileFromMetadata(fileMeta),
+          fileId: fileMeta.file_id,
           items,
           pageCount,
           selectedPages,
@@ -805,6 +854,7 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
         }}
         preview={compactPreview}
         processButtonDisabled={disabled}
+        processButtonLabel={processButtonLabel}
         processingLabel={processingLabel}
         settingsPanel={rightPanelContent}
         title={title}
@@ -837,12 +887,14 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
       }}
       onSelectAll={selectAll}
       processButtonDisabled={disabled}
+      processButtonLabel={processButtonLabel}
       processingLabel={processingLabel}
       renderCenter={
         fileMeta ? (
           renderCenter ? (
             renderCenter({
               file: currentFile ?? fileFromMetadata(fileMeta),
+              fileId: fileMeta.file_id,
               items,
               pageCount,
               selectedPages,

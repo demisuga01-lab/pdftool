@@ -36,6 +36,13 @@ Long tasks should not be hoarded by one worker. Prefetch `1` keeps queue distrib
 - `pdftool-worker-fast`
 - `pdftool-worker-heavy`
 
+The versioned `ecosystem.config.js` defines:
+
+- fast worker: `venv/bin/celery -A app.workers.celery_app worker -Q fast -n fast@%h --concurrency=4 --loglevel=info`
+- heavy worker: `venv/bin/celery -A app.workers.celery_app worker -Q heavy -n heavy@%h --concurrency=2 --loglevel=info`
+
+Review paths before starting the ecosystem config on a VPS.
+
 ## Inspect Commands
 
 ```bash
@@ -75,4 +82,3 @@ celery -A app.workers.celery_app inspect scheduled
 - [workers-and-queues.md](./workers-and-queues.md)
 - [deployment-vps.md](./deployment-vps.md)
 - [troubleshooting-index.md](./troubleshooting-index.md)
-

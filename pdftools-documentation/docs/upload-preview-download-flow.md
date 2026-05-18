@@ -38,6 +38,8 @@ Document the shared file lifecycle from upload through preview and final downloa
 - frontend `downloadFile` hits tool-specific `download/{job_id}`
 - if multiple outputs exist, backend zips them on demand
 - `Cache-Control: no-store` is applied on downloads
+- download panels tell users results are temporary and should be saved now
+- Recent Jobs may keep a temporary download URL in browser localStorage, but the backend file can still expire after cleanup
 
 ## Failure Conditions
 
@@ -46,10 +48,10 @@ Document the shared file lifecycle from upload through preview and final downloa
 - preview generation tool missing
 - output file missing after task
 - output already cleaned up
+- recent download link expired or no longer found
 
 ## Related Documents
 
 - [tool-workflows.md](./tool-workflows.md)
 - [file-storage-and-retention.md](./file-storage-and-retention.md)
 - [backend-api.md](./backend-api.md)
-

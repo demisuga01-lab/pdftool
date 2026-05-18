@@ -27,6 +27,12 @@ Describe how runtime files are stored and cleaned up.
 
 - current cleanup horizon: configured by runtime retention settings
 - cleanup script: `backend/app/scripts/cleanup_files.py`
+- user-facing download panels describe results as temporary instead of promising permanent storage
+- Recent Jobs can retain metadata in the browser after backend files are cleaned up
+
+## Recent Jobs Boundary
+
+Recent Jobs are stored in browser localStorage only. They do not create a backend database, account history, permanent file history, or permanent download archive.
 
 ## Useful Commands
 

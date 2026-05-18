@@ -53,9 +53,15 @@ Behavior:
 - ZIP extraction applies archive safety checks
 - result is a ZIP of resized outputs
 
-Known limitation:
+Implemented controls:
 
-- some naming and formatting options shown in UI are not used by backend
+- width
+- height
+
+Current UI boundary:
+
+- format, fit, quality, and naming use backend defaults in the current batch route
+- naming patterns, custom prefix/suffix, suffix flags, format selection, and quality controls are not active settings
 
 ## Rotate Image
 
@@ -128,9 +134,11 @@ Implemented behavior:
 - GrabCut-style foreground extraction
 - PNG output with alpha
 
-Known limitation:
+Current wording and UI boundary:
 
-- advanced UI options are currently not consumed by backend
+- describe this as OpenCV foreground extraction
+- output is PNG with transparency
+- advanced refinement, feathering, edge smoothing, mask output, output format, blur, and background replacement options are planned but not active settings
 
 ## Shared Image Route Wrappers
 
@@ -144,4 +152,3 @@ Known limitation:
 - [compression.md](./compression.md)
 - [watermarking.md](./watermarking.md)
 - [known-limitations.md](./known-limitations.md)
-

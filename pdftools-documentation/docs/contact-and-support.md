@@ -24,11 +24,17 @@ Use `contact@wellfriend.online` for:
 Include as much of the following as you can:
 
 - tool name
+- route or page path
 - file type
 - approximate file size
 - exact error text
 - job ID if available
+- timestamp if available
 - what you expected to happen
+
+Failed-job panels include a "Copy report details" button and an "Email support" link to `support@wellfriend.online`. Use those details when reporting a repeated processing failure.
+
+Do not include passwords, private credentials, full backend logs, tracebacks, command lines, or unrelated sensitive content.
 
 ## Community help
 

@@ -145,7 +145,7 @@ Website documentation route: `/docs`
 ## Maintenance Rules
 
 - Treat repository code as the source of truth.
-- Mark items as `Implemented`, `Partially implemented`, `Needs verification`, or `Planned`.
+- Mark items as `Implemented`, `Implemented with planned advanced options`, `Needs verification`, or `Planned`.
 - Do not document a route, option, or workflow as implemented if the code does not support it.
 - Keep links relative to `pdftools-documentation/`.
 - Do not place new long-form docs in the repository root unless the project explicitly changes this rule.

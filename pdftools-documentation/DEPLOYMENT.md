@@ -49,6 +49,7 @@ cd /opt/pdftool/backend
 source venv/bin/activate
 pip install -r requirements.txt
 python3 -m compileall app
+python3 -m app.scripts.check_readiness
 
 cd /opt/pdftool/frontend
 rm -rf .next
@@ -59,6 +60,24 @@ pnpm build
 pm2 restart pdftool-api pdftool-frontend pdftool-worker-fast pdftool-worker-heavy --update-env
 pm2 save
 pm2 list
+```
+
+## PM2 Ecosystem Config
+
+The repository includes a secret-free `ecosystem.config.js` with the current process names:
+
+- `pdftool-api`
+- `pdftool-frontend`
+- `pdftool-worker-fast`
+- `pdftool-worker-heavy`
+
+Review the `/opt/pdftool` paths before use. Git, build, and PM2 app commands should run as the `pdftool` user. Docker and system service commands should run as root or through sudo according to the VPS playbook.
+
+```bash
+cd /opt/pdftool
+pm2 start ecosystem.config.js
+pm2 restart ecosystem.config.js --update-env
+pm2 save
 ```
 
 ## Backend Environment Update
@@ -76,6 +95,10 @@ Then write the production env from [PRODUCTION_ENV.md](./PRODUCTION_ENV.md).
 curl http://localhost:8000/api/health
 curl -I http://localhost:3000
 docker exec -it pdftool-redis redis-cli ping
+
+cd /opt/pdftool/backend
+source venv/bin/activate
+python3 -m app.scripts.check_readiness
 ```
 
 Additional queue checks:
@@ -119,6 +142,8 @@ Make sure required commands are installed and reachable on the VPS:
 
 Production note: use `convert`, not `magick`, as the expected ImageMagick command.
 
+The readiness script checks Redis, storage directories, critical CLI tools, optional optimizer tools, Python imports, and key config values without printing secrets.
+
 ## Common Deployment Failures
 
 | Symptom | Likely cause | Check | Fix |
@@ -140,6 +165,7 @@ cd /opt/pdftool/backend
 source venv/bin/activate
 pip install -r requirements.txt
 python3 -m compileall app
+python3 -m app.scripts.check_readiness
 
 cd /opt/pdftool/frontend
 rm -rf .next
@@ -157,4 +183,3 @@ pm2 save
 - [PRODUCTION_ENV.md](./PRODUCTION_ENV.md)
 - [OPERATIONS.md](./OPERATIONS.md)
 - [docs/deployment-vps.md](./docs/deployment-vps.md)
-

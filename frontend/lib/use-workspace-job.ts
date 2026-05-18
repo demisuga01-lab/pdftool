@@ -10,7 +10,14 @@ import { uploadWithProgress } from "@/lib/upload";
 type ProcessingState = "idle" | "uploading" | "queued" | "processing" | "success" | "failure";
 type TimeoutKind = "fast" | "heavy" | "ocr";
 
+export type WorkspaceJobMetadata = {
+  outputMode?: string;
+  outputType?: string;
+  selectedPageCount?: number;
+};
+
 type ProcessOptions = {
+  recentMetadata?: WorkspaceJobMetadata;
   timeoutKind?: TimeoutKind;
 };
 
@@ -47,7 +54,17 @@ export function useWorkspaceJob({
   const [uploadSpeedKBs, setUploadSpeedKBs] = useState(0);
   const [uploadRemainingSecs, setUploadRemainingSecs] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  const recentMetadataRef = useRef<WorkspaceJobMetadata>({});
   const queryJobId = searchParams.get("job_id");
+
+  const metadataFromStatus = useCallback((status: JobStatus): WorkspaceJobMetadata => {
+    const result = status.result && typeof status.result === "object" ? status.result as Record<string, unknown> : {};
+    return {
+      outputMode: typeof result.mode === "string" ? result.mode : undefined,
+      outputType: typeof result.output_type === "string" ? result.output_type : undefined,
+      selectedPageCount: typeof result.selected_page_count === "number" ? result.selected_page_count : undefined,
+    };
+  }, []);
 
   const writeRecentJob = useCallback(
     (
@@ -56,8 +73,13 @@ export function useWorkspaceJob({
       updates: {
         errorMessage?: string | null;
         outputFilename?: string;
+        recentMetadata?: WorkspaceJobMetadata;
       } = {},
     ) => {
+      const metadata = {
+        ...recentMetadataRef.current,
+        ...updates.recentMetadata,
+      };
       upsertRecentJob({
         approximateFileSize,
         downloadUrl: toApiPath(`${prefix}/download/${nextJobId}`),
@@ -66,8 +88,11 @@ export function useWorkspaceJob({
         id: nextJobId,
         originalFilename: inputFileName || filename,
         outputFilename: updates.outputFilename || filename,
+        outputMode: metadata.outputMode,
+        outputType: metadata.outputType,
         prefix,
         route: pathname,
+        selectedPageCount: metadata.selectedPageCount,
         status,
         toolName,
       });
@@ -93,6 +118,11 @@ export function useWorkspaceJob({
 
   const applyFinalStatus = useCallback((finalStatus: JobStatus) => {
     const failed = finalStatus.status === "failure";
+    const resultMetadata = metadataFromStatus(finalStatus);
+    recentMetadataRef.current = {
+      ...recentMetadataRef.current,
+      ...resultMetadata,
+    };
     setResult(finalStatus);
     setState(finalStatus.status);
     setError(finalStatus.error ?? null);
@@ -109,9 +139,10 @@ export function useWorkspaceJob({
       {
         errorMessage: finalStatus.error ?? null,
         outputFilename: finalStatus.output_filename,
+        recentMetadata: resultMetadata,
       },
     );
-  }, [writeRecentJob]);
+  }, [metadataFromStatus, writeRecentJob]);
 
   const startPolling = useCallback(
     async (nextJobId: string, controller: AbortController, nextTimeoutKind: TimeoutKind) => {
@@ -162,6 +193,7 @@ export function useWorkspaceJob({
       let startedJobId: string | null = null;
 
       try {
+        recentMetadataRef.current = options?.recentMetadata ?? {};
         const response = await uploadWithProgress(
           endpoint,
           formData,

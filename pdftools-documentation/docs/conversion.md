@@ -59,7 +59,8 @@ This is why PDF to JPG works without the older `Unknown output format 'jpg'` bug
 - PDF to image outputs are packaged as ZIP only when the job produces multiple page images
 - image-to-image conversions download directly instead of being wrapped in ZIP by default
 - image to PDF uses the PDF service path
-- Office conversion depends on LibreOffice
+- Office conversion depends on LibreOffice and uses server defaults
+- Office-to-PDF should not be described as producing PDF/A, a specific PDF version, or special export options unless that behavior is implemented and verified
 - unsupported output formats fail with the safe user-facing message `Unsupported output format.`
 
 ## Queueing

@@ -5,7 +5,7 @@ import { buildPageMetadata } from "@/lib/metadata";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Split PDF | PDFTools by WellFriend",
-  description: "Extract page ranges or separate a PDF into smaller parts with the PDFTools split workspace.",
+  description: "Select, remove, reorder, split, or extract PDF pages in the PDFTools split workspace.",
   path: "/pdf/split",
 });
 

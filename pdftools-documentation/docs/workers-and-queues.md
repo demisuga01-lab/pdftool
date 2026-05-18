@@ -30,8 +30,9 @@ Typical tasks:
 - `pdftool-worker-fast` -> fast queue worker
 - `pdftool-worker-heavy` -> heavy queue worker
 
+The checked-in `ecosystem.config.js` maps these workers to the expected queue commands. Review paths before using it on a server.
+
 ## Related Documents
 
 - [celery-workers.md](./celery-workers.md)
 - [deployment-vps.md](./deployment-vps.md)
-

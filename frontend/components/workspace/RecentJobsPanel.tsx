@@ -67,6 +67,14 @@ function labelForStatus(status: RecentJobStatus): string {
   return status;
 }
 
+function readableOutputMode(value?: string): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  return trimmed.replace(/_/g, " ");
+}
+
 async function downloadRecentJob(job: RecentJob): Promise<void> {
   if (!job.downloadUrl) {
     return;
@@ -164,6 +172,15 @@ export function RecentJobsPanel() {
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {[job.fileType?.toUpperCase(), job.approximateFileSize].filter(Boolean).join(" / ") || `Job ${job.id}`}
                   </p>
+                  {job.outputMode || job.outputType || typeof job.selectedPageCount === "number" ? (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {[
+                        readableOutputMode(job.outputMode),
+                        job.outputType?.toUpperCase(),
+                        typeof job.selectedPageCount === "number" ? `${job.selectedPageCount} pages` : undefined,
+                      ].filter(Boolean).join(" / ")}
+                    </p>
+                  ) : null}
                   {job.errorMessage ? <p className="text-xs leading-5 text-rose-600 dark:text-rose-300">{job.errorMessage}</p> : null}
                 </div>
                 <button

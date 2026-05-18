@@ -23,6 +23,9 @@ Document how errors are surfaced safely to users while preserving server-side tr
 - upload errors
 - download panel failure state
 - safe API parsing in `frontend/lib/api.ts`
+- support-ready failed-job report panel with copy and email actions
+
+Failure reports may include safe error message, tool name, route, job ID, filename, file type, approximate size, timestamp, status, and support email. They must not include internal filesystem paths, tracebacks, raw backend logs, secrets, or full command lines.
 
 ## Backend Error Surfaces
 
@@ -34,4 +37,3 @@ Document how errors are surfaced safely to users while preserving server-side tr
 
 - [../SECURITY.md](../SECURITY.md)
 - [../SUPPORT.md](../SUPPORT.md)
-

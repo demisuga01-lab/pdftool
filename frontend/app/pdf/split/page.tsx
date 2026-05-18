@@ -1,231 +1,557 @@
 "use client";
 
+import { useState } from "react";
+
+import {
+  PageSelectionToolbar,
+  PdfPageGrid,
+  PdfPagePreviewModal,
+  type PdfWorkspacePageItem,
+} from "@/components/pdf/PdfPageWorkspace";
 import type { ControlSection } from "@/components/workspace/Controls";
 import { SinglePdfWorkspacePage } from "@/components/workspace/WorkspacePageBuilders";
 import { slugifyBaseName } from "@/lib/format";
 
-type SplitMethod = "ranges" | "every" | "parts" | "size" | "bookmarks";
+type SplitOutputMode =
+  | "split_all"
+  | "extract_selected"
+  | "split_selected"
+  | "custom_ranges"
+  | "reorder_export";
 
 type SplitSettings = {
-  customPrefix: string;
-  equalParts: number;
-  maxSizeMb: number;
-  namingPattern: "{original}-part-{n}" | "{original}-pages-{range}" | "part-{n}";
-  pageRanges: string;
-  splitMethod: SplitMethod;
-  zipAll: boolean;
+  namingPattern: "{original}-page-{range}" | "{original}-part-{n}" | "page-{n}";
+  outputFilename: string;
+  outputMode: SplitOutputMode;
+  ranges: string;
 };
 
 const initialSettings: SplitSettings = {
-  customPrefix: "",
-  equalParts: 2,
-  maxSizeMb: 5,
-  namingPattern: "{original}-part-{n}",
-  pageRanges: "1-3, 5, 7-9",
-  splitMethod: "ranges",
-  zipAll: true,
+  namingPattern: "{original}-page-{range}",
+  outputFilename: "",
+  outputMode: "extract_selected",
+  ranges: "",
 };
 
-function parsePageRanges(value: string) {
-  const segments = value
+const outputModeLabels: Record<SplitOutputMode, string> = {
+  split_all: "Split all pages",
+  extract_selected: "Extract selected pages",
+  split_selected: "Split selected pages",
+  custom_ranges: "Custom ranges",
+  reorder_export: "Reorder and export",
+};
+
+function activeItems(items: PdfWorkspacePageItem[]) {
+  return items.filter((item) => !item.removed);
+}
+
+function selectedActiveItems(items: PdfWorkspacePageItem[]) {
+  return items.filter((item) => item.selected && !item.removed);
+}
+
+function pageNumbers(items: PdfWorkspacePageItem[]) {
+  return items.map((item) => item.pageNumber);
+}
+
+function parseCustomRanges(value: string, pageCount = 0) {
+  const tokens = value
     .split(",")
     .map((segment) => segment.trim())
     .filter(Boolean);
 
-  if (segments.length === 0) {
-    return { ok: false as const, preview: "Enter page ranges to continue." };
+  if (tokens.length === 0) {
+    return { ok: false as const, preview: "Enter ranges like 1,3-5,8." };
   }
 
-  for (const segment of segments) {
-    if (!/^\d+(-\d+)?$/.test(segment)) {
-      return { ok: false as const, preview: "Use a format like 1-3, 5, 7-9." };
+  for (const token of tokens) {
+    if (!/^\d+(?:-\d+)?$/.test(token)) {
+      return { ok: false as const, preview: "Use ranges like 1,3-5,8." };
+    }
+    const [startText, endText = startText] = token.split("-");
+    const start = Number(startText);
+    const end = Number(endText);
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < 1) {
+      return { ok: false as const, preview: "Ranges cannot include page 0 or negative pages." };
+    }
+    if (end < start) {
+      return { ok: false as const, preview: "Ranges must start before they end." };
+    }
+    if (pageCount > 0 && end > pageCount) {
+      return { ok: false as const, preview: `Ranges must be between 1 and ${pageCount}.` };
     }
   }
 
-  const labels = segments.map((segment) =>
-    segment.includes("-") ? `pages ${segment}` : `page ${segment}`,
-  );
-
   return {
     ok: true as const,
-    preview: `Will create ${segments.length} files: ${labels.join(", ")}`,
+    preview: tokens.length === 1 ? "Creates one range PDF." : `Creates ${tokens.length} range PDFs in a ZIP.`,
+    tokenCount: tokens.length,
   };
 }
 
-function buildPartRanges(pageCount: number, parts: number) {
-  const safeParts = Math.max(1, parts);
-  const size = Math.ceil(pageCount / safeParts);
-  const ranges: string[] = [];
-
-  for (let start = 1; start <= pageCount; start += size) {
-    const end = Math.min(pageCount, start + size - 1);
-    ranges.push(start === end ? `${start}` : `${start}-${end}`);
+function expectedOutputType(settings: SplitSettings, items: PdfWorkspacePageItem[], pageCount: number) {
+  if (settings.outputMode === "extract_selected" || settings.outputMode === "reorder_export") {
+    return "one PDF";
   }
-
-  return ranges.join(", ");
+  if (settings.outputMode === "custom_ranges") {
+    const parsed = parseCustomRanges(settings.ranges, pageCount);
+    return parsed.ok && parsed.tokenCount === 1 ? "one PDF" : "range-based ZIP";
+  }
+  return "ZIP";
 }
 
-function buildSizeRanges(pageCount: number, fileSize: number, maxSizeMb: number) {
-  const bytesPerPage = fileSize / Math.max(1, pageCount);
-  const targetBytes = Math.max(1, maxSizeMb) * 1024 * 1024;
-  const pagesPerChunk = Math.max(1, Math.floor(targetBytes / Math.max(1, bytesPerPage)));
-  const ranges: string[] = [];
+function splitSummary(settings: SplitSettings, items: PdfWorkspacePageItem[], pageCount: number) {
+  const active = activeItems(items);
+  const selected = selectedActiveItems(items);
+  const removedCount = items.length - active.length;
 
-  for (let start = 1; start <= pageCount; start += pagesPerChunk) {
-    const end = Math.min(pageCount, start + pagesPerChunk - 1);
-    ranges.push(start === end ? `${start}` : `${start}-${end}`);
+  if (active.length === 0) {
+    return "Restore at least one page to create a new output file.";
   }
 
-  return ranges.join(", ");
+  if (settings.outputMode === "split_all") {
+    const pageLabel = active.length === items.length ? `${pageCount} pages` : `${active.length} active pages`;
+    return `${pageLabel} will be split into ${active.length} PDFs inside a ZIP.`;
+  }
+
+  if (settings.outputMode === "extract_selected") {
+    return selected.length > 0
+      ? `${selected.length} selected pages will be exported as one PDF.`
+      : "Select pages to continue.";
+  }
+
+  if (settings.outputMode === "split_selected") {
+    return selected.length > 0
+      ? `${selected.length} selected pages will become ${selected.length} PDFs inside a ZIP.`
+      : "Select pages to continue.";
+  }
+
+  if (settings.outputMode === "reorder_export") {
+    return `${active.length} active pages will be exported as one PDF in the visual order.`;
+  }
+
+  const parsed = parseCustomRanges(settings.ranges, pageCount);
+  return parsed.preview + (removedCount > 0 ? " Custom ranges use the typed page numbers." : "");
 }
 
-const sections: Array<ControlSection<SplitSettings>> = [
-  {
-    key: "split-method",
-    label: "Split Method",
-    fields: [
-      {
-        key: "splitMethod",
-        label: "Split method",
-        type: "radioCards",
-        options: [
-          { label: "By page ranges", value: "ranges" },
-          { label: "Extract every page", value: "every" },
-          { label: "Split into equal parts", value: "parts" },
-          { label: "Split by file size", value: "size" },
-          { label: "Split by bookmarks", value: "bookmarks" },
-        ],
-      },
-    ],
-  },
-  {
-    key: "page-ranges",
-    label: "Page Ranges",
-    render: (settings) =>
-      settings.splitMethod === "ranges" ? (
-        <p className="text-sm text-slate-500">{parsePageRanges(settings.pageRanges).preview}</p>
-      ) : settings.splitMethod === "bookmarks" ? (
-        <p className="text-sm text-amber-600">
-          Bookmark-based splitting is disabled until bookmark parsing is exposed by the backend.
-        </p>
-      ) : null,
-    fields: [
-      {
-        key: "pageRanges",
-        label: "Ranges",
-        type: "text",
-        placeholder: "1-3, 5, 7-9",
-        show: (settings) => settings.splitMethod === "ranges",
-      },
-    ],
-  },
-  {
-    key: "equal-parts",
-    label: "Equal Parts",
-    fields: [
-      {
-        key: "equalParts",
-        label: "How many parts",
-        type: "number",
-        min: 2,
-        show: (settings) => settings.splitMethod === "parts",
-      },
-      {
-        key: "maxSizeMb",
-        label: "Max MB per part",
-        type: "number",
-        min: 1,
-        show: (settings) => settings.splitMethod === "size",
-      },
-    ],
-  },
-  {
-    key: "naming",
-    label: "Naming",
-    fields: [
-      {
-        key: "namingPattern",
-        label: "Naming pattern",
-        type: "select",
-        options: [
-          { label: "{original}-part-{n}", value: "{original}-part-{n}" },
-          { label: "{original}-pages-{range}", value: "{original}-pages-{range}" },
-          { label: "part-{n}", value: "part-{n}" },
-        ],
-      },
-      {
-        key: "customPrefix",
-        label: "Custom prefix",
-        type: "text",
-        placeholder: "chapter",
-      },
-    ],
-  },
-  {
-    key: "output",
-    label: "Output",
-    fields: [
-      {
-        key: "zipAll",
-        label: "Zip all outputs",
-        type: "toggle",
-      },
-    ],
-  },
-];
+function processDisabled(file: File | null, items: PdfWorkspacePageItem[], settings: SplitSettings, pageCount = 0) {
+  if (!file || items.length === 0) {
+    return true;
+  }
+  const active = activeItems(items);
+  const selected = selectedActiveItems(items);
+  if (active.length === 0) {
+    return true;
+  }
+  if (settings.outputMode === "extract_selected" || settings.outputMode === "split_selected") {
+    return selected.length === 0;
+  }
+  if (settings.outputMode === "custom_ranges") {
+    return !parseCustomRanges(settings.ranges, pageCount || items.length).ok;
+  }
+  return false;
+}
+
+function splitSections({
+  activeCount,
+  pageCount,
+  selectedCount,
+}: {
+  activeCount: number;
+  pageCount: number;
+  selectedCount: number;
+}): Array<ControlSection<SplitSettings>> {
+  const noActivePages = activeCount === 0;
+  const noSelectedPages = selectedCount === 0;
+
+  return [
+    {
+      key: "output-mode",
+      label: "Output Mode",
+      fields: [
+        {
+          key: "outputMode",
+          label: "Choose exactly what to create",
+          type: "radioCards",
+          options: [
+            {
+              disabled: noActivePages,
+              label: "Split all pages",
+              value: "split_all",
+              description: "Create one PDF per page. Downloads as a ZIP.",
+            },
+            {
+              disabled: noSelectedPages,
+              label: "Extract selected pages",
+              value: "extract_selected",
+              description: noSelectedPages
+                ? "Select pages to create one PDF."
+                : "Create one PDF from the selected pages.",
+            },
+            {
+              disabled: noSelectedPages,
+              label: "Split selected pages",
+              value: "split_selected",
+              description: noSelectedPages
+                ? "Select pages to create separate PDFs."
+                : "Create one PDF for each selected page. Downloads as a ZIP.",
+            },
+            {
+              disabled: noActivePages,
+              label: "Custom ranges",
+              value: "custom_ranges",
+              description: "Use ranges like 1,3-5,8.",
+            },
+            {
+              disabled: noActivePages,
+              label: "Reorder and export",
+              value: "reorder_export",
+              description: "Move pages, remove unwanted pages, and export one PDF.",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      key: "ranges",
+      label: "Custom Ranges",
+      render: (settings) =>
+        settings.outputMode === "custom_ranges" ? (
+          <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+            {parseCustomRanges(settings.ranges, pageCount).preview}
+          </p>
+        ) : null,
+      fields: [
+        {
+          key: "ranges",
+          label: "Ranges",
+          placeholder: "1,3-5,8",
+          show: (settings) => settings.outputMode === "custom_ranges",
+          type: "text",
+        },
+      ],
+    },
+    {
+      key: "naming",
+      label: "Naming",
+      fields: [
+        {
+          key: "namingPattern",
+          label: "Split file naming",
+          options: [
+            { label: "{original}-page-{range}", value: "{original}-page-{range}" },
+            { label: "{original}-part-{n}", value: "{original}-part-{n}" },
+            { label: "page-{n}", value: "page-{n}" },
+          ],
+          show: (settings) =>
+            settings.outputMode === "split_all" ||
+            settings.outputMode === "split_selected" ||
+            settings.outputMode === "custom_ranges",
+          type: "select",
+        },
+        {
+          key: "outputFilename",
+          label: "Output filename",
+          placeholder: "Optional, for example selected-pages.pdf or split-pages.zip",
+          type: "text",
+        },
+      ],
+    },
+  ];
+}
+
+function SplitWorkspace({
+  fileId,
+  items,
+  pageCount,
+  setItems,
+  settings,
+}: {
+  fileId: string;
+  items: PdfWorkspacePageItem[];
+  pageCount: number;
+  setItems: (items: PdfWorkspacePageItem[]) => void;
+  settings: SplitSettings;
+}) {
+  const [lastClickedPage, setLastClickedPage] = useState<number | null>(null);
+  const [previewPage, setPreviewPage] = useState<number | null>(null);
+  const active = activeItems(items);
+  const selected = selectedActiveItems(items);
+  const removedCount = items.length - active.length;
+  const reorderEnabled = settings.outputMode === "reorder_export";
+
+  const setSelection = (predicate: (item: PdfWorkspacePageItem) => boolean) => {
+    setItems(items.map((item) => ({ ...item, selected: !item.removed && predicate(item) })));
+  };
+
+  const toggleSelection = (item: PdfWorkspacePageItem, shiftKey: boolean) => {
+    if (item.removed) {
+      return;
+    }
+    if (shiftKey && lastClickedPage !== null) {
+      const currentIndex = items.findIndex((candidate) => candidate.pageNumber === item.pageNumber);
+      const previousIndex = items.findIndex((candidate) => candidate.pageNumber === lastClickedPage);
+      if (currentIndex >= 0 && previousIndex >= 0) {
+        const start = Math.min(currentIndex, previousIndex);
+        const end = Math.max(currentIndex, previousIndex);
+        setItems(
+          items.map((candidate, index) => ({
+            ...candidate,
+            selected: candidate.removed ? false : index >= start && index <= end ? true : candidate.selected,
+          })),
+        );
+        setLastClickedPage(item.pageNumber);
+        return;
+      }
+    }
+    setItems(
+      items.map((candidate) =>
+        candidate.id === item.id ? { ...candidate, selected: !candidate.selected } : candidate,
+      ),
+    );
+    setLastClickedPage(item.pageNumber);
+  };
+
+  const toggleRemoved = (id: string) => {
+    setItems(
+      items.map((item) =>
+        item.id === id
+          ? { ...item, removed: !item.removed, selected: item.removed ? item.selected : false }
+          : item,
+      ),
+    );
+  };
+
+  const movePage = (id: string, direction: -1 | 1) => {
+    const index = items.findIndex((item) => item.id === id);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= items.length) {
+      return;
+    }
+    const nextItems = [...items];
+    const [item] = nextItems.splice(index, 1);
+    nextItems.splice(nextIndex, 0, item);
+    setItems(nextItems);
+  };
+
+  const modal = previewPage ? (
+    <PdfPagePreviewModal
+      fileId={fileId}
+      items={items}
+      onClose={() => setPreviewPage(null)}
+      onPageChange={setPreviewPage}
+      onRemoveToggle={toggleRemoved}
+      onToggleSelect={(item) => toggleSelection(item, false)}
+      pageNumber={previewPage}
+    />
+  ) : null;
+
+  return (
+    <div className="mx-auto w-full max-w-7xl space-y-4">
+      <PageSelectionToolbar
+        activeCount={active.length}
+        onClearSelection={() => setSelection(() => false)}
+        onInvertSelection={() => {
+          setItems(items.map((item) => ({ ...item, selected: item.removed ? false : !item.selected })));
+        }}
+        onRestoreAll={() => {
+          setItems(items.map((item) => ({ ...item, removed: false })));
+        }}
+        onSelectAll={() => setSelection(() => true)}
+        onSelectEven={() => setSelection((item) => item.pageNumber % 2 === 0)}
+        onSelectOdd={() => setSelection((item) => item.pageNumber % 2 === 1)}
+        removedCount={removedCount}
+        selectedCount={selected.length}
+        totalCount={pageCount || items.length}
+      />
+
+      <div className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-sm leading-6 text-zinc-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300 sm:px-4">
+        {splitSummary(settings, items, pageCount)}
+        {removedCount > 0 ? (
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            Removed pages are not deleted from your original file. They are only excluded from this output.
+          </p>
+        ) : null}
+        {reorderEnabled ? (
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            Drag pages or use the arrow buttons to set the final PDF order.
+          </p>
+        ) : null}
+      </div>
+
+      {items.length > 0 ? (
+        <PdfPageGrid
+          items={items}
+          onMove={movePage}
+          onPreview={setPreviewPage}
+          onRemoveToggle={toggleRemoved}
+          onReorder={setItems}
+          onToggleSelect={toggleSelection}
+          reorderEnabled={reorderEnabled}
+        />
+      ) : (
+        <div className="rounded-lg border border-dashed border-zinc-200 bg-white p-6 text-center text-sm text-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-400">
+          Loading page thumbnails...
+        </div>
+      )}
+      {modal}
+    </div>
+  );
+}
+
+function SplitSettingsSummary({
+  items,
+  pageCount,
+  settings,
+}: {
+  items: PdfWorkspacePageItem[];
+  pageCount: number;
+  settings: SplitSettings;
+}) {
+  const active = activeItems(items);
+  const selected = selectedActiveItems(items);
+  const removedCount = items.length - active.length;
+  const outputType = expectedOutputType(settings, items, pageCount);
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-950 sm:p-5">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">
+        Output Summary
+      </p>
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="rounded-lg bg-white p-3 dark:bg-zinc-900">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">Total pages</p>
+          <p className="font-semibold text-zinc-900 dark:text-zinc-100">{pageCount || items.length}</p>
+        </div>
+        <div className="rounded-lg bg-white p-3 dark:bg-zinc-900">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">Selected</p>
+          <p className="font-semibold text-zinc-900 dark:text-zinc-100">{selected.length}</p>
+        </div>
+        <div className="rounded-lg bg-white p-3 dark:bg-zinc-900">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">Removed</p>
+          <p className="font-semibold text-zinc-900 dark:text-zinc-100">{removedCount}</p>
+        </div>
+        <div className="rounded-lg bg-white p-3 dark:bg-zinc-900">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">Output</p>
+          <p className="font-semibold text-zinc-900 dark:text-zinc-100">{outputType}</p>
+        </div>
+      </div>
+      <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+        {splitSummary(settings, items, pageCount)}
+      </p>
+    </div>
+  );
+}
 
 export default function PdfSplitPage() {
   return (
     <SinglePdfWorkspacePage<SplitSettings>
       buildFormData={({ file, items, settings }) => {
-        const pageCount = items.length;
-        let pages = settings.pageRanges;
-        let outputFormat: "individual" | "ranges" = "ranges";
+        const formData = new FormData();
+        const active = activeItems(items);
+        const selected = selectedActiveItems(items);
+        const activePages = pageNumbers(active);
+        const selectedPages = pageNumbers(selected);
 
-        if (settings.splitMethod === "every") {
-          pages = "all";
-          outputFormat = "individual";
-        } else if (settings.splitMethod === "parts") {
-          pages = buildPartRanges(pageCount, settings.equalParts);
-        } else if (settings.splitMethod === "size") {
-          pages = buildSizeRanges(pageCount, file.size, settings.maxSizeMb);
+        formData.append("file", file);
+        formData.append("mode", settings.outputMode);
+        formData.append("naming_pattern", settings.namingPattern);
+        formData.append("output_filename", settings.outputFilename);
+
+        if (settings.outputMode === "split_all") {
+          formData.append("pages", active.length === items.length ? "all" : JSON.stringify(activePages));
+        } else if (settings.outputMode === "extract_selected" || settings.outputMode === "split_selected") {
+          formData.append("pages", JSON.stringify(selectedPages));
+        } else if (settings.outputMode === "reorder_export") {
+          formData.append("page_order", JSON.stringify(activePages));
+        } else {
+          formData.append("ranges", settings.ranges.trim());
+          formData.append("pages", settings.ranges.trim());
+          formData.append("output_format", "ranges");
         }
 
-        const namingPattern = settings.customPrefix.trim()
-          ? `${settings.customPrefix.trim()}-{n}`
-          : settings.namingPattern;
-
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("pages", pages);
-        formData.append("naming_pattern", namingPattern);
-        formData.append("output_format", outputFormat);
-        formData.append("split_method", settings.splitMethod);
-        formData.append("zip_all", String(settings.zipAll));
         return formData;
       }}
-      description="Review pages in a compact workspace, choose a split strategy, and export structured outputs without losing context."
-      downloadFilename={(file) => `${slugifyBaseName(file.name)}-split.zip`}
-      emptyDescription="Upload a PDF to split it by ranges, pages, equal parts, or size-driven chunks."
+      description="Choose exactly which pages to keep, split, or export."
+      downloadFilename={(file, settings) => {
+        const stem = slugifyBaseName(file.name);
+        if (settings.outputMode === "extract_selected") {
+          return `${stem}-selected.pdf`;
+        }
+        if (settings.outputMode === "reorder_export") {
+          return `${stem}-organized.pdf`;
+        }
+        return `${stem}-split.zip`;
+      }}
+      downloadPanelProps={({ result }) => {
+        const details = result?.result && typeof result.result === "object" ? result.result as Record<string, unknown> : {};
+        const outputType = typeof details.output_type === "string" ? details.output_type : undefined;
+        const fileCount = typeof details.file_count === "number" ? details.file_count : undefined;
+        if (outputType === "pdf") {
+          return {
+            downloadLabel: "Download PDF",
+            helperText: "A new PDF was created from the pages you chose.",
+            readyTitle: "One PDF ready",
+          };
+        }
+        if (outputType === "zip") {
+          return {
+            downloadLabel: "Download ZIP",
+            helperText: fileCount ? `ZIP ready with ${fileCount} files. Downloads are temporary.` : "ZIP ready. Downloads are temporary.",
+            readyTitle: fileCount ? `ZIP ready with ${fileCount} files` : "ZIP ready",
+          };
+        }
+        return {};
+      }}
+      emptyDescription="Upload a PDF to choose pages visually before creating a new PDF or ZIP."
       endpoint="pdf/split"
       initialSettings={initialSettings}
-      layoutKind="compact"
-      processDisabled={({ file, items, settings }) => {
-        if (!file || items.length === 0) {
-          return true;
-        }
-
-        if (settings.splitMethod === "ranges") {
-          return !parsePageRanges(settings.pageRanges).ok;
-        }
-
-        if (settings.splitMethod === "bookmarks") {
-          return true;
-        }
-
-        return false;
+      layoutKind="editor"
+      processButtonLabel="Create output"
+      processDisabled={({ file, items, pageCount, settings }) => processDisabled(file, items, settings, pageCount)}
+      recentJobMetadata={({ items, pageCount, settings }) => {
+        const outputType = expectedOutputType(settings, items, pageCount);
+        const selectedCount =
+          settings.outputMode === "extract_selected" || settings.outputMode === "split_selected"
+            ? selectedActiveItems(items).length
+            : activeItems(items).length;
+        return {
+          outputMode: settings.outputMode,
+          outputType: outputType.includes("ZIP") ? "zip" : "pdf",
+          selectedPageCount: selectedCount,
+        };
       }}
-      sections={sections}
+      renderCenter={({ fileId, items, pageCount, setItems, settings }) => (
+        <SplitWorkspace
+          fileId={fileId}
+          items={items}
+          pageCount={pageCount}
+          setItems={setItems}
+          settings={settings}
+        />
+      )}
+      reportFields={({ items, pageCount, settings }) => [
+        { label: "Split mode", value: outputModeLabels[settings.outputMode] },
+        {
+          label: "Selected page count",
+          value:
+            settings.outputMode === "extract_selected" || settings.outputMode === "split_selected"
+              ? selectedActiveItems(items).length
+              : activeItems(items).length,
+        },
+        { label: "Removed page count", value: items.length - activeItems(items).length },
+        { label: "Total page count", value: pageCount || items.length },
+      ]}
+      rightPanelFooter={({ items, pageCount, settings }) => (
+        <SplitSettingsSummary items={items} pageCount={pageCount} settings={settings} />
+      )}
+      sections={({ items, pageCount }) =>
+        splitSections({
+          activeCount: activeItems(items).length,
+          pageCount,
+          selectedCount: selectedActiveItems(items).length,
+        })
+      }
+      showSelectionBar={false}
       title="Split PDF"
     />
   );

@@ -28,6 +28,7 @@ from app.services.file_store import (
     save_upload_file as save_workspace_upload,
 )
 from app.services.command_runner import run_command
+from app.services.pdf_service import PDFService
 from app.workers.celery_app import celery_app
 from app.workers.pdf_tasks import (
     compress_pdf_task,
@@ -292,16 +293,50 @@ async def merge_pdfs(
 @router.post("/split")
 async def split_pdf(
     settings: AppSettings,
-    pages: Annotated[str, Form()],
+    pages: Annotated[str, Form()] = "",
     file: Annotated[UploadFile | None, File()] = None,
     file_id: Annotated[str | None, Form()] = None,
+    mode: Annotated[str, Form()] = "",
+    page_order: Annotated[str, Form()] = "",
+    ranges: Annotated[str, Form()] = "",
+    page_ranges: Annotated[str, Form()] = "",
     naming_pattern: Annotated[str, Form()] = "page-{n}",
     output_format: Annotated[str, Form()] = "ranges",
+    output_filename: Annotated[str, Form()] = "",
+    split_method: Annotated[str, Form()] = "",
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
     output_dir = _output_dir(settings)
+    normalized_mode = mode.strip()
+    if not normalized_mode and split_method.strip().lower() in {"ranges", "parts", "size"}:
+        normalized_mode = "custom_ranges"
+    elif not normalized_mode and split_method.strip().lower() == "every":
+        normalized_mode = "split_all"
+
+    service = PDFService()
+    page_count = await service._pdf_page_count(input_path)
+    normalized_mode = service._normalize_split_mode(normalized_mode or None, pages, output_format)
+    if normalized_mode == "split_all":
+        service._parse_page_selection(pages, page_count, "pages", required=False)
+    elif normalized_mode in {"extract_selected", "split_selected"}:
+        service._parse_page_selection(pages, page_count, "pages")
+    elif normalized_mode == "reorder_export":
+        service._parse_page_selection(page_order or pages, page_count, "page_order", dedupe=False)
+    else:
+        service._range_tokens_for_split(ranges or page_ranges or pages, page_count)
+
     task = split_pdf_task.apply_async(
-        args=[str(input_path), str(output_dir), pages, naming_pattern, output_format],
+        args=[
+            str(input_path),
+            str(output_dir),
+            pages,
+            naming_pattern,
+            output_format,
+            normalized_mode,
+            page_order,
+            ranges or page_ranges,
+            output_filename,
+        ],
         queue="fast",
     )
     return _queued_response(str(task.id), "PDF split queued")
