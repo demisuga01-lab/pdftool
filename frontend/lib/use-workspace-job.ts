@@ -11,6 +11,7 @@ type ProcessingState = "idle" | "uploading" | "queued" | "processing" | "success
 type TimeoutKind = "fast" | "heavy" | "ocr";
 
 export type WorkspaceJobMetadata = {
+  activePageCount?: number;
   outputMode?: string;
   outputType?: string;
   selectedPageCount?: number;
@@ -60,6 +61,7 @@ export function useWorkspaceJob({
   const metadataFromStatus = useCallback((status: JobStatus): WorkspaceJobMetadata => {
     const result = status.result && typeof status.result === "object" ? status.result as Record<string, unknown> : {};
     return {
+      activePageCount: typeof result.active_page_count === "number" ? result.active_page_count : undefined,
       outputMode: typeof result.mode === "string" ? result.mode : undefined,
       outputType: typeof result.output_type === "string" ? result.output_type : undefined,
       selectedPageCount: typeof result.selected_page_count === "number" ? result.selected_page_count : undefined,
@@ -92,6 +94,7 @@ export function useWorkspaceJob({
         outputType: metadata.outputType,
         prefix,
         route: pathname,
+        activePageCount: metadata.activePageCount,
         selectedPageCount: metadata.selectedPageCount,
         status,
         toolName,

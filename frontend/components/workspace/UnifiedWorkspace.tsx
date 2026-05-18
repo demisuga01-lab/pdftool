@@ -5,31 +5,7 @@ import { type ReactNode } from "react";
 import { CompactWorkspaceShell, VisualEditorWorkspaceShell } from "@/components/workspace/WorkspaceShells";
 import type { WorkspaceLayoutKind } from "@/lib/workspace-layouts";
 
-export function UnifiedWorkspace({
-  compactPreview,
-  countLabel,
-  description,
-  downloadPanel,
-  editor,
-  emptyState,
-  estimatedTime,
-  fileInfo,
-  fileName,
-  hasContent,
-  infoContent,
-  kind,
-  onDownload,
-  onFilesDropped,
-  onProcess,
-  onReset,
-  processButtonDisabled,
-  processButtonLabel,
-  processingLabel,
-  resultPanel,
-  settingsPanel,
-  title,
-  uploadOverlay,
-}: {
+export type UnifiedWorkspaceShellProps = {
   compactPreview?: ReactNode;
   countLabel?: string;
   description: string;
@@ -53,7 +29,33 @@ export function UnifiedWorkspace({
   settingsPanel: ReactNode;
   title: string;
   uploadOverlay?: ReactNode;
-}) {
+};
+
+export function UnifiedWorkspaceShell({
+  compactPreview,
+  countLabel,
+  description,
+  downloadPanel,
+  editor,
+  emptyState,
+  estimatedTime,
+  fileInfo,
+  fileName,
+  hasContent,
+  infoContent,
+  kind,
+  onDownload,
+  onFilesDropped,
+  onProcess,
+  onReset,
+  processButtonDisabled,
+  processButtonLabel,
+  processingLabel,
+  resultPanel,
+  settingsPanel,
+  title,
+  uploadOverlay,
+}: UnifiedWorkspaceShellProps) {
   if (kind === "editor" || kind === "grid") {
     return (
       <VisualEditorWorkspaceShell
@@ -112,3 +114,5 @@ export function UnifiedWorkspace({
     />
   );
 }
+
+export const UnifiedWorkspace = UnifiedWorkspaceShell;

@@ -130,12 +130,17 @@ function SortableCard({
 }
 
 export type PdfPageCard = {
+  currentIndex?: number;
   id: string;
+  loadState?: "idle" | "loading" | "loaded" | "error";
+  originalPageNumber?: number;
+  previewUrl?: string;
   pageNumber: number;
   removed?: boolean;
   rotation?: number;
   selected?: boolean;
   thumbnail: string;
+  thumbnailUrl?: string;
 };
 
 export function PDFThumbnailGrid({

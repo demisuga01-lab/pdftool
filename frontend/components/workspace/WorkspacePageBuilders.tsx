@@ -559,7 +559,7 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
   const { merge, state: settings, update } = useObjectState(initialSettings);
   const initialPageCount = Number(fileMeta?.metadata?.page_count ?? fileMeta?.pages ?? 0);
   const { error: previewError, items, pageCount, setItems } = useUploadedPdfPageItems(fileMeta?.file_id ?? null, initialPageCount);
-  const { allSelected, deselectAll, selectAll, toggleItem } = usePageSelection(items, setItems);
+  const { allSelected, deselectAll, selectAll } = usePageSelection(items, setItems);
   const currentFile = file ?? (fileMeta ? fileFromMetadata(fileMeta) : null);
   const job = useWorkspaceJob({
     approximateFileSize: fileMeta ? formatBytes(fileMeta.size_bytes) : currentFile ? formatBytes(currentFile.size) : undefined,

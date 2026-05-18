@@ -316,6 +316,7 @@ async def split_pdf(
     service = PDFService()
     page_count = await service._pdf_page_count(input_path)
     normalized_mode = service._normalize_split_mode(normalized_mode or None, pages, output_format)
+    custom_range_tokens: list[str] = []
     if normalized_mode == "split_all":
         service._parse_page_selection(pages, page_count, "pages", required=False)
     elif normalized_mode in {"extract_selected", "split_selected"}:
@@ -323,7 +324,15 @@ async def split_pdf(
     elif normalized_mode == "reorder_export":
         service._parse_page_selection(page_order or pages, page_count, "page_order", dedupe=False)
     else:
-        service._range_tokens_for_split(ranges or page_ranges or pages, page_count)
+        custom_range_tokens = service._range_tokens_for_split(ranges or page_ranges or pages, page_count)
+    service._validate_split_naming_template(naming_pattern)
+    output_suffix = (
+        ".pdf"
+        if normalized_mode in {"extract_selected", "reorder_export"} or (normalized_mode == "custom_ranges" and len(custom_range_tokens) == 1)
+        else ".zip"
+    )
+    if output_filename.strip():
+        service._safe_split_output_filename(output_filename, "split-output", output_suffix)
 
     task = split_pdf_task.apply_async(
         args=[

@@ -297,7 +297,13 @@ class PDFService:
         raw = (value or "").strip()
         if not raw or raw.lower() == "all":
             if required:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{field_name} is required.")
+                if field_name == "page_order":
+                    detail = "Restore at least one page before processing."
+                elif field_name == "pages":
+                    detail = "Select at least one page for this mode."
+                else:
+                    detail = f"{field_name} is required."
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
             return []
         if raw.startswith("["):
             try:
@@ -577,6 +583,7 @@ class PDFService:
                     "output_type": "zip",
                     "file_count": len(outputs),
                     "page_count": page_count,
+                    "active_page_count": len(selected_pages),
                     "selected_page_count": len(selected_pages),
                 },
             }
@@ -598,6 +605,7 @@ class PDFService:
                     "output_type": "zip",
                     "file_count": len(outputs),
                     "page_count": page_count,
+                    "active_page_count": len(selected_pages),
                     "selected_page_count": len(selected_pages),
                 },
             }
@@ -614,6 +622,7 @@ class PDFService:
                     "output_type": "pdf",
                     "file_count": 1,
                     "page_count": page_count,
+                    "active_page_count": len(selected_pages),
                     "selected_page_count": len(selected_pages),
                 },
             }
@@ -630,6 +639,7 @@ class PDFService:
                     "output_type": "pdf",
                     "file_count": 1,
                     "page_count": page_count,
+                    "active_page_count": len(ordered_pages),
                     "selected_page_count": len(ordered_pages),
                 },
             }
@@ -646,15 +656,21 @@ class PDFService:
             await self._write_pdf_selection(input_path, output, selection_pages)
             outputs.append(str(output))
 
+        expanded_pages = self._expand_split_ranges(tokens)
         result = {
             "mode": normalized_mode,
             "output_type": "pdf" if len(outputs) == 1 else "zip",
             "file_count": len(outputs),
             "page_count": page_count,
-            "selected_page_count": len(self._expand_split_ranges(tokens)),
+            "active_page_count": len(expanded_pages),
+            "selected_page_count": len(expanded_pages),
         }
         if len(outputs) == 1:
-            return {"output_path": outputs[0], "result": result}
+            return {
+                "output_path": outputs[0],
+                "output_filename": self._safe_split_output_filename(output_filename, f"{input_stem}-range", ".pdf"),
+                "result": result,
+            }
         return {
             "output_paths": outputs,
             "output_filename": self._safe_split_output_filename(output_filename, f"{input_stem}-ranges", ".zip"),

@@ -113,6 +113,15 @@ Notable endpoints:
 - `/api/pdf/decrypt`
 - `/api/pdf/ocr`
 
+### `/api/pdf/split`
+
+- accepts `mode`, `pages`, `page_order`, `ranges`, `naming_pattern`, and `output_filename` as multipart form fields
+- supports `split_all`, `extract_selected`, `split_selected`, `custom_ranges`, and `reorder_export`
+- validates page selections as 1-based page numbers inside the uploaded PDF page count
+- returns one PDF for `extract_selected` and `reorder_export`
+- returns ZIP packaging for multi-output split jobs
+- custom ranges use original page numbers
+
 ## Image Routes
 
 Notable endpoints:
@@ -140,4 +149,3 @@ Notable endpoints:
 - [../API_REFERENCE.md](../API_REFERENCE.md)
 - [error-handling.md](./error-handling.md)
 - [rate-limiting.md](./rate-limiting.md)
-

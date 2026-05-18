@@ -172,12 +172,13 @@ export function RecentJobsPanel() {
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {[job.fileType?.toUpperCase(), job.approximateFileSize].filter(Boolean).join(" / ") || `Job ${job.id}`}
                   </p>
-                  {job.outputMode || job.outputType || typeof job.selectedPageCount === "number" ? (
+                  {job.outputMode || job.outputType || typeof job.selectedPageCount === "number" || typeof job.activePageCount === "number" ? (
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
                       {[
                         readableOutputMode(job.outputMode),
                         job.outputType?.toUpperCase(),
                         typeof job.selectedPageCount === "number" ? `${job.selectedPageCount} pages` : undefined,
+                        typeof job.activePageCount === "number" ? `${job.activePageCount} active` : undefined,
                       ].filter(Boolean).join(" / ")}
                     </p>
                   ) : null}

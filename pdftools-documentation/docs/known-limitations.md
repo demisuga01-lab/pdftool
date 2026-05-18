@@ -11,6 +11,7 @@ Track real gaps and caveats found during repository inspection.
 - Mobile gesture-heavy pages still need real-device QA even though the shared drawer and editor model is implemented.
 - OCR and conversion reliability depend on host CLI installation.
 - Very large PDFs can produce many thumbnail requests in visual page workspaces; thumbnails are lazy-loaded in the browser, but real-device UX should still be checked for high page counts.
+- Touch drag/drop can vary by mobile browser; visual page grids include arrow move buttons as a reliable reorder fallback.
 - No antivirus or malware scanning is implemented.
 - Runtime cleanup is not immediate deletion; verify the configured retention horizon in the environment.
 - Some static marketing or pricing copy may require periodic review to avoid drifting from backend policy.

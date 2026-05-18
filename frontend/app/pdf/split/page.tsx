@@ -1,14 +1,8 @@
 "use client";
 
-import { useState } from "react";
-
-import {
-  PageSelectionToolbar,
-  PdfPageGrid,
-  PdfPagePreviewModal,
-  type PdfWorkspacePageItem,
-} from "@/components/pdf/PdfPageWorkspace";
+import { PageGridWorkspace, type PageGridItem } from "@/components/workspace/PageGridWorkspace";
 import type { ControlSection } from "@/components/workspace/Controls";
+import type { PdfPageCard } from "@/components/workspace/PDFWorkspace";
 import { SinglePdfWorkspacePage } from "@/components/workspace/WorkspacePageBuilders";
 import { slugifyBaseName } from "@/lib/format";
 
@@ -34,12 +28,34 @@ const initialSettings: SplitSettings = {
 };
 
 const outputModeLabels: Record<SplitOutputMode, string> = {
-  split_all: "Split all pages",
+  split_all: "Split all active pages",
   extract_selected: "Extract selected pages",
   split_selected: "Split selected pages",
   custom_ranges: "Custom ranges",
   reorder_export: "Reorder and export",
 };
+
+type PdfWorkspacePageItem = PdfPageCard | PageGridItem;
+
+function toPageGridItems(items: PdfPageCard[]): PageGridItem[] {
+  return items.map((item, index) => {
+    const originalPageNumber = item.originalPageNumber ?? item.pageNumber;
+    const thumbnailUrl = item.thumbnailUrl ?? item.thumbnail;
+    return {
+      currentIndex: item.currentIndex ?? index,
+      id: item.id || `page-${originalPageNumber}`,
+      loadState: item.loadState ?? "idle",
+      originalPageNumber,
+      pageNumber: item.pageNumber,
+      previewUrl: item.previewUrl,
+      removed: Boolean(item.removed),
+      rotation: item.rotation as PageGridItem["rotation"],
+      selected: Boolean(item.selected),
+      thumbnail: item.thumbnail,
+      thumbnailUrl,
+    };
+  });
+}
 
 function activeItems(items: PdfWorkspacePageItem[]) {
   return items.filter((item) => !item.removed);
@@ -50,7 +66,7 @@ function selectedActiveItems(items: PdfWorkspacePageItem[]) {
 }
 
 function pageNumbers(items: PdfWorkspacePageItem[]) {
-  return items.map((item) => item.pageNumber);
+  return items.map((item) => item.originalPageNumber ?? item.pageNumber);
 }
 
 function parseCustomRanges(value: string, pageCount = 0) {
@@ -109,7 +125,7 @@ function splitSummary(settings: SplitSettings, items: PdfWorkspacePageItem[], pa
   }
 
   if (settings.outputMode === "split_all") {
-    const pageLabel = active.length === items.length ? `${pageCount} pages` : `${active.length} active pages`;
+    const pageLabel = `${active.length} active ${active.length === 1 ? "page" : "pages"}`;
     return `${pageLabel} will be split into ${active.length} PDFs inside a ZIP.`;
   }
 
@@ -130,7 +146,7 @@ function splitSummary(settings: SplitSettings, items: PdfWorkspacePageItem[], pa
   }
 
   const parsed = parseCustomRanges(settings.ranges, pageCount);
-  return parsed.preview + (removedCount > 0 ? " Custom ranges use the typed page numbers." : "");
+  return `${parsed.preview} Ranges use original page numbers.${removedCount > 0 ? " Removed pages do not change range numbering." : ""}`;
 }
 
 function processDisabled(file: File | null, items: PdfWorkspacePageItem[], settings: SplitSettings, pageCount = 0) {
@@ -175,9 +191,9 @@ function splitSections({
           options: [
             {
               disabled: noActivePages,
-              label: "Split all pages",
+              label: "Split all active pages",
               value: "split_all",
-              description: "Create one PDF per page. Downloads as a ZIP.",
+              description: "Create one PDF per active page. Removed pages are excluded. Downloads as a ZIP.",
             },
             {
               disabled: noSelectedPages,
@@ -260,140 +276,41 @@ function splitSections({
 }
 
 function SplitWorkspace({
-  fileId,
   items,
   pageCount,
   setItems,
   settings,
 }: {
-  fileId: string;
-  items: PdfWorkspacePageItem[];
+  items: PdfPageCard[];
   pageCount: number;
-  setItems: (items: PdfWorkspacePageItem[]) => void;
+  setItems: (items: PdfPageCard[]) => void;
   settings: SplitSettings;
 }) {
-  const [lastClickedPage, setLastClickedPage] = useState<number | null>(null);
-  const [previewPage, setPreviewPage] = useState<number | null>(null);
-  const active = activeItems(items);
-  const selected = selectedActiveItems(items);
-  const removedCount = items.length - active.length;
-  const reorderEnabled = settings.outputMode === "reorder_export";
-
-  const setSelection = (predicate: (item: PdfWorkspacePageItem) => boolean) => {
-    setItems(items.map((item) => ({ ...item, selected: !item.removed && predicate(item) })));
-  };
-
-  const toggleSelection = (item: PdfWorkspacePageItem, shiftKey: boolean) => {
-    if (item.removed) {
-      return;
-    }
-    if (shiftKey && lastClickedPage !== null) {
-      const currentIndex = items.findIndex((candidate) => candidate.pageNumber === item.pageNumber);
-      const previousIndex = items.findIndex((candidate) => candidate.pageNumber === lastClickedPage);
-      if (currentIndex >= 0 && previousIndex >= 0) {
-        const start = Math.min(currentIndex, previousIndex);
-        const end = Math.max(currentIndex, previousIndex);
-        setItems(
-          items.map((candidate, index) => ({
-            ...candidate,
-            selected: candidate.removed ? false : index >= start && index <= end ? true : candidate.selected,
-          })),
-        );
-        setLastClickedPage(item.pageNumber);
-        return;
-      }
-    }
-    setItems(
-      items.map((candidate) =>
-        candidate.id === item.id ? { ...candidate, selected: !candidate.selected } : candidate,
-      ),
-    );
-    setLastClickedPage(item.pageNumber);
-  };
-
-  const toggleRemoved = (id: string) => {
-    setItems(
-      items.map((item) =>
-        item.id === id
-          ? { ...item, removed: !item.removed, selected: item.removed ? item.selected : false }
-          : item,
-      ),
-    );
-  };
-
-  const movePage = (id: string, direction: -1 | 1) => {
-    const index = items.findIndex((item) => item.id === id);
-    const nextIndex = index + direction;
-    if (index < 0 || nextIndex < 0 || nextIndex >= items.length) {
-      return;
-    }
-    const nextItems = [...items];
-    const [item] = nextItems.splice(index, 1);
-    nextItems.splice(nextIndex, 0, item);
-    setItems(nextItems);
-  };
-
-  const modal = previewPage ? (
-    <PdfPagePreviewModal
-      fileId={fileId}
-      items={items}
-      onClose={() => setPreviewPage(null)}
-      onPageChange={setPreviewPage}
-      onRemoveToggle={toggleRemoved}
-      onToggleSelect={(item) => toggleSelection(item, false)}
-      pageNumber={previewPage}
-    />
-  ) : null;
+  const gridItems = toPageGridItems(items);
+  const dragEnabled = settings.outputMode !== "custom_ranges";
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-4">
-      <PageSelectionToolbar
-        activeCount={active.length}
-        onClearSelection={() => setSelection(() => false)}
-        onInvertSelection={() => {
-          setItems(items.map((item) => ({ ...item, selected: item.removed ? false : !item.selected })));
+      <PageGridWorkspace
+        dragDisabledReason="Custom ranges use original page numbers."
+        dragEnabled={dragEnabled}
+        items={gridItems}
+        onItemsChange={(nextItems) => setItems(nextItems)}
+        previewLabels={{
+          currentPositionLabel: (_item, position) => `Position ${position} of ${gridItems.length}`,
+          pageLabel: (item) => `Page ${item.originalPageNumber}`,
         }}
-        onRestoreAll={() => {
-          setItems(items.map((item) => ({ ...item, removed: false })));
-        }}
-        onSelectAll={() => setSelection(() => true)}
-        onSelectEven={() => setSelection((item) => item.pageNumber % 2 === 0)}
-        onSelectOdd={() => setSelection((item) => item.pageNumber % 2 === 1)}
-        removedCount={removedCount}
-        selectedCount={selected.length}
-        totalCount={pageCount || items.length}
+        summary={
+          <div className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-sm leading-6 text-zinc-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300 sm:px-4">
+            {splitSummary(settings, gridItems, pageCount)}
+            {dragEnabled ? (
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                Drag pages or use the arrow buttons to set visual order. Selected exports use this order.
+              </p>
+            ) : null}
+          </div>
+        }
       />
-
-      <div className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-sm leading-6 text-zinc-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300 sm:px-4">
-        {splitSummary(settings, items, pageCount)}
-        {removedCount > 0 ? (
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            Removed pages are not deleted from your original file. They are only excluded from this output.
-          </p>
-        ) : null}
-        {reorderEnabled ? (
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            Drag pages or use the arrow buttons to set the final PDF order.
-          </p>
-        ) : null}
-      </div>
-
-      {items.length > 0 ? (
-        <PdfPageGrid
-          items={items}
-          onMove={movePage}
-          onPreview={setPreviewPage}
-          onRemoveToggle={toggleRemoved}
-          onReorder={setItems}
-          onToggleSelect={toggleSelection}
-          reorderEnabled={reorderEnabled}
-        />
-      ) : (
-        <div className="rounded-lg border border-dashed border-zinc-200 bg-white p-6 text-center text-sm text-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-400">
-          Loading page thumbnails...
-        </div>
-      )}
-      {modal}
     </div>
   );
 }
@@ -458,7 +375,7 @@ export default function PdfSplitPage() {
         formData.append("output_filename", settings.outputFilename);
 
         if (settings.outputMode === "split_all") {
-          formData.append("pages", active.length === items.length ? "all" : JSON.stringify(activePages));
+          formData.append("pages", JSON.stringify(activePages));
         } else if (settings.outputMode === "extract_selected" || settings.outputMode === "split_selected") {
           formData.append("pages", JSON.stringify(selectedPages));
         } else if (settings.outputMode === "reorder_export") {
@@ -515,14 +432,14 @@ export default function PdfSplitPage() {
             ? selectedActiveItems(items).length
             : activeItems(items).length;
         return {
+          activePageCount: activeItems(items).length,
           outputMode: settings.outputMode,
           outputType: outputType.includes("ZIP") ? "zip" : "pdf",
           selectedPageCount: selectedCount,
         };
       }}
-      renderCenter={({ fileId, items, pageCount, setItems, settings }) => (
+      renderCenter={({ items, pageCount, setItems, settings }) => (
         <SplitWorkspace
-          fileId={fileId}
           items={items}
           pageCount={pageCount}
           setItems={setItems}

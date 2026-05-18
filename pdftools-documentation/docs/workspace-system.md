@@ -25,6 +25,8 @@ A workspace is the reusable page shell that combines:
 - status/download panel
 - reset and retry behavior
 
+The shared shell entry point is `UnifiedWorkspaceShell` in `frontend/components/workspace/UnifiedWorkspace.tsx`. The older `UnifiedWorkspace` export is kept as a compatibility alias for routes that already import it.
+
 ## Why Shared Workspaces Exist
 
 They reduce duplicated logic for:
@@ -58,6 +60,7 @@ Characteristics:
 
 Used for:
 
+- PDF split
 - PDF merge
 - PDF rotate
 - images-to-PDF
@@ -66,6 +69,8 @@ Used for:
 Characteristics:
 
 - sortable thumbnails or file cards
+- page-level selection and remove/restore where the tool supports it
+- reusable thumbnail zoom through `WorkspaceCanvas`
 - drag reorder
 - often multi-file
 - side settings panel
@@ -94,6 +99,7 @@ Characteristics:
 | Compress | `/compress` | compact | No | No | Sometimes | No | Minimal | right column | same page |
 | Convert | `/convert` | compact | No | No | No | No | Minimal | right column | same page |
 | OCR | `/tools/ocr` | compact | No | No | No | No | Minimal | right column | same page |
+| Split PDF | `/pdf/split` | grid | No | Yes | No | Yes | Thumbnail zoom | right column | drawer |
 | Merge | `/pdf/merge` | grid | No | Yes | Yes | Yes | No | right column | drawer |
 | Rotate PDF | `/pdf/rotate` | grid | No | Yes | No | Optional | No | right column | drawer |
 | Watermark PDF | `/pdf/watermark` | editor | Yes | No | No | Overlay drag | Yes | right column | drawer |
@@ -105,6 +111,9 @@ Characteristics:
 ## Shared Elements
 
 - `WorkspaceHeader`
+- `UnifiedWorkspaceShell`
+- `WorkspaceCanvas`
+- `PageGridWorkspace`
 - upload overlays
 - download panel
 - file metadata/info panel
@@ -147,4 +156,3 @@ Current model:
 - [mobile-ui.md](./mobile-ui.md)
 - [tool-workflows.md](./tool-workflows.md)
 - [frontend-components.md](./frontend-components.md)
-

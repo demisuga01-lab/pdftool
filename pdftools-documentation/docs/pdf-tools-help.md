@@ -6,14 +6,14 @@ Combine multiple PDFs into one output file. Use this when you want one report, p
 
 ## Split PDFs
 
-Work with one PDF at page level before creating a new output. The split workspace shows thumbnails, lets you select pages, remove pages from the output, preview a larger page, and reorder pages for organize-style export.
+Work with one PDF at page level before creating a new output. The split workspace shows thumbnails, lets you zoom the page grid, select pages, remove pages from the output, preview a larger page, and reorder pages with drag/drop or arrow buttons.
 
 Supported output modes:
 
-- Split all pages: creates one PDF per page and downloads a ZIP.
-- Extract selected pages: creates one PDF from selected pages only.
-- Split selected pages: creates one PDF for each selected page and downloads a ZIP.
-- Custom ranges: uses ranges like `1,3-5,8`; one range can download as a PDF and multiple ranges download as a ZIP.
+- Split all active pages: creates one PDF per active page and downloads a ZIP. Removed pages are excluded.
+- Extract selected pages: creates one PDF from selected active pages only, in visual order.
+- Split selected pages: creates one PDF for each selected active page and downloads a ZIP.
+- Custom ranges: uses original page numbers like `1,3-5,8`; one range can download as a PDF and multiple ranges download as a ZIP.
 - Reorder and export: exports one PDF from the remaining active pages in visual order.
 
 The original PDF is not modified. Removed pages are only excluded from the new output, and generated downloads are temporary.

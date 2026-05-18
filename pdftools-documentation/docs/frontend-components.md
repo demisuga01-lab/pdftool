@@ -28,8 +28,10 @@ Map major frontend component groups to their responsibilities.
 - `WorkspacePreview.tsx`
 - `WorkspaceResultPanel.tsx`
 - `WorkspacePageBuilders.tsx`
+- `WorkspaceCanvas.tsx`
+- `PageGridWorkspace.tsx`
 - `WatermarkEditor.tsx`
-- `UnifiedWorkspace.tsx`
+- `UnifiedWorkspace.tsx` / `UnifiedWorkspaceShell`
 - `PDFWorkspace.tsx`
 - `ImageWorkspace.tsx`
 
@@ -48,4 +50,3 @@ Map major frontend component groups to their responsibilities.
 
 - [workspace-system.md](./workspace-system.md)
 - [theme-and-branding.md](./theme-and-branding.md)
-

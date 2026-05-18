@@ -53,14 +53,14 @@ Current UI boundary:
 
 Behavior:
 
-- opens a page-level workspace with PDF page thumbnails, selection, removal from output, visual preview, and reorder controls for organize-style export
-- supports explicit modes: split all pages, extract selected pages into one PDF, split selected pages into separate PDFs, custom ranges, and reorder/delete export as one PDF
+- opens a page-level workspace with PDF page thumbnails, thumbnail zoom, selection, removal from output, visual preview, drag/drop reorder, and arrow-button reorder fallback
+- supports explicit modes: split all active pages, extract selected pages into one PDF, split selected pages into separate PDFs, custom ranges, and reorder/delete export as one PDF
 - accepts custom page ranges like `1,3-5,8`
-- selected-page modes process only the selected active pages
+- selected-page modes process only the selected active pages, in the current visual order
 - removed pages are not deleted from the original file; they are excluded from active-page outputs
-- split-all and split-selected modes download a ZIP of PDFs
+- split-all-active and split-selected modes download a ZIP of PDFs
 - extract-selected and reorder-export modes download one PDF
-- custom ranges download one PDF for a single range or a ZIP when multiple range outputs are created
+- custom ranges use original page numbers and download one PDF for a single range or a ZIP when multiple range outputs are created
 - outputs are temporary generated files; the original upload is not modified
 
 ## Rotate PDF

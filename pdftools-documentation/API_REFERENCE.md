@@ -178,7 +178,7 @@ Form fields:
 - `naming_pattern`: safe split-output template supporting `{original}`, `{n}`, and `{range}`
 - `output_filename`: optional safe filename for the final PDF or ZIP
 
-Selected-page modes validate 1-based page numbers against the uploaded PDF page count. Split-all is the only mode that intentionally processes every page. Multi-output jobs are packaged as ZIP on download; single-output jobs download as PDF.
+Selected-page modes validate 1-based page numbers against the uploaded PDF page count and process only those selected pages. `split_all` processes every active page the frontend sends; legacy clients can still send `all` to split every page. `reorder_export` validates `page_order`, rejects duplicates, and writes one PDF in that order. Multi-output jobs are packaged as ZIP on download; single-output jobs download as PDF.
 
 ### Image routes
 

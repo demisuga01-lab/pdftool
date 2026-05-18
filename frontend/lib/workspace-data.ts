@@ -52,10 +52,15 @@ export function usePdfPageItems(file: File | string | null) {
 
         setItems(
           pages.map((page) => ({
+            currentIndex: page.pageNumber - 1,
             id: `page-${page.pageNumber}`,
+            loadState: "idle",
+            originalPageNumber: page.pageNumber,
             pageNumber: page.pageNumber,
+            previewUrl: page.dataUrl,
             selected: false,
             thumbnail: page.dataUrl,
+            thumbnailUrl: page.dataUrl,
           })),
         );
       })
@@ -118,10 +123,15 @@ export function useUploadedPdfPageItems(fileId: string | null, initialPageCount 
           Array.from({ length: count }, (_, index) => {
             const pageNumber = index + 1;
             return {
-              id: `${fileId}-page-${pageNumber}`,
+              currentIndex: index,
+              id: `page-${pageNumber}`,
+              loadState: "idle",
+              originalPageNumber: pageNumber,
               pageNumber,
+              previewUrl: getPdfPagePreviewUrl(fileId, pageNumber, 150),
               selected: false,
               thumbnail: getPdfPagePreviewUrl(fileId, pageNumber, 45),
+              thumbnailUrl: getPdfPagePreviewUrl(fileId, pageNumber, 45),
             };
           }),
         );
@@ -135,10 +145,15 @@ export function useUploadedPdfPageItems(fileId: string | null, initialPageCount 
             Array.from({ length: count }, (_, index) => {
               const pageNumber = index + 1;
               return {
-                id: `${fileId}-page-${pageNumber}`,
+                currentIndex: index,
+                id: `page-${pageNumber}`,
+                loadState: "error",
+                originalPageNumber: pageNumber,
                 pageNumber,
+                previewUrl: getPdfPagePreviewUrl(fileId, pageNumber, 150),
                 selected: false,
                 thumbnail: getThumbnailUrl(fileId),
+                thumbnailUrl: getThumbnailUrl(fileId),
               };
             }),
           );

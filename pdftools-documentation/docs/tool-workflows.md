@@ -87,11 +87,12 @@ Browser
 
 - The split page uses `/api/files/pdf-info/{file_id}` for page count and `/api/files/pdf-page/{file_id}/{page_number}` for thumbnails and preview.
 - The frontend sends an explicit split `mode` and page payload. It does not send every page for selected-page modes.
+- The page grid supports thumbnail zoom, selection, remove/restore, preview modal actions, drag/drop reorder, and arrow-button reorder fallback.
 - `split_all` creates one PDF per active page and downloads a ZIP.
-- `extract_selected` and `reorder_export` create one PDF.
+- `extract_selected` and `reorder_export` create one PDF; selected exports use the visual order.
 - `split_selected` creates a ZIP containing one PDF per selected page.
-- `custom_ranges` keeps range behavior and downloads one PDF or a ZIP depending on output count.
-- Recent Jobs may store safe metadata such as split mode, output type, and selected page count. File contents and passwords are not stored there.
+- `custom_ranges` uses original page numbers and downloads one PDF or a ZIP depending on output count.
+- Recent Jobs may store safe metadata such as split mode, output type, selected page count, and active page count. File contents and passwords are not stored there.
 
 ## What Users See
 

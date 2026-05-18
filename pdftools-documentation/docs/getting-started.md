@@ -44,7 +44,7 @@ On `/compress`, the Processing Engine setting lets you leave the engine on Auto 
 
 Some conversions package multiple outputs into a ZIP file. That is expected for jobs such as turning a multi-page PDF into separate images.
 
-For Split PDF, the output depends on the selected mode: split-all and split-selected jobs download a ZIP, while extract-selected and reorder/export jobs download one PDF. The original upload is not modified.
+For Split PDF, the output depends on the selected mode: split-all-active and split-selected jobs download a ZIP, while extract-selected and reorder/export jobs download one PDF. Removed pages are excluded from active-page outputs, selected exports use the visual order, and the original upload is not modified.
 
 Downloads are temporary. Save the result after it is ready because generated files may be cleaned up after the retention window. PDFTools is a processing workspace, not permanent file storage.
 

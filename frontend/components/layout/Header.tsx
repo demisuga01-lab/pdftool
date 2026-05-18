@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GitBranch } from "lucide-react";
 
+import { GithubIcon } from "@/components/icons/SiteIcons";
 import { ChevronDownIcon, CloseIcon, MenuIcon } from "@/components/icons/SiteIcons";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { useTheme, type ThemeMode } from "@/components/theme/ThemeProvider";
@@ -67,6 +67,13 @@ const toolSections: ToolSection[] = [
 function ToolsDropdown() {
   const [open, setOpen] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pathname = usePathname();
+  const active =
+    pathname.startsWith("/pdf") ||
+    pathname.startsWith("/image") ||
+    pathname === "/compress" ||
+    pathname === "/convert" ||
+    pathname.startsWith("/tools/ocr");
 
   useEffect(() => {
     return () => {
@@ -99,7 +106,12 @@ function ToolsDropdown() {
       <button
         aria-expanded={open}
         aria-haspopup="menu"
-        className="inline-flex h-10 items-center rounded-full px-3.5 text-sm font-semibold text-zinc-600 transition hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:text-zinc-300 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300 dark:focus-visible:ring-emerald-400/35"
+        className={[
+          "inline-flex h-11 items-center border-b-2 px-1 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:focus-visible:ring-emerald-400/35",
+          active
+            ? "border-emerald-600 text-zinc-950 dark:border-emerald-400 dark:text-zinc-50"
+            : "border-transparent text-zinc-600 hover:border-emerald-300 hover:text-zinc-950 dark:text-zinc-300 dark:hover:border-emerald-800 dark:hover:text-white",
+        ].join(" ")}
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
@@ -215,18 +227,18 @@ export function Header() {
 
   const navLinkClass = (active: boolean) =>
     [
-      "inline-flex h-10 items-center rounded-full px-3.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:focus-visible:ring-emerald-400/35",
+      "inline-flex h-11 items-center border-b-2 px-1 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:focus-visible:ring-emerald-400/35",
       active
-        ? "border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
-        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-white",
+        ? "border-emerald-600 text-zinc-950 dark:border-emerald-400 dark:text-zinc-50"
+        : "border-transparent text-zinc-600 hover:border-emerald-300 hover:text-zinc-950 dark:text-zinc-300 dark:hover:border-emerald-800 dark:hover:text-white",
     ].join(" ");
 
   return (
-    <header className="sticky top-0 z-[90] border-b border-zinc-200/80 bg-white shadow-[0_1px_0_rgba(15,23,42,0.03)] dark:border-white/10 dark:bg-zinc-950">
-      <div className="mx-auto flex h-14 max-w-[1560px] items-center justify-between gap-2 px-3 sm:h-16 sm:px-6 xl:px-8">
+    <header className="sticky top-0 z-[90] border-b border-zinc-200/80 bg-white/92 shadow-[0_1px_0_rgba(15,23,42,0.03)] backdrop-blur dark:border-white/10 dark:bg-zinc-950/88">
+      <div className="mx-auto flex h-16 max-w-[1560px] items-center justify-between gap-2 px-3 sm:h-[4.4rem] sm:px-6 xl:px-8">
         <Logo className="gap-2 sm:gap-3" iconClassName="h-9 w-9 sm:h-10 sm:w-10" onNavigate={closeMobile} />
 
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className="hidden items-center gap-6 md:flex">
           <HomeLink className={navLinkClass(pathname === "/")}>
             Home
           </HomeLink>
@@ -253,7 +265,7 @@ export function Header() {
             rel="noreferrer"
             target="_blank"
           >
-            <GitBranch className="h-4 w-4" />
+            <GithubIcon className="h-4 w-4" />
             GitHub
           </Link>
           <button
@@ -271,10 +283,10 @@ export function Header() {
       {mobileOpen ? (
         <>
           <div
-            className="fixed inset-0 top-14 z-40 bg-black/45 sm:top-16 md:hidden"
+            className="fixed inset-0 top-16 z-40 bg-black/45 sm:top-[4.4rem] md:hidden"
             onClick={closeMobile}
           />
-          <div className="fixed inset-x-0 top-14 z-50 max-h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain border-t border-zinc-200/80 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_24px_60px_rgba(15,23,42,0.12)] sm:top-16 sm:max-h-[calc(100dvh-4rem)] md:hidden dark:border-white/10 dark:bg-zinc-950 dark:shadow-[0_30px_70px_rgba(0,0,0,0.35)]">
+          <div className="fixed inset-x-0 top-16 z-50 max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain border-t border-zinc-200/80 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_24px_60px_rgba(15,23,42,0.12)] sm:top-[4.4rem] sm:max-h-[calc(100dvh-4.4rem)] md:hidden dark:border-white/10 dark:bg-zinc-950 dark:shadow-[0_30px_70px_rgba(0,0,0,0.35)]">
             <div className="space-y-4 px-4 py-4">
               {mobileGroups.map((group) => (
                 <div className="rounded-[24px] border border-zinc-200/80 bg-zinc-50 px-3 dark:border-white/10 dark:bg-zinc-900" key={group.label}>
@@ -339,7 +351,7 @@ export function Header() {
                   target="_blank"
                   onClick={closeMobile}
                 >
-                  <GitBranch className="h-4 w-4" />
+                  <GithubIcon className="h-4 w-4" />
                   GitHub
                 </Link>
               </div>
