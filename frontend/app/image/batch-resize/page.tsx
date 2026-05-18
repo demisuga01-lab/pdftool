@@ -6,29 +6,18 @@ import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
 import { ImageThumbnailGrid, ImageWorkspace, EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
 import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
+import { UnsupportedOptionNote } from "@/components/workspace/UnsupportedOptionNote";
 import type { WorkspaceThumbnailSize } from "@/components/workspace/PDFWorkspace";
 import { estimateProcessingTime, formatBytes } from "@/lib/format";
 import { useWorkspaceJob } from "@/lib/workspace-job";
 import { toImageGridItems, useImagePreviewItems, useObjectState } from "@/lib/workspace-data";
 
 type BatchResizeSettings = {
-  addDimensionsSuffix: boolean;
-  customPrefix: string;
-  fit: "cover" | "contain" | "fill" | "inside" | "outside";
-  format: "same" | "jpeg" | "png" | "webp";
   height: number;
-  namingPattern: "{original}" | "{original}-resized" | "{n}" | "custom";
-  overridePerImage: boolean;
-  quality: number;
   width: number;
 };
 
 const sections: Array<ControlSection<BatchResizeSettings>> = [
-  {
-    key: "input-files",
-    label: "Input Files",
-    render: (_settings, _update) => null,
-  },
   {
     key: "output-dimensions",
     label: "Output Dimensions",
@@ -59,61 +48,16 @@ const sections: Array<ControlSection<BatchResizeSettings>> = [
     fields: [
       { key: "width", label: "Width", type: "number", min: 1 },
       { key: "height", label: "Height", type: "number", min: 1 },
-      {
-        key: "fit",
-        label: "Resize mode",
-        type: "select",
-        options: [
-          { label: "Cover", value: "cover" },
-          { label: "Contain", value: "contain" },
-          { label: "Fill", value: "fill" },
-          { label: "Inside", value: "inside" },
-          { label: "Outside", value: "outside" },
-        ],
-      },
     ],
   },
   {
-    key: "per-image",
-    label: "Per-Image Settings",
-    fields: [{ key: "overridePerImage", label: "Override dimensions for specific images", type: "toggle" }],
-  },
-  {
-    key: "output-format",
-    label: "Output Format",
-    fields: [
-      {
-        key: "format",
-        label: "Convert all to",
-        type: "select",
-        options: [
-          { label: "Same as input", value: "same" },
-          { label: "JPEG", value: "jpeg" },
-          { label: "PNG", value: "png" },
-          { label: "WebP", value: "webp" },
-        ],
-      },
-      { key: "quality", label: "Quality", type: "slider", min: 1, max: 100 },
-    ],
-  },
-  {
-    key: "naming",
-    label: "Naming",
-    fields: [
-      {
-        key: "namingPattern",
-        label: "Pattern",
-        type: "select",
-        options: [
-          { label: "{original}", value: "{original}" },
-          { label: "{original}-resized", value: "{original}-resized" },
-          { label: "{n}", value: "{n}" },
-          { label: "Custom", value: "custom" },
-        ],
-      },
-      { key: "customPrefix", label: "Custom prefix", type: "text", show: (settings) => settings.namingPattern === "custom" },
-      { key: "addDimensionsSuffix", label: "Add dimensions suffix", type: "toggle" },
-    ],
+    key: "backend-defaults",
+    label: "Output Defaults",
+    render: () => (
+      <UnsupportedOptionNote>
+        Batch resize currently uses backend defaults for format, fit, quality, and naming.
+      </UnsupportedOptionNote>
+    ),
   },
 ];
 
@@ -125,19 +69,16 @@ export default function ImageBatchResizePage() {
   const items = toImageGridItems(previews);
   const totalBytes = useMemo(() => files.reduce((sum, file) => sum + file.size, 0), [files]);
   const { state: settings, update } = useObjectState<BatchResizeSettings>({
-    addDimensionsSuffix: true,
-    customPrefix: "",
-    fit: "contain",
-    format: "same",
     height: 1080,
-    namingPattern: "{original}-resized",
-    overridePerImage: false,
-    quality: 85,
     width: 1920,
   });
   const job = useWorkspaceJob({
+    approximateFileSize: totalBytes > 0 ? formatBytes(totalBytes) : undefined,
+    fileType: files.length > 1 ? "multiple images" : files[0]?.name.split(".").pop(),
     filename: "batch-resize.zip",
+    inputFileName: files.length > 1 ? `${files.length} images` : files[0]?.name,
     prefix: "image",
+    toolName: "Batch Resize",
   });
 
   const handleProcess = () => {
@@ -149,12 +90,6 @@ export default function ImageBatchResizePage() {
     files.forEach((file) => formData.append("files", file));
     formData.append("width", String(settings.width));
     formData.append("height", String(settings.height));
-    formData.append("fit", settings.fit);
-    formData.append("format", settings.format);
-    formData.append("quality", String(settings.quality));
-    formData.append("naming_pattern", settings.namingPattern);
-    formData.append("custom_prefix", settings.customPrefix);
-    formData.append("add_dimensions_suffix", String(settings.addDimensionsSuffix));
     job.process("image/batch-resize", formData);
   };
 
@@ -189,6 +124,9 @@ export default function ImageBatchResizePage() {
               error={job.error}
               errorDetails={job.errorDetails ?? null}
               estimatedTime={estimateProcessingTime(totalBytes, files.length)}
+              approxFileSize={totalBytes > 0 ? formatBytes(totalBytes) : undefined}
+              fileName={files.length > 1 ? `${files.length} images` : files[0]?.name}
+              fileType={files.length > 1 ? "multiple images" : files[0]?.name.split(".").pop()}
               jobId={job.jobId}
               notice={job.notice}
               onDownload={job.state === "success" ? job.download : undefined}
@@ -199,6 +137,7 @@ export default function ImageBatchResizePage() {
               onReedit={job.dismissPanel}
               rateLimitScope={job.rateLimitScope}
               state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
+              toolName="Batch Resize"
             />
           ) : null
         }

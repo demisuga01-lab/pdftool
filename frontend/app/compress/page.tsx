@@ -668,8 +668,12 @@ export default function CompressPage() {
   const pdfPreview = useUploadedPdfPageItems(activeType === "pdf" ? fileMeta?.file_id ?? null : null, initialPageCount);
   const currentFile = file ?? (fileMeta ? fileFromMetadata(fileMeta) : null);
   const job = useWorkspaceJob({
+    approximateFileSize: fileMeta ? formatBytes(fileMeta.size_bytes) : currentFile ? formatBytes(currentFile.size) : undefined,
+    fileType: fileMeta?.extension ?? currentFile?.name.split(".").pop(),
     filename: currentFile ? downloadName(currentFile, { ...settings, fileType: activeType }) : "compressed-output",
+    inputFileName: fileMeta?.original_name ?? currentFile?.name,
     prefix: "compress",
+    toolName: "Compress",
   });
   const result = job.result?.result as CompressionResult | undefined;
   const infoContent = useMemo(() => {
@@ -891,7 +895,10 @@ export default function CompressPage() {
           <DownloadPanel
             error={job.error}
             errorDetails={job.errorDetails ?? null}
+            approxFileSize={formatBytes(fileMeta.size_bytes)}
             estimatedTime={estimateProcessingTime(fileMeta.size_bytes, 1)}
+            fileName={fileMeta.original_name}
+            fileType={fileMeta.extension}
             jobId={job.jobId}
             notice={job.notice}
             onDownload={job.state === "success" ? job.download : undefined}
@@ -906,6 +913,7 @@ export default function CompressPage() {
             onReedit={job.dismissPanel}
             rateLimitScope={job.rateLimitScope}
             state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
+            toolName="Compress"
             statusText={
               job.processingLabel ??
               (queuedTooLong

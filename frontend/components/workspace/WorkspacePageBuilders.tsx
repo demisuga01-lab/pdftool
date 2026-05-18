@@ -526,8 +526,12 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
   const { allSelected, deselectAll, selectAll, toggleItem } = usePageSelection(items, setItems);
   const currentFile = file ?? (fileMeta ? fileFromMetadata(fileMeta) : null);
   const job = useWorkspaceJob({
+    approximateFileSize: fileMeta ? formatBytes(fileMeta.size_bytes) : currentFile ? formatBytes(currentFile.size) : undefined,
+    fileType: fileMeta?.extension ?? currentFile?.name.split(".").pop(),
     filename: currentFile ? downloadFilename(currentFile, settings) : "output.pdf",
+    inputFileName: fileMeta?.original_name ?? currentFile?.name,
     prefix: "pdf",
+    toolName: title,
   });
 
   const syncFileQuery = useCallback(
@@ -680,6 +684,9 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
         error={job.error}
         errorDetails={job.errorDetails ?? null}
         estimatedTime={estimateProcessingTime(fileMeta.size_bytes, pageCount)}
+        approxFileSize={formatBytes(fileMeta.size_bytes)}
+        fileName={fileMeta.original_name}
+        fileType={fileMeta.extension}
         jobId={job.jobId}
         notice={job.notice}
         onDownload={job.state === "success" ? job.download : undefined}
@@ -692,8 +699,10 @@ export function SinglePdfWorkspacePage<T extends Record<string, unknown>>({
         }}
         onReedit={job.dismissPanel}
         rateLimitScope={job.rateLimitScope}
+        routePath={pathname}
         state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
         statusText={job.processingLabel ?? undefined}
+        toolName={title}
       />
     ) : null;
   const emptyStateContent = (
@@ -927,8 +936,12 @@ export function SingleImageWorkspacePage<T extends Record<string, unknown>>({
       : null
   );
   const job = useWorkspaceJob({
+    approximateFileSize: fileMeta ? formatBytes(fileMeta.size_bytes) : currentFile ? formatBytes(currentFile.size) : undefined,
+    fileType: fileMeta?.extension ?? currentFile?.name.split(".").pop(),
     filename: currentFile ? downloadFilename(currentFile, settings) : "output",
+    inputFileName: fileMeta?.original_name ?? currentFile?.name,
     prefix: "image",
+    toolName: title,
   });
 
   const syncFileQuery = useCallback(
@@ -1077,6 +1090,9 @@ export function SingleImageWorkspacePage<T extends Record<string, unknown>>({
         error={job.error}
         errorDetails={job.errorDetails ?? null}
         estimatedTime={estimateProcessingTime(fileMeta.size_bytes, 1)}
+        approxFileSize={formatBytes(fileMeta.size_bytes)}
+        fileName={fileMeta.original_name}
+        fileType={fileMeta.extension}
         jobId={job.jobId}
         notice={job.notice}
         onDownload={job.state === "success" ? job.download : undefined}
@@ -1088,8 +1104,10 @@ export function SingleImageWorkspacePage<T extends Record<string, unknown>>({
         }}
         onReedit={job.dismissPanel}
         rateLimitScope={job.rateLimitScope}
+        routePath={pathname}
         state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
         statusText={job.processingLabel ?? undefined}
+        toolName={title}
       />
     ) : null;
   const emptyStateContent = (
@@ -1266,8 +1284,12 @@ export function MultiImageWorkspacePage<T extends Record<string, unknown>>({
     [files],
   );
   const job = useWorkspaceJob({
+    approximateFileSize: totalBytes > 0 ? formatBytes(totalBytes) : undefined,
+    fileType: files.length > 1 ? "multiple images" : files[0]?.name.split(".").pop(),
     filename: downloadFilename,
+    inputFileName: files.length > 1 ? `${files.length} images` : files[0]?.name,
     prefix: "image",
+    toolName: title,
   });
 
   const handleProcess = () => {
@@ -1290,6 +1312,9 @@ export function MultiImageWorkspacePage<T extends Record<string, unknown>>({
             error={job.error}
             errorDetails={job.errorDetails ?? null}
             estimatedTime={estimateProcessingTime(totalBytes, files.length)}
+            approxFileSize={totalBytes > 0 ? formatBytes(totalBytes) : undefined}
+            fileName={files.length > 1 ? `${files.length} images` : files[0]?.name}
+            fileType={files.length > 1 ? "multiple images" : files[0]?.name.split(".").pop()}
             jobId={job.jobId}
             notice={job.notice}
             onDownload={job.state === "success" ? job.download : undefined}
@@ -1299,8 +1324,10 @@ export function MultiImageWorkspacePage<T extends Record<string, unknown>>({
             }}
             onReedit={job.dismissPanel}
             rateLimitScope={job.rateLimitScope}
+            routePath={typeof window !== "undefined" ? window.location.pathname : undefined}
             state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
             statusText={job.processingLabel ?? undefined}
+            toolName={title}
           />
         ) : null
       }

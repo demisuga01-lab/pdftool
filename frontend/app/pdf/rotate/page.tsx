@@ -59,7 +59,14 @@ export default function PdfRotatePage() {
   const { items, pageCount, setItems } = useUploadedPdfPageItems(fileRecord?.file_id ?? null, Number(fileRecord?.page_count ?? 0));
   const { allSelected, deselectAll, selectAll, toggleItem } = usePageSelection(items, setItems);
   const filename = fileRecord?.display_name ? `${slugifyBaseName(fileRecord.display_name)}-rotated.pdf` : "rotated.pdf";
-  const job = useWorkspaceJob({ filename, prefix: "pdf" });
+  const job = useWorkspaceJob({
+    approximateFileSize: fileRecord ? formatBytes(fileRecord.size_bytes) : undefined,
+    fileType: fileRecord?.extension,
+    filename,
+    inputFileName: fileRecord?.display_name,
+    prefix: "pdf",
+    toolName: "Rotate PDF",
+  });
 
   const selectionMatcher = (item: PdfPageCard) => {
     if (settings.applyTo === "selected") {
@@ -135,10 +142,13 @@ export default function PdfRotatePage() {
         downloadPanel={
           fileRecord && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
             <DownloadPanel
-              error={job.error}
-              errorDetails={job.errorDetails ?? null}
-              estimatedTime={estimateProcessingTime(fileRecord.size_bytes, pageCount)}
-              jobId={job.jobId}
+            error={job.error}
+            errorDetails={job.errorDetails ?? null}
+            approxFileSize={formatBytes(fileRecord.size_bytes)}
+            estimatedTime={estimateProcessingTime(fileRecord.size_bytes, pageCount)}
+            fileName={fileRecord.display_name}
+            fileType={fileRecord.extension}
+            jobId={job.jobId}
               notice={job.notice}
               onDownload={job.state === "success" ? job.download : undefined}
               onProcessAnother={() => {
@@ -147,9 +157,10 @@ export default function PdfRotatePage() {
                 job.reset();
               }}
               onReedit={job.dismissPanel}
-              rateLimitScope={job.rateLimitScope}
-              state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
-            />
+            rateLimitScope={job.rateLimitScope}
+            state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
+            toolName="Rotate PDF"
+          />
           ) : null
         }
         editor={

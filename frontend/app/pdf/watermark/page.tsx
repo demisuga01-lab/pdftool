@@ -91,8 +91,12 @@ export default function PdfWatermarkPage() {
 
   const outputName = file ? `${settings.outputFilename.trim() || `${slugifyBaseName(file.name)}-watermarked`}.pdf` : "watermarked.pdf";
   const job = useWorkspaceJob({
+    approximateFileSize: fileMeta ? formatBytes(fileMeta.size_bytes) : file ? formatBytes(file.size) : undefined,
+    fileType: fileMeta?.extension ?? file?.name.split(".").pop(),
     filename: outputName,
+    inputFileName: fileMeta?.original_name ?? file?.name,
     prefix: "pdf",
+    toolName: "Watermark PDF",
   });
 
   const updateSettings = useCallback(
@@ -255,7 +259,10 @@ export default function PdfWatermarkPage() {
           <DownloadPanel
             error={job.error}
             errorDetails={job.errorDetails ?? null}
+            approxFileSize={formatBytes(fileMeta.size_bytes)}
             estimatedTime={estimateProcessingTime(fileMeta.size_bytes, totalPages)}
+            fileName={fileMeta.original_name}
+            fileType={fileMeta.extension}
             jobId={job.jobId}
             notice={job.notice}
             onDownload={job.state === "success" ? job.download : undefined}
@@ -268,6 +275,7 @@ export default function PdfWatermarkPage() {
             onReedit={job.dismissPanel}
             rateLimitScope={job.rateLimitScope}
             state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
+            toolName="Watermark PDF"
           />
         ) : null
       }

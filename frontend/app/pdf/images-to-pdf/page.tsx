@@ -6,110 +6,25 @@ import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
 import { ImageThumbnailGrid, ImageWorkspace, EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
 import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
+import { UnsupportedOptionNote } from "@/components/workspace/UnsupportedOptionNote";
 import type { WorkspaceThumbnailSize } from "@/components/workspace/PDFWorkspace";
 import { estimateProcessingTime, formatBytes } from "@/lib/format";
 import { useWorkspaceJob } from "@/lib/workspace-job";
 import { toImageGridItems, useImagePreviewItems, useObjectState } from "@/lib/workspace-data";
 
 type ImagesToPdfSettings = {
-  compressImages: boolean;
-  customHeight: number;
-  customWidth: number;
-  fit: "fit" | "fill" | "actual" | "custom";
-  imageQuality: number;
-  marginPreset: "none" | "small" | "medium" | "large" | "custom";
-  marginBottom: number;
-  marginLeft: number;
-  marginRight: number;
-  marginTop: number;
-  orientation: "portrait" | "landscape";
   outputFilename: string;
-  pageSize: "a4" | "a3" | "a5" | "letter" | "legal" | "custom";
 };
 
 const sections: Array<ControlSection<ImagesToPdfSettings>> = [
   {
-    key: "page-settings",
-    label: "Page Settings",
-    fields: [
-      {
-        key: "pageSize",
-        label: "Page size",
-        type: "select",
-        options: [
-          { label: "A4", value: "a4" },
-          { label: "A3", value: "a3" },
-          { label: "A5", value: "a5" },
-          { label: "Letter", value: "letter" },
-          { label: "Legal", value: "legal" },
-          { label: "Custom", value: "custom" },
-        ],
-      },
-      {
-        key: "customWidth",
-        label: "Custom width",
-        type: "number",
-        min: 1,
-        show: (settings) => settings.pageSize === "custom",
-      },
-      {
-        key: "customHeight",
-        label: "Custom height",
-        type: "number",
-        min: 1,
-        show: (settings) => settings.pageSize === "custom",
-      },
-      {
-        key: "orientation",
-        label: "Orientation",
-        type: "buttonGroup",
-        options: [
-          { label: "Portrait", value: "portrait" },
-          { label: "Landscape", value: "landscape" },
-        ],
-      },
-      {
-        key: "fit",
-        label: "Fit image to page",
-        type: "select",
-        options: [
-          { label: "Fit", value: "fit" },
-          { label: "Fill", value: "fill" },
-          { label: "Actual size", value: "actual" },
-          { label: "Custom", value: "custom" },
-        ],
-      },
-    ],
-  },
-  {
-    key: "margins",
-    label: "Margins",
-    fields: [
-      {
-        key: "marginPreset",
-        label: "Margin preset",
-        type: "select",
-        options: [
-          { label: "None", value: "none" },
-          { label: "Small (10mm)", value: "small" },
-          { label: "Medium (20mm)", value: "medium" },
-          { label: "Large (30mm)", value: "large" },
-          { label: "Custom", value: "custom" },
-        ],
-      },
-      { key: "marginTop", label: "Top", type: "number", min: 0, show: (settings) => settings.marginPreset === "custom" },
-      { key: "marginRight", label: "Right", type: "number", min: 0, show: (settings) => settings.marginPreset === "custom" },
-      { key: "marginBottom", label: "Bottom", type: "number", min: 0, show: (settings) => settings.marginPreset === "custom" },
-      { key: "marginLeft", label: "Left", type: "number", min: 0, show: (settings) => settings.marginPreset === "custom" },
-    ],
-  },
-  {
-    key: "image-settings",
-    label: "Image Settings",
-    fields: [
-      { key: "imageQuality", label: "Image quality", type: "slider", min: 1, max: 100 },
-      { key: "compressImages", label: "Compress images", type: "toggle" },
-    ],
+    key: "layout-note",
+    label: "Layout",
+    render: () => (
+      <UnsupportedOptionNote>
+        Images are currently combined using the backend default layout. Page size, margins, and fit options are planned.
+      </UnsupportedOptionNote>
+    ),
   },
   {
     key: "output",
@@ -128,23 +43,15 @@ export default function PdfImagesToPdfPage() {
   const items = toImageGridItems(previews);
   const totalBytes = useMemo(() => files.reduce((sum, file) => sum + file.size, 0), [files]);
   const { state: settings, update } = useObjectState<ImagesToPdfSettings>({
-    compressImages: true,
-    customHeight: 297,
-    customWidth: 210,
-    fit: "fit",
-    imageQuality: 90,
-    marginBottom: 20,
-    marginLeft: 20,
-    marginPreset: "medium",
-    marginRight: 20,
-    marginTop: 20,
-    orientation: "portrait",
     outputFilename: "images.pdf",
-    pageSize: "a4",
   });
   const job = useWorkspaceJob({
+    approximateFileSize: totalBytes > 0 ? formatBytes(totalBytes) : undefined,
+    fileType: files.length > 1 ? "multiple images" : files[0]?.name.split(".").pop(),
     filename: settings.outputFilename || "images.pdf",
+    inputFileName: files.length > 1 ? `${files.length} images` : files[0]?.name,
     prefix: "pdf",
+    toolName: "Images to PDF",
   });
 
   const handleProcess = () => {
@@ -154,18 +61,6 @@ export default function PdfImagesToPdfPage() {
 
     const formData = new FormData();
     files.forEach((file) => formData.append("files", file));
-    formData.append("page_size", settings.pageSize);
-    formData.append("custom_width", String(settings.customWidth));
-    formData.append("custom_height", String(settings.customHeight));
-    formData.append("orientation", settings.orientation);
-    formData.append("fit", settings.fit);
-    formData.append("margin_preset", settings.marginPreset);
-    formData.append("margin_top", String(settings.marginTop));
-    formData.append("margin_right", String(settings.marginRight));
-    formData.append("margin_bottom", String(settings.marginBottom));
-    formData.append("margin_left", String(settings.marginLeft));
-    formData.append("image_quality", String(settings.imageQuality));
-    formData.append("compress_images", String(settings.compressImages));
     formData.append("output_filename", settings.outputFilename);
     job.process("pdf/images-to-pdf", formData);
   };
@@ -196,13 +91,16 @@ export default function PdfImagesToPdfPage() {
           />
         }
         countLabel={files.length > 0 ? `${files.length} selected` : undefined}
-        description="Arrange images, adjust page layout, and turn the sequence into a single PDF."
+        description="Arrange images and turn the sequence into a single PDF using the backend default layout."
         downloadPanel={
           job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
             <DownloadPanel
               error={job.error}
               errorDetails={job.errorDetails ?? null}
               estimatedTime={estimateProcessingTime(totalBytes, files.length)}
+              approxFileSize={totalBytes > 0 ? formatBytes(totalBytes) : undefined}
+              fileName={files.length > 1 ? `${files.length} images` : files[0]?.name}
+              fileType={files.length > 1 ? "multiple images" : files[0]?.name.split(".").pop()}
               jobId={job.jobId}
               notice={job.notice}
               onDownload={job.state === "success" ? job.download : undefined}
@@ -213,6 +111,7 @@ export default function PdfImagesToPdfPage() {
               onReedit={job.dismissPanel}
               rateLimitScope={job.rateLimitScope}
               state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
+              toolName="Images to PDF"
             />
           ) : null
         }

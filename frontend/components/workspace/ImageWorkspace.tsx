@@ -28,6 +28,7 @@ import {
   UploadIcon,
 } from "@/components/icons/SiteIcons";
 import { WorkspaceHeader } from "@/components/workspace/WorkspaceHeader";
+import { RecentJobsPanel } from "@/components/workspace/RecentJobsPanel";
 import { PUBLIC_FILE_HANDLING_STATEMENT } from "@/lib/copy";
 
 import type { WorkspaceThumbnailSize } from "./PDFWorkspace";
@@ -260,7 +261,10 @@ export function ImageWorkspace({
                       <h2 className="text-[18px] font-bold text-slate-900 dark:text-zinc-100">{breadcrumbTitle}</h2>
                       <p className="text-[13px] font-medium leading-5 text-slate-500 dark:text-zinc-400">{description}</p>
                     </div>
-                    {rightPanel}
+                    <div className="space-y-6">
+                      {rightPanel}
+                      <RecentJobsPanel />
+                    </div>
                     <div className="mt-6">
                       <button
                         className="primary-button h-11 w-full text-[15px]"
@@ -289,7 +293,10 @@ export function ImageWorkspace({
               <h1 className="text-[22px] font-bold leading-tight text-slate-900 dark:text-zinc-100">{breadcrumbTitle}</h1>
               <p className="text-[13px] font-medium leading-5 text-slate-500 dark:text-zinc-400">{description}</p>
             </div>
-            {rightPanel}
+            <div className="space-y-6">
+              {rightPanel}
+              <RecentJobsPanel />
+            </div>
           </div>
 
           <div className="border-t border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">

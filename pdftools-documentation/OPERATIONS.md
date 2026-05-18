@@ -19,6 +19,7 @@ This guide covers routine checks, incident handling, logs, queue health, disk us
 - `pm2 list`
 - `curl -f http://localhost:8000/api/health`
 - `docker exec -it pdftool-redis redis-cli ping`
+- backend readiness script after deploys or server changes
 - quick test of homepage and one upload route
 - check support inbox for repeated failures or abuse reports
 
@@ -44,6 +45,18 @@ docker exec -it pdftool-redis redis-cli ping
 df -h
 du -sh /opt/pdftool/data/*
 ```
+
+## Backend Readiness Check
+
+Run this from the backend virtualenv after deploys, dependency changes, or VPS maintenance:
+
+```bash
+cd /opt/pdftool/backend
+source venv/bin/activate
+python3 -m app.scripts.check_readiness
+```
+
+`OK` means the check passed. `WARNING` means an optional tool or non-critical setting needs review. `MISSING` or `FAIL` on a critical check should be fixed before considering the deployment ready.
 
 ## Queue and Worker Checks
 
@@ -85,6 +98,19 @@ pm2 restart pdftool-api pdftool-frontend pdftool-worker-fast pdftool-worker-heav
 pm2 save
 ```
 
+### Ecosystem config restart
+
+The repository includes `ecosystem.config.js` as a safe, secret-free PM2 process definition. Review the `/opt/pdftool` paths before use.
+
+```bash
+cd /opt/pdftool
+pm2 start ecosystem.config.js
+pm2 restart ecosystem.config.js --update-env
+pm2 save
+```
+
+Run Git, build, and PM2 app commands as the `pdftool` user. Run Docker and system service commands as root or through sudo according to the VPS playbook.
+
 ### Safe reboot preparation
 
 - verify no urgent production processing is in flight
@@ -119,4 +145,3 @@ pm2 save
 - [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
 - [docs/deployment-vps.md](./docs/deployment-vps.md)
 - [docs/celery-workers.md](./docs/celery-workers.md)
-

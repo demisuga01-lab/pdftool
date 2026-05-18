@@ -6,7 +6,7 @@ import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
 import { EmptyWorkspaceState, ImageWorkspace } from "@/components/workspace/ImageWorkspace";
 import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
-import { clamp, estimateProcessingTime, slugifyBaseName } from "@/lib/format";
+import { clamp, estimateProcessingTime, formatBytes, slugifyBaseName } from "@/lib/format";
 import { useWorkspaceJob } from "@/lib/workspace-job";
 import { imageSummary, useObjectState, useSingleImagePreview } from "@/lib/workspace-data";
 
@@ -99,8 +99,12 @@ export default function ImageCropPage() {
     y: 0,
   });
   const job = useWorkspaceJob({
+    approximateFileSize: file ? formatBytes(file.size) : undefined,
+    fileType: file?.name.split(".").pop(),
     filename: file ? `${slugifyBaseName(file.name)}-cropped.${file.name.split(".").pop() ?? "png"}` : "cropped.png",
+    inputFileName: file?.name,
     prefix: "image",
+    toolName: "Crop Image",
   });
 
   useEffect(() => {
@@ -359,7 +363,10 @@ export default function ImageCropPage() {
         job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
           <DownloadPanel
             error={job.error}
+            approxFileSize={file ? formatBytes(file.size) : undefined}
             estimatedTime={file ? estimateProcessingTime(file.size, 1) : undefined}
+            fileName={file?.name}
+            fileType={file?.name.split(".").pop()}
             jobId={job.jobId}
             notice={job.notice}
             onDownload={job.state === "success" ? job.download : undefined}
@@ -370,6 +377,7 @@ export default function ImageCropPage() {
             onReedit={job.dismissPanel}
             rateLimitScope={job.rateLimitScope}
             state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
+            toolName="Crop Image"
           />
         ) : null
       }

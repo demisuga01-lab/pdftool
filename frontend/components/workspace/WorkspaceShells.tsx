@@ -35,6 +35,7 @@ import { useEffect, useState, type DragEvent, type ReactNode } from "react";
 import { PageIcon } from "@/components/icons/SiteIcons";
 import { WorkspaceHeader } from "@/components/workspace/WorkspaceHeader";
 import { WorkspaceMobileDrawer } from "@/components/workspace/WorkspaceMobileDrawer";
+import { RecentJobsPanel } from "@/components/workspace/RecentJobsPanel";
 import { WorkspaceSettingsPanel } from "@/components/workspace/WorkspaceSettingsPanel";
 import { PUBLIC_FILE_HANDLING_STATEMENT } from "@/lib/copy";
 import { useDragPan, useWorkspaceZoom } from "@/lib/use-workspace-zoom";
@@ -195,7 +196,10 @@ export function CompactWorkspaceShell({
               panelClassName="lg:flex lg:max-h-[calc(100dvh-7.5rem)] lg:flex-col"
               title={title}
             >
-              {settingsPanel}
+              <div className="space-y-6">
+                {settingsPanel}
+                <RecentJobsPanel />
+              </div>
             </WorkspaceSettingsPanel>
           </aside>
         </div>
@@ -308,7 +312,10 @@ export function VisualEditorWorkspaceShell({
               }
               title={title}
             >
-              {propertiesPanel}
+              <div className="space-y-6">
+                {propertiesPanel}
+                <RecentJobsPanel />
+              </div>
             </WorkspaceSettingsPanel>
           </div>
         </aside>
@@ -346,7 +353,10 @@ export function VisualEditorWorkspaceShell({
           open={mobilePanelOpen}
           title={title}
         >
-          <div data-settings-control>{propertiesPanel}</div>
+          <div className="space-y-6" data-settings-control>
+            {propertiesPanel}
+            <RecentJobsPanel />
+          </div>
         </WorkspaceMobileDrawer>
       </div>
 

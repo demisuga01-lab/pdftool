@@ -2,13 +2,12 @@
 
 import type { ControlSection } from "@/components/workspace/Controls";
 import { EyeIcon, EyeOffIcon, LockIcon } from "@/components/icons/SiteIcons";
+import { UnsupportedOptionNote } from "@/components/workspace/UnsupportedOptionNote";
 import { SinglePdfWorkspacePage, PreviewStage } from "@/components/workspace/WorkspacePageBuilders";
 import { formatBytes, slugifyBaseName } from "@/lib/format";
 
 type DecryptSettings = {
-  keepMetadata: boolean;
   password: string;
-  removeRestrictions: boolean;
   showPassword: boolean;
 };
 
@@ -42,11 +41,12 @@ const sections: Array<ControlSection<DecryptSettings>> = [
   },
   {
     key: "after-decryption",
-    label: "After Decryption",
-    fields: [
-      { key: "removeRestrictions", label: "Remove all restrictions", type: "toggle" },
-      { key: "keepMetadata", label: "Keep original metadata", type: "toggle" },
-    ],
+    label: "Current Behavior",
+    render: () => (
+      <UnsupportedOptionNote>
+        This tool removes password protection when you know the password. Extra metadata/restriction options are not currently configurable.
+      </UnsupportedOptionNote>
+    ),
   },
 ];
 
@@ -57,8 +57,6 @@ export default function PdfDecryptPage() {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("password", settings.password);
-        formData.append("remove_restrictions", String(settings.removeRestrictions));
-        formData.append("keep_metadata", String(settings.keepMetadata));
         return formData;
       }}
       description="Unlock an encrypted PDF with the correct password and export a clean decrypted copy."
@@ -66,9 +64,7 @@ export default function PdfDecryptPage() {
       emptyDescription="Upload a locked PDF to remove its password and restrictions."
       endpoint="pdf/decrypt"
       initialSettings={{
-        keepMetadata: true,
         password: "",
-        removeRestrictions: true,
         showPassword: false,
       }}
       processDisabled={({ file, settings }) => !file || !settings.password}

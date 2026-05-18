@@ -181,8 +181,12 @@ export default function ConvertPage() {
   const outputExtension = packagesMultipleOutputs ? "zip" : outputFormat === "searchable_pdf" ? "pdf" : outputFormat;
   const outputFilename = suggestedOutputName(fileMeta, settings, outputExtension || "pdf");
   const job = useWorkspaceJob({
+    approximateFileSize: fileMeta ? formatBytes(fileMeta.size_bytes) : undefined,
+    fileType: fileMeta?.extension,
     filename: outputFilename,
+    inputFileName: fileMeta?.original_name,
     prefix: "convert",
+    toolName: "Convert",
   });
   const completedIsZip =
     job.result?.media_type === "application/zip" ||
@@ -545,7 +549,10 @@ export default function ConvertPage() {
           <DownloadPanel
             downloadLabel={downloadLabel}
             error={job.error}
+            approxFileSize={formatBytes(fileMeta.size_bytes)}
             estimatedTime={estimateProcessingTime(fileMeta.size_bytes, pageCount || 1)}
+            fileName={fileMeta.original_name}
+            fileType={fileMeta.extension}
             helperText={job.state === "success" ? packagingHint : undefined}
             jobId={job.jobId}
             notice={job.notice}
@@ -560,6 +567,7 @@ export default function ConvertPage() {
             outputFilename={job.result?.output_filename}
             rateLimitScope={job.rateLimitScope}
             state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
+            toolName="Convert"
           />
         ) : null
       }

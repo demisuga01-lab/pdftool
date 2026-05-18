@@ -97,8 +97,12 @@ export default function ImageWatermarkPage() {
 
   const outputExtension = fileMeta?.extension || file?.name.split(".").pop() || "png";
   const job = useWorkspaceJob({
+    approximateFileSize: fileMeta ? formatBytes(fileMeta.size_bytes) : file ? formatBytes(file.size) : undefined,
+    fileType: fileMeta?.extension ?? file?.name.split(".").pop(),
     filename: file ? `${settings.outputFilename.trim() || `${slugifyBaseName(file.name)}-watermarked`}.${outputExtension}` : "watermarked.png",
+    inputFileName: fileMeta?.original_name ?? file?.name,
     prefix: "image",
+    toolName: "Watermark Image",
   });
 
   const updateSettings = useCallback(
@@ -258,7 +262,10 @@ export default function ImageWatermarkPage() {
           <DownloadPanel
             error={job.error}
             errorDetails={job.errorDetails ?? null}
+            approxFileSize={formatBytes(fileMeta.size_bytes)}
             estimatedTime={estimateProcessingTime(fileMeta.size_bytes, 1)}
+            fileName={fileMeta.original_name}
+            fileType={fileMeta.extension}
             jobId={job.jobId}
             notice={job.notice}
             onDownload={job.state === "success" ? job.download : undefined}
@@ -271,6 +278,7 @@ export default function ImageWatermarkPage() {
             onReedit={job.dismissPanel}
             rateLimitScope={job.rateLimitScope}
             state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
+            toolName="Watermark Image"
           />
         ) : null
       }

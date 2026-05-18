@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { ApiRateLimitError, downloadFile, pollJobStatus, type JobStatus } from "@/lib/api";
+import { ApiRateLimitError, downloadFile, pollJobStatus, toApiPath, type JobStatus } from "@/lib/api";
+import { upsertRecentJob, type RecentJobStatus } from "@/lib/recent-jobs";
 import { uploadWithProgress } from "@/lib/upload";
 
 type ProcessingState = "idle" | "uploading" | "queued" | "processing" | "success" | "failure";
@@ -14,13 +15,21 @@ type ProcessOptions = {
 };
 
 export function useWorkspaceJob({
+  approximateFileSize,
+  fileType,
   filename,
+  inputFileName,
   prefix,
   timeoutKind = "heavy",
+  toolName,
 }: {
+  approximateFileSize?: string;
+  fileType?: string;
   filename: string;
+  inputFileName?: string;
   prefix: "pdf" | "image" | "convert" | "compress";
   timeoutKind?: TimeoutKind;
+  toolName?: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -39,6 +48,32 @@ export function useWorkspaceJob({
   const [uploadRemainingSecs, setUploadRemainingSecs] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
   const queryJobId = searchParams.get("job_id");
+
+  const writeRecentJob = useCallback(
+    (
+      nextJobId: string,
+      status: RecentJobStatus,
+      updates: {
+        errorMessage?: string | null;
+        outputFilename?: string;
+      } = {},
+    ) => {
+      upsertRecentJob({
+        approximateFileSize,
+        downloadUrl: toApiPath(`${prefix}/download/${nextJobId}`),
+        errorMessage: updates.errorMessage ?? undefined,
+        fileType,
+        id: nextJobId,
+        originalFilename: inputFileName || filename,
+        outputFilename: updates.outputFilename || filename,
+        prefix,
+        route: pathname,
+        status,
+        toolName,
+      });
+    },
+    [approximateFileSize, fileType, filename, inputFileName, pathname, prefix, toolName],
+  );
 
   const syncJobQuery = useCallback(
     (nextJobId: string | null) => {
@@ -68,7 +103,15 @@ export function useWorkspaceJob({
       setState("failure");
       setError(finalStatus.error ?? "Processing finished but no download URL was returned.");
     }
-  }, []);
+    writeRecentJob(
+      finalStatus.job_id,
+      finalStatus.status === "success" && !finalStatus.error ? "success" : "failed",
+      {
+        errorMessage: finalStatus.error ?? null,
+        outputFilename: finalStatus.output_filename,
+      },
+    );
+  }, [writeRecentJob]);
 
   const startPolling = useCallback(
     async (nextJobId: string, controller: AbortController, nextTimeoutKind: TimeoutKind) => {
@@ -84,6 +127,10 @@ export function useWorkspaceJob({
             setState(nextStatus.status);
             setError(nextStatus.notice ? null : (nextStatus.error ?? null));
             setErrorDetails(null);
+            writeRecentJob(nextJobId, nextStatus.status, {
+              errorMessage: nextStatus.error ?? null,
+              outputFilename: nextStatus.output_filename,
+            });
           }
         },
         nextTimeoutKind,
@@ -91,7 +138,7 @@ export function useWorkspaceJob({
       applyFinalStatus(finalStatus);
       return finalStatus;
     },
-    [applyFinalStatus, prefix],
+    [applyFinalStatus, prefix, writeRecentJob],
   );
 
   const process = useCallback(
@@ -112,6 +159,7 @@ export function useWorkspaceJob({
       setUploadPercent(0);
       setUploadSpeedKBs(0);
       setUploadRemainingSecs(0);
+      let startedJobId: string | null = null;
 
       try {
         const response = await uploadWithProgress(
@@ -128,9 +176,11 @@ export function useWorkspaceJob({
         if (!nextJobId) {
           throw new Error("Processing did not return a job ID.");
         }
+        startedJobId = nextJobId;
         setJobId(nextJobId);
         syncJobQuery(nextJobId);
         setState("queued");
+        writeRecentJob(nextJobId, "queued");
         return await startPolling(nextJobId, controller, options?.timeoutKind ?? timeoutKind);
       } catch (caughtError) {
         if (controller.signal.aborted) {
@@ -152,10 +202,14 @@ export function useWorkspaceJob({
         setNotice(null);
         setError(nextError);
         setErrorDetails(null);
+        const failedJobId = startedJobId ?? jobId;
+        if (failedJobId) {
+          writeRecentJob(failedJobId, "failed", { errorMessage: nextError });
+        }
         return null;
       }
     },
-    [startPolling, state, syncJobQuery, timeoutKind],
+    [jobId, startPolling, state, syncJobQuery, timeoutKind, writeRecentJob],
   );
 
   const reset = useCallback(() => {
@@ -205,6 +259,7 @@ export function useWorkspaceJob({
     setJobId(queryJobId);
     setState("queued");
     setPanelDismissed(false);
+    writeRecentJob(queryJobId, "queued");
 
     startPolling(queryJobId, controller, timeoutKind).catch((caughtError: unknown) => {
       if (controller.signal.aborted) {
@@ -223,12 +278,14 @@ export function useWorkspaceJob({
       setState("failure");
       setRateLimitScope(null);
       setNotice(null);
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to resume job");
+      const nextError = caughtError instanceof Error ? caughtError.message : "Unable to resume job";
+      setError(nextError);
       setErrorDetails(null);
+      writeRecentJob(queryJobId, "failed", { errorMessage: nextError });
     });
 
     return () => controller.abort();
-  }, [jobId, queryJobId, startPolling, timeoutKind]);
+  }, [jobId, queryJobId, startPolling, timeoutKind, writeRecentJob]);
 
   const processingLabel = useMemo(() => {
     if (notice && rateLimitScope === "status" && (state === "queued" || state === "processing")) {
@@ -250,12 +307,14 @@ export function useWorkspaceJob({
     }
   }, [error, notice, rateLimitScope, state]);
 
+  const resultOutputFilename = result?.output_filename;
+
   const download = useCallback(async () => {
     if (!jobId) {
       return;
     }
     try {
-      await downloadFile(prefix, jobId, result?.output_filename ?? filename);
+      await downloadFile(prefix, jobId, resultOutputFilename ?? filename);
       setNotice(null);
       setRateLimitScope(null);
     } catch (caughtError) {
@@ -267,9 +326,15 @@ export function useWorkspaceJob({
       if (caughtError instanceof Error) {
         setNotice(caughtError.message);
         setRateLimitScope(null);
+        if (/not found|expired/i.test(caughtError.message)) {
+          writeRecentJob(jobId, "expired", {
+            errorMessage: "This temporary download is no longer available. Run the tool again.",
+            outputFilename: resultOutputFilename,
+          });
+        }
       }
     }
-  }, [filename, jobId, prefix, result?.output_filename]);
+  }, [filename, jobId, prefix, resultOutputFilename, writeRecentJob]);
 
   return {
     cancelUpload,

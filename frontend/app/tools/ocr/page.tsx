@@ -7,6 +7,7 @@ import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
 import { EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
 import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
+import { UnsupportedOptionNote } from "@/components/workspace/UnsupportedOptionNote";
 import { CompactWorkspaceShell, PreviewCard } from "@/components/workspace/WorkspaceShells";
 import { ApiRateLimitError, downloadFile, formatRateLimitMessage, pollJobStatus, toApiPath, type JobStatus } from "@/lib/api";
 import {
@@ -17,6 +18,7 @@ import {
   type UploadProgressHandler,
 } from "@/lib/files";
 import { estimateProcessingTime, formatBytes, formatFileType, slugifyBaseName } from "@/lib/format";
+import { upsertRecentJob } from "@/lib/recent-jobs";
 import {
   imageSummary,
   uploadedFileDetails,
@@ -278,14 +280,39 @@ export default function OcrPage() {
       if (!response.ok || !data.job_id) {
         throw new Error(data.detail || data.error || "Unable to start OCR");
       }
-      setJobId(data.job_id);
-      syncQuery({ file_id: fileMeta.file_id, job_id: data.job_id });
-      const finalStatus = await pollJobStatus("image", data.job_id, controller.signal, (status) => {
+      const nextJobId = data.job_id;
+      setJobId(nextJobId);
+      upsertRecentJob({
+        approximateFileSize: formatBytes(fileMeta.size_bytes),
+        downloadUrl: toApiPath(`image/download/${nextJobId}`),
+        fileType: fileMeta.extension,
+        id: nextJobId,
+        originalFilename: fileMeta.original_name,
+        outputFilename: outputName,
+        prefix: "image",
+        route: pathname,
+        status: "queued",
+        toolName: "OCR",
+      });
+      syncQuery({ file_id: fileMeta.file_id, job_id: nextJobId });
+      const finalStatus = await pollJobStatus("image", nextJobId, controller.signal, (status) => {
         setJobResult(status);
         setJobNotice(status.notice ?? null);
         setRateLimitScope(status.notice ? "status" : null);
         if (status.status === "queued" || status.status === "processing") {
           setJobState(status.status);
+          upsertRecentJob({
+            approximateFileSize: formatBytes(fileMeta.size_bytes),
+            downloadUrl: toApiPath(`image/download/${nextJobId}`),
+            fileType: fileMeta.extension,
+            id: nextJobId,
+            originalFilename: fileMeta.original_name,
+            outputFilename: status.output_filename ?? outputName,
+            prefix: "image",
+            route: pathname,
+            status: status.status,
+            toolName: "OCR",
+          });
         }
       }, "ocr");
       setJobResult(finalStatus);
@@ -293,6 +320,19 @@ export default function OcrPage() {
       setJobError(finalStatus.error ?? null);
       setJobNotice(null);
       setRateLimitScope(null);
+      upsertRecentJob({
+        approximateFileSize: formatBytes(fileMeta.size_bytes),
+        downloadUrl: toApiPath(`image/download/${nextJobId}`),
+        errorMessage: finalStatus.error,
+        fileType: fileMeta.extension,
+        id: nextJobId,
+        originalFilename: fileMeta.original_name,
+        outputFilename: finalStatus.output_filename ?? outputName,
+        prefix: "image",
+        route: pathname,
+        status: finalStatus.status === "success" && !finalStatus.error ? "success" : "failed",
+        toolName: "OCR",
+      });
     } catch (caughtError) {
       if (controller.signal.aborted) {
         return;
@@ -307,9 +347,17 @@ export default function OcrPage() {
       setJobState("failure");
       setJobNotice(null);
       setRateLimitScope(null);
-      setJobError(caughtError instanceof Error ? caughtError.message : "Unable to run OCR");
+      const nextError = caughtError instanceof Error ? caughtError.message : "Unable to run OCR";
+      setJobError(nextError);
+      if (jobId) {
+        upsertRecentJob({
+          errorMessage: nextError,
+          id: jobId,
+          status: "failed",
+        });
+      }
     }
-  }, [fileMeta, parseRetryAfterSeconds, settings, syncQuery]);
+  }, [fileMeta, jobId, outputName, parseRetryAfterSeconds, pathname, settings, syncQuery]);
 
   useEffect(() => {
     const fileId = searchParams.get("file_id");
@@ -382,8 +430,16 @@ export default function OcrPage() {
         setRateLimitScope("download");
         return;
       }
-      setJobNotice(caughtError instanceof Error ? caughtError.message : "Download could not be started.");
+      const nextMessage = caughtError instanceof Error ? caughtError.message : "Download could not be started.";
+      setJobNotice(nextMessage);
       setRateLimitScope(null);
+      if (/not found|expired/i.test(nextMessage)) {
+        upsertRecentJob({
+          errorMessage: "This temporary download is no longer available. Run the tool again.",
+          id: jobId,
+          status: "expired",
+        });
+      }
     }
   }, [jobId, outputName]);
 
@@ -485,9 +541,12 @@ export default function OcrPage() {
       downloadPanel={
         jobState !== "idle" && !panelDismissed ? (
           <DownloadPanel
+            approxFileSize={fileMeta ? formatBytes(fileMeta.size_bytes) : undefined}
             error={jobError}
             errorDetails={null}
             estimatedTime={fileMeta ? estimateProcessingTime(fileMeta.size_bytes, isPdf ? pageCount || 3 : 1) : undefined}
+            fileName={fileMeta?.original_name}
+            fileType={fileMeta?.extension}
             jobId={jobId}
             notice={jobNotice}
             onDownload={jobState === "success" && jobId ? () => void handleDownload() : undefined}
@@ -505,8 +564,10 @@ export default function OcrPage() {
             onReedit={() => setPanelDismissed(true)}
             outputFilename={jobState === "success" ? outputName : undefined}
             rateLimitScope={rateLimitScope}
+            routePath={pathname}
             state={jobState === "success" ? "success" : jobState === "failure" ? "failure" : jobState}
             statusText={processingLabel ?? undefined}
+            toolName="OCR"
           />
         ) : null
       }
@@ -554,6 +615,9 @@ export default function OcrPage() {
                 ? jobError ?? "OCR failed."
                 : "Stages: Uploading, Preparing pages, Running OCR, Building output, Ready."}
           </div>
+          <UnsupportedOptionNote>
+            OCR quality depends on scan quality, contrast, language, and installed server tools. Advanced cleanup options are planned.
+          </UnsupportedOptionNote>
           <WorkspaceControls sections={sections} state={settings} update={update} />
         </div>
       }

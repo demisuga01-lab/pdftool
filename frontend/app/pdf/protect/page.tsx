@@ -2,17 +2,13 @@
 
 import type { ControlSection } from "@/components/workspace/Controls";
 import { EyeIcon, EyeOffIcon, LockIcon } from "@/components/icons/SiteIcons";
+import { UnsupportedOptionNote } from "@/components/workspace/UnsupportedOptionNote";
 import { SinglePdfWorkspacePage, PreviewStage } from "@/components/workspace/WorkspacePageBuilders";
 import { formatBytes, slugifyBaseName } from "@/lib/format";
 
 type ProtectSettings = {
-  allowCopying: "allow" | "deny";
-  editing: "none" | "pages" | "forms" | "comment" | "full";
-  encryptionStrength: "128-rc4" | "256-aes";
   ownerPassword: string;
-  printing: "none" | "low" | "high";
   sameOwnerPassword: boolean;
-  screenReaderAccess: "allow" | "deny";
   showPasswords: boolean;
   userPassword: string;
   userPasswordConfirm: string;
@@ -89,65 +85,13 @@ const sections: Array<ControlSection<ProtectSettings>> = [
     ],
   },
   {
-    key: "permissions",
-    label: "Permissions",
-    fields: [
-      {
-        key: "printing",
-        label: "Printing",
-        type: "select",
-        options: [
-          { label: "Not allowed", value: "none" },
-          { label: "Low resolution", value: "low" },
-          { label: "High resolution", value: "high" },
-        ],
-      },
-      {
-        key: "allowCopying",
-        label: "Copying text",
-        type: "select",
-        options: [
-          { label: "Allow", value: "allow" },
-          { label: "Deny", value: "deny" },
-        ],
-      },
-      {
-        key: "editing",
-        label: "Editing",
-        type: "select",
-        options: [
-          { label: "Not allowed", value: "none" },
-          { label: "Insert/delete pages", value: "pages" },
-          { label: "Fill forms", value: "forms" },
-          { label: "Comment only", value: "comment" },
-          { label: "Full editing", value: "full" },
-        ],
-      },
-      {
-        key: "screenReaderAccess",
-        label: "Screen reader access",
-        type: "select",
-        options: [
-          { label: "Allow", value: "allow" },
-          { label: "Deny", value: "deny" },
-        ],
-      },
-    ],
-  },
-  {
-    key: "encryption",
-    label: "Encryption",
-    fields: [
-      {
-        key: "encryptionStrength",
-        label: "Encryption strength",
-        type: "select",
-        options: [
-          { label: "128-bit RC4", value: "128-rc4" },
-          { label: "256-bit AES", value: "256-aes" },
-        ],
-      },
-    ],
+    key: "advanced-permissions",
+    label: "Advanced Controls",
+    render: () => (
+      <UnsupportedOptionNote>
+        Advanced permission controls are not available yet. This tool currently adds password protection.
+      </UnsupportedOptionNote>
+    ),
   },
 ];
 
@@ -162,25 +106,15 @@ export default function PdfProtectPage() {
           "owner_password",
           settings.sameOwnerPassword ? settings.userPassword : settings.ownerPassword,
         );
-        formData.append("printing", settings.printing);
-        formData.append("copying", settings.allowCopying);
-        formData.append("editing", settings.editing);
-        formData.append("screen_reader_access", settings.screenReaderAccess);
-        formData.append("encryption_strength", settings.encryptionStrength);
         return formData;
       }}
-      description="Protect a PDF with a user password, owner permissions, and encryption settings before export."
+      description="Protect a PDF with password-based encryption before export."
       downloadFilename={(file) => `${slugifyBaseName(file.name)}-protected.pdf`}
       emptyDescription="Upload a PDF to apply password protection and permissions."
       endpoint="pdf/encrypt"
       initialSettings={{
-        allowCopying: "deny",
-        editing: "none",
-        encryptionStrength: "256-aes",
         ownerPassword: "",
-        printing: "none",
         sameOwnerPassword: true,
-        screenReaderAccess: "allow",
         showPasswords: false,
         userPassword: "",
         userPasswordConfirm: "",

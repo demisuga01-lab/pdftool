@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
 import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
+import { UnsupportedOptionNote } from "@/components/workspace/UnsupportedOptionNote";
 import { EmptyPdfWorkspaceState } from "@/components/workspace/PDFWorkspace";
 import { FileWorkspaceGrid } from "@/components/workspace/FileWorkspaceGrid";
 import { UnifiedWorkspace } from "@/components/workspace/UnifiedWorkspace";
@@ -15,14 +16,8 @@ import { useWorkspaceJob } from "@/lib/workspace-job";
 import { uploadedFileDetails } from "@/lib/workspace-data";
 
 type MergeSettings = {
-  addBlankPage: boolean;
   addBookmarks: boolean;
-  author: string;
-  bookmarkNaming: "filename" | "custom";
-  customBookmarkPrefix: string;
   outputFilename: string;
-  pageNumbering: "none" | "restart" | "continuous";
-  subject: string;
   title: string;
 };
 
@@ -32,33 +27,6 @@ const sections: Array<ControlSection<MergeSettings>> = [
     label: "Output Settings",
     fields: [
       { key: "addBookmarks", label: "Add bookmarks", type: "toggle" },
-      {
-        key: "bookmarkNaming",
-        label: "Bookmark naming",
-        type: "select",
-        options: [
-          { label: "Use filename", value: "filename" },
-          { label: "Custom prefix", value: "custom" },
-        ],
-      },
-      {
-        key: "customBookmarkPrefix",
-        label: "Custom prefix",
-        type: "text",
-        placeholder: "Document",
-        show: (settings) => settings.bookmarkNaming === "custom",
-      },
-      { key: "addBlankPage", label: "Add blank page between documents", type: "toggle" },
-      {
-        key: "pageNumbering",
-        label: "Page numbering",
-        type: "select",
-        options: [
-          { label: "None", value: "none" },
-          { label: "Restart per document", value: "restart" },
-          { label: "Continuous", value: "continuous" },
-        ],
-      },
     ],
   },
   {
@@ -66,9 +34,16 @@ const sections: Array<ControlSection<MergeSettings>> = [
     label: "Metadata",
     fields: [
       { key: "title", label: "Output title", type: "text", placeholder: "Merged PDF" },
-      { key: "author", label: "Output author", type: "text", placeholder: "PDFTools" },
-      { key: "subject", label: "Output subject", type: "text", placeholder: "Combined document" },
     ],
+  },
+  {
+    key: "planned-advanced",
+    label: "Advanced Options",
+    render: () => (
+      <UnsupportedOptionNote>
+        Basic bookmarks/title metadata are supported. Advanced metadata and page numbering options are planned.
+      </UnsupportedOptionNote>
+    ),
   },
   {
     key: "output",
@@ -79,14 +54,8 @@ const sections: Array<ControlSection<MergeSettings>> = [
 
 function useMergeSettings() {
   const [state, setState] = useState<MergeSettings>({
-    addBlankPage: false,
     addBookmarks: true,
-    author: "",
-    bookmarkNaming: "filename",
-    customBookmarkPrefix: "",
     outputFilename: "merged.pdf",
-    pageNumbering: "none",
-    subject: "",
     title: "",
   });
 
@@ -106,14 +75,17 @@ export default function PdfMergePage() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { state: settings, update } = useMergeSettings();
   const files = useWorkspaceFiles({ accept: ".pdf,application/pdf", multiple: true });
-  const job = useWorkspaceJob({
-    filename: settings.outputFilename || "merged.pdf",
-    prefix: "pdf",
-  });
-
   const fileIds = useMemo(() => workspaceFileIds(files.files), [files.files]);
   const totalBytes = useMemo(() => files.files.reduce((sum, file) => sum + file.size_bytes, 0), [files.files]);
   const fileCount = files.files.length;
+  const job = useWorkspaceJob({
+    approximateFileSize: totalBytes > 0 ? formatBytes(totalBytes) : undefined,
+    fileType: "multiple PDFs",
+    filename: settings.outputFilename || "merged.pdf",
+    inputFileName: fileCount > 1 ? `${fileCount} PDFs` : files.files[0]?.display_name,
+    prefix: "pdf",
+    toolName: "Merge PDFs",
+  });
 
   useEffect(() => {
     setQueryString(window.location.search.replace(/^\?/, ""));
@@ -150,13 +122,7 @@ export default function PdfMergePage() {
     const formData = new FormData();
     files.files.forEach((file) => formData.append("file_ids", file.file_id));
     formData.append("add_bookmarks", String(settings.addBookmarks));
-    formData.append("bookmark_naming", settings.bookmarkNaming);
-    formData.append("custom_bookmark_prefix", settings.customBookmarkPrefix);
-    formData.append("add_blank_page", String(settings.addBlankPage));
-    formData.append("page_numbering", settings.pageNumbering);
     formData.append("metadata_title", settings.title);
-    formData.append("metadata_author", settings.author);
-    formData.append("metadata_subject", settings.subject);
     formData.append("output_filename", settings.outputFilename);
     void job.process("pdf/merge", formData, { timeoutKind: "heavy" });
   };
@@ -202,6 +168,9 @@ export default function PdfMergePage() {
               error={job.error}
               errorDetails={job.errorDetails ?? null}
               estimatedTime={estimateProcessingTime(totalBytes, fileCount)}
+              approxFileSize={totalBytes > 0 ? formatBytes(totalBytes) : undefined}
+              fileName={fileCount > 1 ? `${fileCount} PDFs` : files.files[0]?.display_name}
+              fileType="multiple PDFs"
               jobId={job.jobId}
               notice={job.notice}
               onDownload={job.state === "success" ? job.download : undefined}
@@ -212,6 +181,7 @@ export default function PdfMergePage() {
               onReedit={job.dismissPanel}
               rateLimitScope={job.rateLimitScope}
               state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
+              toolName="Merge PDFs"
             />
           ) : null
         }

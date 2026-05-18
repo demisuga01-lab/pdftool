@@ -6,67 +6,23 @@ import { DocumentIcon } from "@/components/icons/SiteIcons";
 import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
 import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
+import { UnsupportedOptionNote } from "@/components/workspace/UnsupportedOptionNote";
 import { PDFWorkspace } from "@/components/workspace/PDFWorkspace";
 import { estimateProcessingTime, formatBytes, slugifyBaseName } from "@/lib/format";
 import { useWorkspaceJob } from "@/lib/workspace-job";
 import { useObjectState } from "@/lib/workspace-data";
 
-type OfficeSettings = {
-  exportBookmarks: boolean;
-  exportComments: boolean;
-  exportFormFields: boolean;
-  exportHiddenSlides: boolean;
-  firstSheetOnly: boolean;
-  imageCompression: "lossless" | "jpeg";
-  jpegQuality: number;
-  pdfA: boolean;
-  pdfVersion: "1.4" | "1.5" | "1.7";
-};
+type OfficeSettings = Record<string, never>;
 
 const sections: Array<ControlSection<OfficeSettings>> = [
   {
     key: "conversion-options",
     label: "Conversion Options",
-    fields: [
-      { key: "pdfA", label: "PDF/A compliance", type: "toggle" },
-      {
-        key: "pdfVersion",
-        label: "PDF version",
-        type: "select",
-        options: [
-          { label: "PDF 1.4", value: "1.4" },
-          { label: "PDF 1.5", value: "1.5" },
-          { label: "PDF 1.7", value: "1.7" },
-        ],
-      },
-    ],
-  },
-  {
-    key: "document-settings",
-    label: "Document Settings",
-    fields: [
-      { key: "exportBookmarks", label: "Export bookmarks", type: "toggle" },
-      { key: "exportComments", label: "Export comments", type: "toggle" },
-      { key: "exportFormFields", label: "Export form fields", type: "toggle" },
-      { key: "exportHiddenSlides", label: "Export hidden slides", type: "toggle" },
-      { key: "firstSheetOnly", label: "First sheet only", type: "toggle" },
-    ],
-  },
-  {
-    key: "image-settings",
-    label: "Image Settings",
-    fields: [
-      {
-        key: "imageCompression",
-        label: "Image compression",
-        type: "select",
-        options: [
-          { label: "Lossless", value: "lossless" },
-          { label: "JPEG", value: "jpeg" },
-        ],
-      },
-      { key: "jpegQuality", label: "JPEG quality", type: "slider", min: 1, max: 100 },
-    ],
+    render: () => (
+      <UnsupportedOptionNote>
+        Office files are converted through LibreOffice using server defaults. Advanced export controls are planned.
+      </UnsupportedOptionNote>
+    ),
   },
 ];
 
@@ -75,19 +31,14 @@ const supportedFormats = ["DOCX", "XLSX", "PPTX", "ODT", "ODS", "ODP", "RTF", "T
 export default function PdfOfficeToPdfPage() {
   const [file, setFile] = useState<File | null>(null);
   const { state: settings, update } = useObjectState<OfficeSettings>({
-    exportBookmarks: true,
-    exportComments: false,
-    exportFormFields: true,
-    exportHiddenSlides: false,
-    firstSheetOnly: false,
-    imageCompression: "lossless",
-    jpegQuality: 90,
-    pdfA: false,
-    pdfVersion: "1.4",
   });
   const job = useWorkspaceJob({
+    approximateFileSize: file ? formatBytes(file.size) : undefined,
+    fileType: file?.name.split(".").pop(),
     filename: file ? `${slugifyBaseName(file.name)}.pdf` : "document.pdf",
+    inputFileName: file?.name,
     prefix: "pdf",
+    toolName: "Office to PDF",
   });
 
   const handleProcess = () => {
@@ -97,27 +48,21 @@ export default function PdfOfficeToPdfPage() {
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("pdf_a", String(settings.pdfA));
-    formData.append("pdf_version", settings.pdfVersion);
-    formData.append("export_bookmarks", String(settings.exportBookmarks));
-    formData.append("export_comments", String(settings.exportComments));
-    formData.append("export_form_fields", String(settings.exportFormFields));
-    formData.append("export_hidden_slides", String(settings.exportHiddenSlides));
-    formData.append("first_sheet_only", String(settings.firstSheetOnly));
-    formData.append("image_compression", settings.imageCompression);
-    formData.append("jpeg_quality", String(settings.jpegQuality));
     job.process("pdf/office-to-pdf", formData);
   };
 
   return (
     <PDFWorkspace
       breadcrumbTitle="Office to PDF"
-      description="Convert Office documents to PDF with document and image export options from a single workspace."
+      description="Convert Office documents to PDF through LibreOffice using server defaults."
       downloadPanel={
         file && job.state !== "idle" && job.state !== "uploading" && !job.panelDismissed ? (
           <DownloadPanel
             error={job.error}
+            approxFileSize={file ? formatBytes(file.size) : undefined}
             estimatedTime={estimateProcessingTime(file.size, 1)}
+            fileName={file.name}
+            fileType={file.name.split(".").pop()}
             jobId={job.jobId}
             notice={job.notice}
             onDownload={job.state === "success" ? job.download : undefined}
@@ -128,6 +73,7 @@ export default function PdfOfficeToPdfPage() {
             onReedit={job.dismissPanel}
             rateLimitScope={job.rateLimitScope}
             state={job.state === "failure" ? "failure" : job.state === "success" ? "success" : job.state}
+            toolName="Office to PDF"
           />
         ) : null
       }
@@ -199,7 +145,7 @@ export default function PdfOfficeToPdfPage() {
           <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-[13px] leading-6 text-slate-500 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300">
             {job.state === "failure"
               ? job.error ?? "Conversion failed."
-              : "Choose archival and export options before converting the document."}
+              : "Upload a supported Office document and convert it with the current server defaults."}
           </div>
           <WorkspaceControls sections={sections} state={settings} update={update} />
         </div>
