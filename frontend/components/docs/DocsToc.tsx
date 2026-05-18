@@ -6,7 +6,7 @@ export function DocsToc({ headings }: { headings: DocHeading[] }) {
   }
 
   return (
-    <aside className="hidden xl:block">
+    <aside className="hidden 2xl:block">
       <div className="sticky top-24 max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-[22px] border border-zinc-200/70 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500">On this page</p>
         <nav aria-label="Table of contents" className="mt-3">

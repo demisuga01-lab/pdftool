@@ -1,32 +1,202 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowRight, BookOpen, FileText, Layers, LifeBuoy, ShieldCheck } from "lucide-react";
 
 import { DocsLayout } from "@/components/docs/DocsLayout";
-import { DocsMarkdown } from "@/components/docs/DocsMarkdown";
+import { DocsSearch } from "@/components/docs/DocsSearch";
 import { PUBLIC_FILE_HANDLING_STATEMENT } from "@/lib/copy";
-import { getDocsForNavigation, getDocsLandingDocument } from "@/lib/docs";
+import { getDocsForNavigation } from "@/lib/docs";
+import { buildDocsSearchEntries, type DocsSearchEntry } from "@/lib/docs-search";
 import { imageTools, pdfTools, sharedTools } from "@/lib/tools";
 import { buildPageMetadata } from "@/lib/metadata";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Help Center | PDFTools by WellFriend",
   description:
-    "Learn how to use PDFTools, choose the right PDF or image workflow, understand file handling, and troubleshoot failed jobs.",
+    "Find guides for uploads, tools, errors, deployment, file handling, and PDFTools operator documentation.",
   path: "/docs",
 });
 
-export default async function DocsIndexPage() {
-  const [groups, landingDoc] = await Promise.all([
-    getDocsForNavigation(),
-    getDocsLandingDocument(),
-  ]);
+type FeaturedDoc = {
+  fallbackDescription: string;
+  fallbackTitle: string;
+  href: string;
+};
 
-  const userGroups = groups.filter((group) => group.audience === "user");
-  const technicalGroups = groups.filter((group) => group.audience === "technical");
+const userHelpDocs: FeaturedDoc[] = [
+  {
+    href: "/docs/getting-started",
+    fallbackTitle: "Getting Started",
+    fallbackDescription: "Choose tools, upload files, adjust settings, run jobs, and download results.",
+  },
+  {
+    href: "/docs/pdf-tools",
+    fallbackTitle: "PDF Tools",
+    fallbackDescription: "Compare merge, split, convert, watermark, protect, decrypt, and OCR workflows.",
+  },
+  {
+    href: "/docs/image-tools",
+    fallbackTitle: "Image Tools",
+    fallbackDescription: "Compare resize, compress, convert, crop, rotate, watermark, OCR, and background removal.",
+  },
+  {
+    href: "/docs/troubleshooting",
+    fallbackTitle: "Troubleshooting",
+    fallbackDescription: "Fix upload issues, failed jobs, missing downloads, OCR problems, and preview glitches.",
+  },
+  {
+    href: "/docs/file-handling-and-privacy",
+    fallbackTitle: "File Handling & Privacy",
+    fallbackDescription: "Understand temporary processing, file limits, and when to use caution.",
+  },
+  {
+    href: "/docs/contact-and-support",
+    fallbackTitle: "Contact & Support",
+    fallbackDescription: "Know where to send bugs, processing failures, business questions, and API interest.",
+  },
+];
+
+const technicalDocs: FeaturedDoc[] = [
+  {
+    href: "/docs/architecture",
+    fallbackTitle: "Architecture",
+    fallbackDescription: "System boundaries, request flow, services, workers, and storage.",
+  },
+  {
+    href: "/docs/backend-api",
+    fallbackTitle: "Backend API",
+    fallbackDescription: "Backend route behavior, request patterns, and response notes.",
+  },
+  {
+    href: "/docs/deployment",
+    fallbackTitle: "Deployment",
+    fallbackDescription: "Production deployment, restart, verification, and rollback steps.",
+  },
+  {
+    href: "/docs/environment",
+    fallbackTitle: "Environment",
+    fallbackDescription: "Runtime configuration, env templates, and production values.",
+  },
+  {
+    href: "/docs/workers-and-queues",
+    fallbackTitle: "Workers & Queues",
+    fallbackDescription: "Queue usage, task routing, and operational worker behavior.",
+  },
+  {
+    href: "/docs/rate-limiting",
+    fallbackTitle: "Rate Limiting",
+    fallbackDescription: "Per-tool and per-bucket rate limiting behavior.",
+  },
+  {
+    href: "/docs/security-hardening",
+    fallbackTitle: "Security Hardening",
+    fallbackDescription: "Upload, subprocess, archive, SVG, and error-safety controls.",
+  },
+  {
+    href: "/docs/external-tools",
+    fallbackTitle: "External Tools",
+    fallbackDescription: "Host command dependencies used by PDF, image, OCR, and archive workflows.",
+  },
+];
+
+const operatorDocs: FeaturedDoc[] = [
+  {
+    href: "/docs/production-checklist",
+    fallbackTitle: "Production Checklist",
+    fallbackDescription: "Release and deployment verification steps.",
+  },
+  {
+    href: "/docs/operations",
+    fallbackTitle: "Operations",
+    fallbackDescription: "Daily and weekly PM2, Redis, disk, and runtime checks.",
+  },
+  {
+    href: "/docs/testing-and-smoke-tests",
+    fallbackTitle: "Smoke Tests",
+    fallbackDescription: "Validation commands and high-value manual checks.",
+  },
+  {
+    href: "/docs/troubleshooting-index",
+    fallbackTitle: "Troubleshooting Index",
+    fallbackDescription: "Symptom-based technical troubleshooting entry points.",
+  },
+  {
+    href: "/docs/release-process",
+    fallbackTitle: "Release Process",
+    fallbackDescription: "Release workflow, coordination, and post-release checks.",
+  },
+];
+
+function resolveDoc(entryList: DocsSearchEntry[], doc: FeaturedDoc) {
+  const entry = entryList.find((item) => item.href === doc.href);
+  return {
+    category: entry?.category,
+    description: entry?.description ?? doc.fallbackDescription,
+    href: doc.href,
+    title: entry?.title ?? doc.fallbackTitle,
+  };
+}
+
+function DocCard({
+  doc,
+  entries,
+  compact = false,
+}: {
+  compact?: boolean;
+  doc: FeaturedDoc;
+  entries: DocsSearchEntry[];
+}) {
+  const resolved = resolveDoc(entries, doc);
 
   return (
-    <DocsLayout groups={groups}>
-      <div className="space-y-6">
+    <Link
+      className={[
+        "group block rounded-3xl border border-zinc-200/80 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:border-white/10 dark:bg-zinc-900 dark:hover:border-emerald-400/40",
+        compact ? "p-4" : "p-5",
+      ].join(" ")}
+      href={resolved.href}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          {resolved.category ? (
+            <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">{resolved.category}</p>
+          ) : null}
+          <h3 className="mt-2 text-base font-semibold text-zinc-950 dark:text-zinc-50">{resolved.title}</h3>
+        </div>
+        <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-zinc-400 transition group-hover:translate-x-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-300" />
+      </div>
+      <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{resolved.description}</p>
+    </Link>
+  );
+}
+
+function MetricCard({
+  description,
+  icon: Icon,
+  title,
+}: {
+  description: string;
+  icon: typeof BookOpen;
+  title: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300">
+        <Icon className="h-4 w-4" />
+      </div>
+      <p className="mt-4 text-base font-semibold text-zinc-950 dark:text-zinc-50">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{description}</p>
+    </div>
+  );
+}
+
+export default async function DocsIndexPage() {
+  const groups = await getDocsForNavigation();
+  const searchEntries = buildDocsSearchEntries(groups);
+
+  return (
+    <DocsLayout groups={groups} searchEntries={searchEntries}>
+      <div className="space-y-8">
         <nav aria-label="Breadcrumb" className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
           <Link className="transition hover:text-emerald-700 dark:hover:text-emerald-300" href="/">
             Home
@@ -35,136 +205,98 @@ export default async function DocsIndexPage() {
           <span className="text-zinc-700 dark:text-zinc-200">Docs</span>
         </nav>
 
-        <section className="rounded-[28px] border border-zinc-200/70 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-8">
-          <div className="space-y-4">
-            <p className="tool-eyebrow">Help Center</p>
-            <h1 className="max-w-4xl text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 sm:text-4xl">
-              Help for uploads, settings, processing, downloads, and tool selection
-            </h1>
-            <p className="max-w-3xl text-base leading-8 text-zinc-500 dark:text-zinc-300">
-              Start with user guides and troubleshooting below. Technical references for developers and operators are
-              still available, but they live in a separate section so everyday help stays easy to scan.
-            </p>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-zinc-200/80 bg-white px-4 py-3 text-sm shadow-sm dark:border-white/10 dark:bg-zinc-950">
-                <p className="font-semibold text-zinc-900 dark:text-zinc-100">{sharedTools.length} shared workspaces</p>
-                <p className="mt-1 text-zinc-500 dark:text-zinc-400">Compress, convert, and OCR across common file types.</p>
-              </div>
-              <div className="rounded-2xl border border-zinc-200/80 bg-white px-4 py-3 text-sm shadow-sm dark:border-white/10 dark:bg-zinc-950">
-                <p className="font-semibold text-zinc-900 dark:text-zinc-100">{pdfTools.length} PDF tools</p>
-                <p className="mt-1 text-zinc-500 dark:text-zinc-400">Merge, split, protect, watermark, convert, and more.</p>
-              </div>
-              <div className="rounded-2xl border border-zinc-200/80 bg-white px-4 py-3 text-sm shadow-sm dark:border-white/10 dark:bg-zinc-950">
-                <p className="font-semibold text-zinc-900 dark:text-zinc-100">{imageTools.length} image tools</p>
-                <p className="mt-1 text-zinc-500 dark:text-zinc-400">Resize, crop, rotate, watermark, remove background, and inspect files.</p>
-              </div>
+        <section className="rounded-[32px] border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-8">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.72fr)] lg:items-center">
+            <div>
+              <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Help Center</p>
+              <h1 className="mt-3 max-w-4xl text-3xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50 sm:text-4xl">
+                Find the right guide for uploads, tools, errors, and deployment
+              </h1>
+              <p className="mt-4 max-w-3xl text-base leading-8 text-zinc-600 dark:text-zinc-300">
+                Start with user guides for everyday use, or jump into technical references for development and operations.
+              </p>
+            </div>
+            <div>
+              <DocsSearch entries={searchEntries} />
+              <p className="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                Search titles, tool names, upload issues, errors, deployment notes, and operational docs.
+              </p>
             </div>
           </div>
         </section>
 
-        <section className="tool-panel space-y-6">
-          <div className="space-y-2">
-            <p className="tool-eyebrow">Start With User Help</p>
-            <h2 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Most common questions, answered first</h2>
-            <p className="max-w-3xl text-sm leading-7 text-zinc-500 dark:text-zinc-400">
-              These guides cover what the product does, how to upload files, how processing works, what to do when a
-              job fails, and how to contact the team when you need help.
-            </p>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {userGroups.map((group) => {
-              const primaryDoc = group.items[0];
-              if (!primaryDoc) {
-                return null;
-              }
-
-              return (
-                <Link
-                  className="rounded-[24px] border border-zinc-200/70 bg-white p-5 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 dark:border-white/10 dark:bg-zinc-900 dark:hover:border-emerald-900 dark:hover:bg-zinc-800"
-                  href={primaryDoc.href}
-                  key={group.id}
-                >
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500">{group.title}</p>
-                  <h3 className="mt-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100">{primaryDoc.title}</h3>
-                  <p className="mt-2 text-sm leading-7 text-zinc-500 dark:text-zinc-400">{primaryDoc.description}</p>
-                </Link>
-              );
-            })}
-          </div>
+        <section className="grid gap-4 md:grid-cols-3">
+          <MetricCard
+            description="Compress, convert, and OCR workflows for mixed document and image jobs."
+            icon={Layers}
+            title={`${sharedTools.length} shared workspaces`}
+          />
+          <MetricCard
+            description="Merge, split, protect, watermark, extract text, convert, and more."
+            icon={FileText}
+            title={`${pdfTools.length} PDF tools`}
+          />
+          <MetricCard
+            description="Resize, crop, rotate, watermark, remove backgrounds, and inspect files."
+            icon={BookOpen}
+            title={`${imageTools.length} image tools`}
+          />
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="tool-panel space-y-5">
-            <div className="space-y-2">
-              <p className="tool-eyebrow">How It Works</p>
-              <h2 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">The typical workflow</h2>
+        <section className="rounded-[32px] border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-7">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Start with user help</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">Everyday use, tool choice, and troubleshooting</h2>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[
-                "Choose the tool that matches your file and goal.",
-                "Upload the file or files you want to process.",
-                "Review the preview and adjust only the settings you need.",
-                "Run the job, wait for the result, and download the finished file.",
-              ].map((step, index) => (
-                <div className="rounded-2xl border border-zinc-200/80 bg-zinc-50 px-4 py-4 text-sm leading-7 text-zinc-600 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300" key={step}>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">Step {index + 1}</p>
-                  <p className="mt-2">{step}</p>
-                </div>
-              ))}
-            </div>
+            <LifeBuoy className="hidden h-6 w-6 text-zinc-300 dark:text-zinc-600 sm:block" />
           </div>
-
-          <div className="tool-panel space-y-5">
-            <div className="space-y-2">
-              <p className="tool-eyebrow">File Handling</p>
-              <h2 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Before you upload</h2>
-            </div>
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm leading-7 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">
-              {PUBLIC_FILE_HANDLING_STATEMENT}
-            </div>
-            <p className="text-sm leading-7 text-zinc-500 dark:text-zinc-400">
-              Use the privacy and troubleshooting guides if you need clearer guidance on sensitive files, failed jobs,
-              or what details to include in a support request.
-            </p>
-          </div>
-        </section>
-
-        <section className="tool-panel space-y-6">
-          <div className="space-y-2">
-            <p className="tool-eyebrow">For Developers and Operators</p>
-            <h2 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Technical references stay available here</h2>
-            <p className="max-w-3xl text-sm leading-7 text-zinc-500 dark:text-zinc-400">
-              Architecture, API, deployment, environment, queueing, security hardening, and release references are
-              grouped separately so normal users can find help faster.
-            </p>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {technicalGroups.map((group) => (
-              <section
-                className="rounded-[22px] border border-zinc-200/70 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900"
-                key={group.id}
-              >
-                <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{group.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">{group.description}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {group.items.slice(0, 5).map((item) => (
-                    <Link
-                      className="inline-flex rounded-full border border-zinc-200/80 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-600 transition hover:border-emerald-300 hover:text-emerald-700 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-emerald-900 dark:hover:text-emerald-300"
-                      href={item.href}
-                      key={item.slug}
-                    >
-                      {item.title}
-                    </Link>
-                  ))}
-                </div>
-              </section>
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {userHelpDocs.map((doc) => (
+              <DocCard doc={doc} entries={searchEntries} key={doc.href} />
             ))}
           </div>
         </section>
 
-        {landingDoc ? <DocsMarkdown html={landingDoc.html} /> : null}
+        <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.72fr)]">
+          <div className="rounded-[32px] border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Technical references</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">Development and platform details</h2>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
+                  Architecture, APIs, deployment, queues, security hardening, and required host tooling.
+                </p>
+              </div>
+              <ShieldCheck className="hidden h-6 w-6 text-zinc-300 dark:text-zinc-600 sm:block" />
+            </div>
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              {technicalDocs.map((doc) => (
+                <DocCard doc={doc} entries={searchEntries} key={doc.href} />
+              ))}
+            </div>
+          </div>
+
+          <aside className="space-y-5">
+            <section className="rounded-[32px] border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-7">
+              <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Operator checklist</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">When you maintain the deployment</h2>
+              <div className="mt-5 grid gap-3">
+                {operatorDocs.map((doc) => (
+                  <DocCard compact doc={doc} entries={searchEntries} key={doc.href} />
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-[32px] border border-emerald-200/80 bg-emerald-50 p-6 text-emerald-950 shadow-sm dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100">
+              <p className="text-sm font-semibold">File handling</p>
+              <p className="mt-3 text-sm leading-7">{PUBLIC_FILE_HANDLING_STATEMENT}</p>
+              <p className="mt-3 text-sm leading-7">
+                For failed jobs, include the tool name, file type, approximate size, exact error text, and job ID if one is shown.
+              </p>
+            </section>
+          </aside>
+        </section>
       </div>
     </DocsLayout>
   );

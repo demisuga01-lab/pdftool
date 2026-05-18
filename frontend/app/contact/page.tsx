@@ -1,133 +1,200 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bug, CheckCircle2, LifeBuoy, Mail, MessageCircle, ShieldAlert } from "lucide-react";
 
-import { MailIcon } from "@/components/icons/SiteIcons";
-import { StaticPage } from "@/components/ui/StaticPage";
-import { PUBLIC_FILE_HANDLING_STATEMENT } from "@/lib/copy";
 import { buildPageMetadata } from "@/lib/metadata";
-
-const reasons = [
-  "General questions about PDFTools",
-  "API access and early access requests (api.wellfriend.online coming soon)",
-  "Feature suggestions and feedback",
-  "Enterprise and custom pricing",
-  "Partnership inquiries",
-];
-
-const contactButtons = [
-  {
-    href: "mailto:contact@wellfriend.online?subject=General%20Inquiry",
-    label: "General Inquiry",
-  },
-  {
-    href: "mailto:contact@wellfriend.online?subject=API%20Early%20Access%20Request",
-    label: "API Early Access Request",
-  },
-  {
-    href: "mailto:support@wellfriend.online?subject=Bug%20Report%20-%20PDFTools",
-    label: "Bug Report (support@)",
-  },
-  {
-    href: "mailto:contact@wellfriend.online?subject=Enterprise%20Pricing%20Inquiry",
-    label: "Enterprise Pricing",
-  },
-];
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Contact PDFTools by WellFriend",
   description:
-    "Get support for processing issues, ask product questions, or reach the team about API, business, and partnerships.",
+    "Get support for PDFTools processing issues, uploads, downloads, bugs, security reports, API questions, and business inquiries.",
   path: "/contact",
 });
 
-export default function ContactPage() {
+const supportUses = [
+  "Broken tools or repeated processing failures",
+  "Upload or download issues",
+  "Abuse reports",
+  "Security reports",
+  "Failed jobs with an error or job ID",
+];
+
+const contactUses = [
+  "General questions",
+  "API questions or future API interest",
+  "Feature suggestions",
+  "Business and partnership inquiries",
+];
+
+const reportChecklist = [
+  "Tool or route used",
+  "File type",
+  "Approximate file size",
+  "Exact error text",
+  "Job ID if shown",
+  "Screenshot if helpful",
+  "Whether it happens repeatedly",
+];
+
+function ContactCard({
+  description,
+  email,
+  icon: Icon,
+  items,
+  label,
+  subject,
+  title,
+}: {
+  description: string;
+  email: string;
+  icon: LucideIcon;
+  items: string[];
+  label: string;
+  subject: string;
+  title: string;
+}) {
   return (
-    <StaticPage
-      description="We respond within 48 hours"
-      eyebrow="Contact"
-      title="Get in Touch"
-    >
-      <div className="mx-auto max-w-[600px]">
-        <div className="tool-panel space-y-6">
-          <div className="flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-md bg-[#059669]/10 text-[#059669]">
-              <MailIcon className="h-5 w-5" />
-            </span>
-            <div>
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Contact PDFTools</h2>
-              <p className="text-sm text-slate-500 dark:text-zinc-400">Use email for product, API, and partnership questions.</p>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-zinc-200/70 bg-zinc-50 p-5 dark:border-white/10 dark:bg-zinc-900">
-            <ul className="space-y-3 text-[15px] leading-7 text-slate-600 dark:text-zinc-300">
-              {reasons.map((reason) => (
-                <li className="flex gap-3" key={reason}>
-                  <span className="mt-[10px] h-1.5 w-1.5 rounded-full bg-[#059669]" />
-                  <span>{reason}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="grid gap-2 text-sm">
-            <a
-              className="inline-flex items-center gap-2 text-base font-semibold text-[#059669] hover:text-[#047857]"
-              href="mailto:contact@wellfriend.online"
-            >
-              <MailIcon className="h-4 w-4" />
-              contact@wellfriend.online
-              <span className="text-xs font-medium text-slate-500 dark:text-zinc-400">(general, API, partnerships, suggestions)</span>
-            </a>
-            <a
-              className="inline-flex items-center gap-2 text-base font-semibold text-[#059669] hover:text-[#047857]"
-              href="mailto:support@wellfriend.online"
-            >
-              <MailIcon className="h-4 w-4" />
-              support@wellfriend.online
-              <span className="text-xs font-medium text-slate-500 dark:text-zinc-400">(bugs, processing failures, abuse reports)</span>
-            </a>
-          </div>
-
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900 dark:bg-emerald-950">
-            <div className="space-y-2">
-              <h3 className="text-base font-semibold text-emerald-800 dark:text-emerald-200">Join our Discord community</h3>
-              <p className="text-sm leading-7 text-emerald-700/90 dark:text-emerald-100/90">
-                Join the WellFriend Corp Discord for community help, updates, and discussion. Email remains the
-                official support path for bugs, processing failures, security issues, and abuse reports.
-              </p>
-            </div>
-            <a
-              className="primary-button mt-4 inline-flex"
-              href="https://discord.gg/ZQFmYaQbVu"
-              rel="noreferrer"
-              target="_blank"
-            >
-              Join Discord
-            </a>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            {contactButtons.map((button) => (
-              <a className="secondary-button w-full" href={button.href} key={button.label}>
-                {button.label}
-              </a>
-            ))}
-          </div>
-
-          <p className="text-sm leading-7 text-slate-500 dark:text-zinc-400">
-            Include your use case and expected monthly volume for API and enterprise inquiries. Maximum upload size is
-            25 MB. {PUBLIC_FILE_HANDLING_STATEMENT}
-          </p>
-          <p className="text-sm leading-7 text-slate-500 dark:text-zinc-400">
-            Looking for help with uploads, settings, downloads, or troubleshooting first?{" "}
-            <Link className="font-semibold text-[#059669] hover:text-[#047857]" href="/docs">
-              Browse the help center
-            </Link>
-            .
-          </p>
+    <section className="flex h-full flex-col rounded-3xl border border-zinc-200/90 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className="flex items-start gap-4">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+          <Icon className="h-5 w-5" />
+        </span>
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">{title}</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{description}</p>
         </div>
       </div>
-    </StaticPage>
+      <a className="mt-5 text-base font-semibold text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200" href={`mailto:${email}`}>
+        {email}
+      </a>
+      <div className="mt-5 grid gap-2">
+        {items.map((item) => (
+          <div className="flex gap-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300" key={item}>
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-300" />
+            <span>{item}</span>
+          </div>
+        ))}
+      </div>
+      <a className="primary-button mt-6 h-12 rounded-2xl px-5 shadow-sm" href={`mailto:${email}?subject=${encodeURIComponent(subject)}`}>
+        {label}
+      </a>
+    </section>
+  );
+}
+
+export default function ContactPage() {
+  return (
+    <main className="overflow-x-hidden bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
+      <section className="border-b border-zinc-200/80 bg-zinc-100/70 dark:border-white/10 dark:bg-zinc-950">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8 lg:py-16">
+          <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Contact</p>
+          <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50 sm:text-5xl">
+            Get help with files, tools, bugs, security, or API questions
+          </h1>
+          <p className="mt-5 max-w-3xl text-base leading-8 text-zinc-600 dark:text-zinc-300 sm:text-lg">
+            Send the right details to the right mailbox so we can understand the issue faster.
+          </p>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+        <div className="grid gap-5 lg:grid-cols-2">
+          <ContactCard
+            description="Use this for anything that affects a file workflow, job result, safety report, or user-facing failure."
+            email="support@wellfriend.online"
+            icon={LifeBuoy}
+            items={supportUses}
+            label="Email support"
+            subject="PDFTools support request"
+            title="Support"
+          />
+          <ContactCard
+            description="Use this for product questions, future API interest, business conversations, and non-urgent feedback."
+            email="contact@wellfriend.online"
+            icon={Mail}
+            items={contactUses}
+            label="Email contact"
+            subject="PDFTools general inquiry"
+            title="General & business"
+          />
+        </div>
+      </section>
+
+      <section className="border-y border-zinc-200/80 bg-white dark:border-white/10 dark:bg-zinc-900/45">
+        <div className="mx-auto grid max-w-7xl gap-5 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.82fr)] lg:px-8">
+          <section className="rounded-3xl border border-zinc-200/90 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+            <div className="flex items-start gap-4">
+              <Bug className="mt-1 h-5 w-5 text-zinc-400" />
+              <div>
+                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">What to include</p>
+                <h2 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">A good report is specific.</h2>
+                <p className="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
+                  You do not need to over-explain. A few concrete details usually make support much faster.
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {reportChecklist.map((item) => (
+                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-semibold text-zinc-700 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-200" key={item}>
+                  {item}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <aside className="space-y-5">
+            <section className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-amber-950 shadow-sm dark:border-amber-400/25 dark:bg-amber-500/10 dark:text-amber-100">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-1 h-5 w-5 shrink-0" />
+                <div>
+                  <h2 className="text-lg font-semibold">What not to send</h2>
+                  <p className="mt-3 text-sm leading-7">
+                    Do not send passwords, API keys, credentials, or unrelated private secrets. Avoid highly sensitive files unless explicitly requested and agreed.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-zinc-200/90 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+              <div className="flex items-start gap-3">
+                <MessageCircle className="mt-1 h-5 w-5 shrink-0 text-zinc-400" />
+                <div>
+                  <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Community help</h2>
+                  <p className="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
+                    Discord is useful for community help, updates, and discussion. It is not a replacement for official support for abuse or security reports.
+                  </p>
+                  <a
+                    className="secondary-button mt-5 h-11 rounded-2xl px-4 dark:bg-zinc-950"
+                    href="https://discord.gg/ZQFmYaQbVu"
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Join Discord
+                  </a>
+                </div>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+        <div className="rounded-3xl border border-zinc-200/90 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-8">
+          <div className="grid gap-5 md:grid-cols-4">
+            {["Upload issue", "Processing issue", "Download issue", "Support with job ID"].map((step, index) => (
+              <div className="relative rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-950" key={step}>
+                <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500">0{index + 1}</p>
+                <p className="mt-3 text-sm font-semibold text-zinc-950 dark:text-zinc-50">{step}</p>
+                {index < 3 ? <ArrowRight className="absolute right-4 top-4 hidden h-4 w-4 text-zinc-300 md:block" /> : <ShieldAlert className="absolute right-4 top-4 h-4 w-4 text-zinc-300" />}
+              </div>
+            ))}
+          </div>
+          <p className="mt-5 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
+            Looking for self-serve help first? <Link className="font-semibold text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200" href="/docs">Browse the help center</Link>.
+          </p>
+        </div>
+      </section>
+    </main>
   );
 }

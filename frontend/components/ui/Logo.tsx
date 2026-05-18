@@ -21,10 +21,17 @@ export function Logo({
   onNavigate,
   showLink = true,
 }: LogoProps) {
+  const iconClasses = [
+    "block shrink-0 rounded-xl object-contain",
+    iconClassName ?? "h-10 w-10",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   const content = (
     <span
       className={[
-        "inline-flex items-center gap-3 rounded-xl text-zinc-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 dark:text-zinc-100 dark:focus-visible:ring-emerald-400/40",
+        "inline-flex min-w-0 items-center gap-3 rounded-xl text-zinc-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 dark:text-zinc-100 dark:focus-visible:ring-emerald-400/40",
         className,
       ]
         .filter(Boolean)
@@ -32,19 +39,20 @@ export function Logo({
     >
       <Image
         alt="PDFTools by WellFriend"
-        className={iconClassName ?? "h-10 w-10"}
+        className={iconClasses}
         height={40}
         priority
         src="/logo-mark.svg"
+        unoptimized
         width={40}
       />
       {!compact ? (
-        <span className="flex min-w-0 flex-col leading-none">
-          <span className="truncate text-[18px] font-extrabold tracking-[-0.02em]">
+        <span className="flex min-w-0 flex-col justify-center leading-tight">
+          <span className="truncate text-lg font-extrabold tracking-tight text-zinc-950 dark:text-zinc-50">
             <span className="text-emerald-600 dark:text-emerald-400">PDF</span>
-            <span className="text-current">Tools</span>
+            <span>Tools</span>
           </span>
-          <span className="hidden text-[11px] font-medium text-current opacity-70 sm:block">
+          <span className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
             by WellFriend
           </span>
         </span>

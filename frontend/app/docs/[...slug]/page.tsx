@@ -13,6 +13,7 @@ import {
   getDocsForNavigation,
   isNoindexDoc,
 } from "@/lib/docs";
+import { buildDocsSearchEntries } from "@/lib/docs-search";
 import { buildPageMetadata } from "@/lib/metadata";
 
 type DocsPageProps = {
@@ -65,10 +66,12 @@ export default async function DocsPage({ params }: DocsPageProps) {
     notFound();
   }
 
+  const searchEntries = buildDocsSearchEntries(groups);
+
   return (
-    <DocsLayout activeSlug={doc.slug} groups={groups} headings={doc.headings}>
-      <div className="space-y-6">
-        <nav aria-label="Breadcrumb" className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+    <DocsLayout activeSlug={doc.slug} groups={groups} headings={doc.headings} searchEntries={searchEntries}>
+      <div className="w-full max-w-full space-y-6">
+        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center text-sm font-medium text-zinc-500 dark:text-zinc-400">
           <Link className="transition hover:text-emerald-700 dark:hover:text-emerald-300" href="/">
             Home
           </Link>
@@ -77,7 +80,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
             Docs
           </Link>
           <span className="px-2 text-zinc-300 dark:text-zinc-600">/</span>
-          <span className="text-zinc-700 dark:text-zinc-200">{doc.title}</span>
+          <span className="min-w-0 text-zinc-700 dark:text-zinc-200">{doc.title}</span>
         </nav>
 
         <section className="tool-panel space-y-4">
