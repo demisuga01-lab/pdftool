@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import compress, convert, files, image, ocr, pdf
+from app.api.routes import compress, convert, files, files_tools, image, ocr, pdf
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.rate_limit import RateLimitMiddleware
@@ -62,6 +62,7 @@ def create_app() -> FastAPI:
     app.include_router(ocr.router, prefix="/api/ocr", tags=["ocr"])
     app.include_router(convert.router, prefix="/api/convert", tags=["convert"])
     app.include_router(compress.router, prefix="/api/compress", tags=["compress"])
+    app.include_router(files_tools.router, prefix="/api/file-tools", tags=["file-tools"])
 
     @app.get("/api/health", tags=["health"])
     async def health_check() -> dict[str, Any]:

@@ -29,6 +29,17 @@ class Check:
 
 
 CRITICAL_TOOLS = [
+    "file",
+    "exiftool",
+    "zip",
+    "unzip",
+    "7z",
+    "tar",
+    "gzip",
+    "sha256sum",
+    "md5sum",
+    "diff",
+    "cmp",
     "qpdf",
     "mutool",
     "pdftotext",
@@ -36,10 +47,16 @@ CRITICAL_TOOLS = [
     "libreoffice",
     "tesseract",
     "inkscape",
-    "7z",
 ]
 
 OPTIONAL_TOOLS = [
+    "sha1sum",
+    "sha512sum",
+    "b2sum",
+    "bzip2",
+    "xz",
+    "xmllint",
+    "rsync",
     "pngquant",
     "oxipng",
     "optipng",
@@ -60,6 +77,12 @@ IMPORT_CHECKS = [
     ("app.services.compression_service", "Compression service import"),
     ("app.services.ocr_service", "OCR service import"),
     ("app.services.file_store", "File store import"),
+    ("magic", "python-magic import"),
+]
+
+OPTIONAL_IMPORT_CHECKS = [
+    ("rarfile", "rarfile import"),
+    ("chardet", "chardet import"),
 ]
 
 
@@ -120,12 +143,12 @@ def check_imagemagick() -> Check:
     return Check("CLI: magick/convert", "MISSING", "Neither magick nor convert was found on PATH", critical=True)
 
 
-def check_import(module_name: str, label: str) -> Check:
+def check_import(module_name: str, label: str, *, critical: bool = True) -> Check:
     try:
         importlib.import_module(module_name)
-        return Check(label, "OK", module_name, critical=True)
+        return Check(label, "OK", module_name, critical=critical)
     except Exception as exc:
-        return Check(label, "FAIL", f"{module_name}: {exc}", critical=True)
+        return Check(label, "FAIL" if critical else "WARNING", f"{module_name}: {exc}", critical=critical)
 
 
 def positive_int_check(name: str, value: int) -> Check:
@@ -174,6 +197,7 @@ def collect_checks(settings: Settings) -> list[Check]:
     checks.append(check_imagemagick())
     checks.extend(check_tool(name, critical=False) for name in OPTIONAL_TOOLS)
     checks.extend(check_import(module_name, label) for module_name, label in IMPORT_CHECKS)
+    checks.extend(check_import(module_name, label, critical=False) for module_name, label in OPTIONAL_IMPORT_CHECKS)
     checks.extend(config_checks(settings))
     return checks
 

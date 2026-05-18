@@ -90,6 +90,7 @@ def _classify_request(method: str, path: str) -> RateBucket | str | None:
     for prefix, group in (
         ("/api/compress", "compress"),
         ("/api/convert", "convert"),
+        ("/api/file-tools", "filetools"),
         ("/api/pdf", "pdf"),
         ("/api/image", "image"),
         ("/api/ocr", "ocr"),
@@ -266,4 +267,3 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response.headers["X-RateLimit-Limit"] = str(limit)
         response.headers["X-RateLimit-Remaining"] = str(max(0, remaining))
         response.headers["X-RateLimit-Reset"] = str(int(time.time()) + max(0, reset_in))
-
