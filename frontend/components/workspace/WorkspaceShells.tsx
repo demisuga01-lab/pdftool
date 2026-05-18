@@ -89,7 +89,7 @@ export function MobileActionBar({
   onClick?: () => void;
 }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-10px_30px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-zinc-950 dark:shadow-black/30 lg:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] dark:border-white/10 dark:bg-zinc-950 lg:hidden">
       <button className="primary-button min-h-11 w-full" disabled={disabled} onClick={onClick} type="button">
         {label}
       </button>
@@ -145,7 +145,7 @@ export function CompactWorkspaceShell({
   const { dragProps, dragging } = useDropZone(onFilesDropped);
 
   return (
-    <main className="min-h-[calc(100dvh-3.5rem)] overflow-x-hidden overscroll-x-none bg-transparent sm:min-h-[calc(100dvh-4rem)]" {...dragProps}>
+    <main className="min-h-[calc(100dvh-3.5rem)] overflow-x-hidden overscroll-x-none bg-zinc-50 dark:bg-zinc-950 sm:min-h-[calc(100dvh-4rem)]" {...dragProps}>
       <WorkspaceHeader
         countLabel={countLabel}
         fileInfo={fileInfo}
@@ -158,12 +158,12 @@ export function CompactWorkspaceShell({
       />
 
       <div className="mx-auto w-full max-w-[1440px] px-4 py-4 sm:px-6 sm:py-6 xl:px-8">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
           <section className="min-w-0 space-y-6">
             {hasContent ? (
               preview
             ) : (
-              <div className="rounded-[28px] border border-zinc-200/70 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-zinc-900 dark:shadow-[0_24px_60px_rgba(0,0,0,0.3)] sm:p-6">
+              <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-6">
                 <div className="flex min-h-[360px] items-center justify-center">{emptyState}</div>
               </div>
             )}
@@ -206,13 +206,13 @@ export function CompactWorkspaceShell({
       </div>
 
       {dragging ? (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-[#059669]/10 p-4">
-          <div className="rounded-2xl border border-[#059669]/30 bg-white px-5 py-4 text-sm font-semibold text-[#047857] shadow-xl shadow-slate-900/10 dark:bg-zinc-900 dark:text-emerald-300 dark:shadow-black/30">
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-emerald-600/10 p-4">
+          <div className="rounded-xl border border-emerald-600/30 bg-white px-5 py-4 text-sm font-semibold text-emerald-700 shadow-md dark:bg-zinc-900 dark:text-emerald-300">
             Drop files to upload
           </div>
         </div>
       ) : null}
-      {uploadOverlay ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4">{uploadOverlay}</div> : null}
+      {uploadOverlay ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/60 p-4">{uploadOverlay}</div> : null}
       {downloadPanel ? <div className="fixed inset-x-4 bottom-4 z-40 lg:inset-x-auto lg:bottom-6 lg:right-6 lg:w-[380px]">{downloadPanel}</div> : null}
     </main>
   );
@@ -265,7 +265,7 @@ export function VisualEditorWorkspaceShell({
   const { dragProps, dragging } = useDropZone(onFilesDropped);
 
   return (
-    <main className="flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-x-hidden overscroll-x-none bg-transparent sm:min-h-[calc(100dvh-4rem)] lg:h-[calc(100dvh-4rem)]" {...dragProps}>
+    <main className="flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-x-hidden overscroll-x-none bg-zinc-50 dark:bg-zinc-950 sm:min-h-[calc(100dvh-4rem)] lg:h-[calc(100dvh-4rem)]" {...dragProps}>
       <WorkspaceHeader
         countLabel={countLabel}
         fileInfo={fileInfo}
@@ -277,7 +277,7 @@ export function VisualEditorWorkspaceShell({
         title={title}
       />
 
-      <div className="relative flex min-h-0 flex-1 flex-col bg-transparent lg:flex-row">
+      <div className="relative flex min-h-0 flex-1 flex-col lg:flex-row">
         {/*
           Mobile (< lg): the section overflows visibly so the document body is
           the scroll container — that lets the user scroll up/down past the
@@ -289,7 +289,7 @@ export function VisualEditorWorkspaceShell({
           {hasContent ? editor : <div className="flex min-h-[520px] items-center justify-center">{emptyState}</div>}
         </section>
 
-        <aside className="hidden w-[420px] shrink-0 border-l border-zinc-200/70 bg-white px-5 py-5 dark:border-white/10 dark:bg-zinc-950 lg:block">
+        <aside className="hidden w-[400px] shrink-0 border-l border-zinc-200 bg-zinc-50 px-5 py-5 dark:border-white/10 dark:bg-zinc-950 lg:block">
           <div className="sticky top-24">
             <WorkspaceSettingsPanel
               bodyClassName="space-y-6 lg:max-h-[calc(100dvh-15rem)] lg:overflow-y-auto"
@@ -323,7 +323,7 @@ export function VisualEditorWorkspaceShell({
         {hasContent ? (
           <>
             <button
-              className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-30 inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-full bg-[#059669] px-4 text-sm font-semibold text-white shadow-lg shadow-emerald-600/25 lg:hidden"
+              className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-30 inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-full bg-emerald-700 px-4 text-sm font-semibold text-white shadow-md lg:hidden"
               onClick={() => setMobilePanelOpen(true)}
               type="button"
             >
@@ -361,13 +361,13 @@ export function VisualEditorWorkspaceShell({
       </div>
 
       {dragging ? (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-[#059669]/10 p-4">
-          <div className="rounded-2xl border border-[#059669]/30 bg-white px-5 py-4 text-sm font-semibold text-[#047857] shadow-xl shadow-slate-900/10 dark:bg-zinc-900 dark:text-emerald-300 dark:shadow-black/30">
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-emerald-600/10 p-4">
+          <div className="rounded-xl border border-emerald-600/30 bg-white px-5 py-4 text-sm font-semibold text-emerald-700 shadow-md dark:bg-zinc-900 dark:text-emerald-300">
             Drop files to upload
           </div>
         </div>
       ) : null}
-      {uploadOverlay ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4">{uploadOverlay}</div> : null}
+      {uploadOverlay ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/60 p-4">{uploadOverlay}</div> : null}
       {downloadPanel ? <div className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-40 lg:inset-x-auto lg:bottom-6 lg:right-6 lg:w-[360px]">{downloadPanel}</div> : null}
     </main>
   );
@@ -392,24 +392,24 @@ export function PreviewCard({
 
   return (
     <>
-      <section className="rounded-2xl border border-zinc-200/70 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-zinc-900 dark:shadow-[0_22px_60px_rgba(0,0,0,0.3)] sm:p-5">
+      <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-start">
-          <div className="flex min-h-[220px] min-w-0 flex-1 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-zinc-950 sm:min-h-[280px]">
+          <div className="flex min-h-[220px] min-w-0 flex-1 items-center justify-center overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-white/10 dark:bg-zinc-950 sm:min-h-[280px]">
             {children ?? (
-              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white text-slate-300 dark:bg-zinc-900 dark:text-zinc-600">
+              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white text-zinc-300 dark:bg-zinc-900 dark:text-zinc-600">
                 {icon ?? <PageIcon className="h-10 w-10" />}
               </div>
             )}
           </div>
           <div className="min-w-0 space-y-3 md:w-[280px]">
             <div className="space-y-1">
-              <p className="truncate font-mono text-sm font-semibold text-slate-900 dark:text-zinc-100">{title}</p>
-              {description ? <p className="text-sm font-medium leading-6 text-slate-500 dark:text-zinc-400">{description}</p> : null}
+              <p className="truncate font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{title}</p>
+              {description ? <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">{description}</p> : null}
             </div>
             {badges?.length ? (
               <div className="flex flex-wrap gap-2">
                 {badges.map((badge) => (
-                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-500 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-400" key={badge}>
+                  <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] font-semibold text-zinc-500 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-400" key={badge}>
                     {badge}
                   </span>
                 ))}
@@ -427,18 +427,18 @@ export function PreviewCard({
       </section>
 
       {expanded ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4" onClick={() => setExpanded(false)}>
-          <div className="flex max-h-[92vh] w-full flex-col rounded-t-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/40 sm:max-w-5xl sm:rounded-2xl" onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-white/10">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/60 p-0 sm:items-center sm:p-4" onClick={() => setExpanded(false)}>
+          <div className="flex max-h-[92vh] w-full flex-col rounded-t-2xl border border-zinc-200 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-900 sm:max-w-5xl sm:rounded-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-white/10">
               <div className="min-w-0">
-                <p className="truncate font-mono text-sm font-semibold text-slate-900 dark:text-zinc-100">{title}</p>
-                {description ? <p className="text-xs text-slate-500 dark:text-zinc-400">{description}</p> : null}
+                <p className="truncate font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{title}</p>
+                {description ? <p className="text-xs text-zinc-500 dark:text-zinc-400">{description}</p> : null}
               </div>
               <button aria-label="Close preview" className="secondary-button h-10 w-10 p-0" onClick={() => setExpanded(false)} type="button">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="min-h-0 overflow-auto bg-slate-50 p-4 dark:bg-zinc-950 sm:p-6">
+            <div className="min-h-0 overflow-auto bg-zinc-100 p-4 dark:bg-zinc-950 sm:p-6">
               <div className="flex min-h-[60vh] items-center justify-center">{children}</div>
             </div>
           </div>

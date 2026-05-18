@@ -6,12 +6,13 @@ import { RotateCcwIcon, RotateCwIcon } from "@/components/icons/SiteIcons";
 import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
 import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
-import { EmptyPdfWorkspaceState, PDFThumbnailGrid, type PdfPageCard, type WorkspaceThumbnailSize } from "@/components/workspace/PDFWorkspace";
+import { EmptyPdfWorkspaceState, type PdfPageCard } from "@/components/workspace/PDFWorkspace";
+import { PageGridWorkspace, type PageGridItem } from "@/components/workspace/PageGridWorkspace";
 import { UnifiedWorkspace } from "@/components/workspace/UnifiedWorkspace";
 import { estimateProcessingTime, formatBytes, slugifyBaseName } from "@/lib/format";
 import { useWorkspaceFiles } from "@/lib/use-workspace-files";
 import { useWorkspaceJob } from "@/lib/workspace-job";
-import { selectedPagesLabel, uploadedFileDetails, usePageSelection, useUploadedPdfPageItems } from "@/lib/workspace-data";
+import { selectedPagesLabel, uploadedFileDetails, useUploadedPdfPageItems } from "@/lib/workspace-data";
 
 type RotateSettings = {
   angle: 90 | 180 | 270;
@@ -50,14 +51,32 @@ function applyRotation(items: PdfPageCard[], matcher: (item: PdfPageCard) => boo
   );
 }
 
+function toGridItems(items: PdfPageCard[]): PageGridItem[] {
+  return items.map((item, index) => {
+    const originalPageNumber = item.originalPageNumber ?? item.pageNumber;
+    const rotation = ((item.rotation ?? 0) % 360 + 360) % 360 as 0 | 90 | 180 | 270;
+    return {
+      currentIndex: item.currentIndex ?? index,
+      id: item.id || `page-${originalPageNumber}`,
+      loadState: item.loadState ?? "idle",
+      originalPageNumber,
+      pageNumber: item.pageNumber,
+      previewUrl: item.previewUrl,
+      removed: Boolean(item.removed),
+      rotation,
+      selected: Boolean(item.selected),
+      thumbnail: item.thumbnail,
+      thumbnailUrl: item.thumbnailUrl ?? item.thumbnail,
+    };
+  });
+}
+
 export default function PdfRotatePage() {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [size, setSize] = useState<WorkspaceThumbnailSize>("medium");
   const [settings, setSettings] = useState<RotateSettings>({ angle: 90, applyTo: "all" });
   const workspaceFiles = useWorkspaceFiles({ accept: ".pdf,application/pdf" });
   const fileRecord = workspaceFiles.files[0] ?? null;
   const { items, pageCount, setItems } = useUploadedPdfPageItems(fileRecord?.file_id ?? null, Number(fileRecord?.page_count ?? 0));
-  const { allSelected, deselectAll, selectAll, toggleItem } = usePageSelection(items, setItems);
   const filename = fileRecord?.display_name ? `${slugifyBaseName(fileRecord.display_name)}-rotated.pdf` : "rotated.pdf";
   const job = useWorkspaceJob({
     approximateFileSize: fileRecord ? formatBytes(fileRecord.size_bytes) : undefined,
@@ -166,46 +185,63 @@ export default function PdfRotatePage() {
         editor={
           fileRecord ? (
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm shadow-black/5 dark:border-white/10 dark:bg-zinc-900">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
                 <div>
                   <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Live page rotation preview</p>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">Choose a rotation angle, then the page thumbnails rotate immediately in the grid.</p>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">Choose a rotation angle and the page thumbnails rotate immediately. Use the in-card buttons to rotate one page at a time.</p>
                 </div>
                 <button className="secondary-button min-h-11 px-4" onClick={() => inputRef.current?.click()} type="button">
                   Replace PDF
                 </button>
               </div>
-              <PDFThumbnailGrid
-                items={items}
-                onReorder={setItems}
-                onToggleSelect={toggleItem}
-                renderHoverActions={(item) => (
-                  <div className="flex gap-2">
+              <PageGridWorkspace
+                items={toGridItems(items)}
+                onItemsChange={(nextItems) => {
+                  setItems(nextItems);
+                }}
+                previewLabels={{
+                  pageLabel: (item) => `Page ${item.originalPageNumber}`,
+                  currentPositionLabel: (_item, position) => `Position ${position} of ${items.length}`,
+                }}
+                renderCardOverlay={(gridItem) => (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
                     <button
-                      className="rounded-lg border border-white/80 bg-white/90 px-3 py-2 text-sm text-zinc-700 shadow-sm transition hover:bg-white dark:border-white/15 dark:bg-zinc-900/90 dark:text-zinc-200 dark:hover:bg-zinc-950"
-                      onClick={() =>
+                      aria-label={`Rotate page ${gridItem.originalPageNumber} counter-clockwise`}
+                      className="secondary-button h-8 px-2 text-xs"
+                      onClick={(event) => {
+                        event.stopPropagation();
                         setItems(items.map((entry) => (
-                          entry.id === item.id ? { ...entry, rotation: (((entry.rotation ?? 0) + 270) % 360 + 360) % 360, selected: true } : entry
-                        )))
-                      }
+                          entry.id === gridItem.id
+                            ? { ...entry, rotation: (((entry.rotation ?? 0) + 270) % 360 + 360) % 360, selected: true }
+                            : entry
+                        )));
+                      }}
                       type="button"
                     >
-                      <RotateCcwIcon className="h-4 w-4" />
+                      <RotateCcwIcon className="h-3.5 w-3.5" />
                     </button>
                     <button
-                      className="rounded-lg border border-white/80 bg-white/90 px-3 py-2 text-sm text-zinc-700 shadow-sm transition hover:bg-white dark:border-white/15 dark:bg-zinc-900/90 dark:text-zinc-200 dark:hover:bg-zinc-950"
-                      onClick={() =>
+                      aria-label={`Rotate page ${gridItem.originalPageNumber} clockwise`}
+                      className="secondary-button h-8 px-2 text-xs"
+                      onClick={(event) => {
+                        event.stopPropagation();
                         setItems(items.map((entry) => (
-                          entry.id === item.id ? { ...entry, rotation: (((entry.rotation ?? 0) + 90) % 360 + 360) % 360, selected: true } : entry
-                        )))
-                      }
+                          entry.id === gridItem.id
+                            ? { ...entry, rotation: (((entry.rotation ?? 0) + 90) % 360 + 360) % 360, selected: true }
+                            : entry
+                        )));
+                      }}
                       type="button"
                     >
-                      <RotateCwIcon className="h-4 w-4" />
+                      <RotateCwIcon className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 )}
-                size={size}
+                summary={
+                  <div className="rounded-lg border border-zinc-200 bg-white px-3 py-3 text-sm leading-6 text-zinc-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300">
+                    {targetCount} pages will be rotated {settings.angle} degrees.
+                  </div>
+                }
               />
             </div>
           ) : null
@@ -309,34 +345,6 @@ export default function PdfRotatePage() {
               </div>
             </div>
 
-            <div className="space-y-4 border-t border-zinc-200 pt-6 dark:border-white/10">
-              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500">Page Selection</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button className="secondary-button min-h-10" onClick={selectAll} type="button">Select all</button>
-                <button className="secondary-button min-h-10" onClick={() => setItems(items.map((item) => ({ ...item, selected: item.pageNumber % 2 === 0 })))} type="button">Select even</button>
-                <button className="secondary-button min-h-10" onClick={() => setItems(items.map((item) => ({ ...item, selected: item.pageNumber % 2 === 1 })))} type="button">Select odd</button>
-                <button className="secondary-button min-h-10" onClick={deselectAll} type="button">Clear</button>
-              </div>
-            </div>
-
-            <div className="space-y-3 border-t border-zinc-200 pt-6 dark:border-white/10">
-              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500">Grid Size</p>
-              <div className="grid grid-cols-3 gap-2">
-                {(["small", "medium", "large"] as const).map((value) => (
-                  <button
-                    className={[
-                      "secondary-button min-h-10",
-                      size === value ? "border-emerald-500 text-emerald-700 dark:border-emerald-400 dark:text-emerald-300" : "",
-                    ].join(" ")}
-                    key={value}
-                    onClick={() => setSize(value)}
-                    type="button"
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         }
         title="Rotate PDF"

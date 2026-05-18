@@ -1,5 +1,13 @@
 "use client";
 
+// Workspace note: Merge intentionally uses FileWorkspaceGrid (vertical file rows)
+// rather than the generic GridWorkspace<T> used by Split / Rotate / Images-to-PDF.
+// Page thumbnails and file rows have different ideal layouts — file rows want a
+// vertical list with metadata, page thumbnails want a card grid with zoom.
+// The outer UnifiedWorkspace shell, header, settings panel, and download panel
+// are already shared. Do not migrate to GridWorkspace<T> without first
+// generalising it to support a vertical-list strategy.
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 

@@ -24,29 +24,30 @@ export function WorkspaceSettingsPanel({
   return (
     <section
       className={[
-        "overflow-hidden rounded-[28px] border border-zinc-200/70 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-zinc-900 dark:shadow-[0_28px_70px_rgba(0,0,0,0.34)]",
+        "overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900",
         panelClassName ?? "",
       ].join(" ")}
     >
       <div
         className={[
-          "border-b border-zinc-200/80 px-5 py-5 dark:border-white/10 sm:px-6 sm:py-6",
+          "border-b border-zinc-200 px-5 py-4 dark:border-white/10 sm:px-6 sm:py-5",
           headerClassName ?? "",
         ].join(" ")}
         data-no-pan
       >
-        <div className="space-y-1.5">
-          <h2 className="text-xl font-bold leading-tight tracking-[-0.02em] text-zinc-950 dark:text-zinc-100 lg:text-[22px]">{title}</h2>
-          {description ? <p className="text-sm font-medium leading-6 text-zinc-500 dark:text-zinc-400">{description}</p> : null}
+        <div className="space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">Settings</p>
+          <h2 className="text-lg font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">{title}</h2>
+          {description ? <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">{description}</p> : null}
         </div>
       </div>
-      <div className={["px-5 py-5 sm:px-6 sm:py-6", bodyClassName ?? ""].join(" ")} data-settings-control>
+      <div className={["px-5 py-5 sm:px-6", bodyClassName ?? ""].join(" ")} data-settings-control>
         {children}
       </div>
       {footer ? (
         <div
           className={[
-            "border-t border-zinc-200/80 bg-zinc-50 px-5 py-5 dark:border-white/10 dark:bg-zinc-950 sm:px-6 sm:py-6",
+            "border-t border-zinc-200 bg-zinc-50/60 px-5 py-4 dark:border-white/10 dark:bg-zinc-950/60 sm:px-6 sm:py-5",
             footerClassName ?? "",
           ].join(" ")}
           data-settings-control
