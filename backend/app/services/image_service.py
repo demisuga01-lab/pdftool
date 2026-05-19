@@ -373,17 +373,17 @@ class ImageService:
                 target_height = min(target_height, original_height)
 
             if fit == "cover":
-                resized = image.thumbnail_image(target_width, height=target_height, size="both", crop="centre", kernel=kernel)
+                resized = image.thumbnail_image(target_width, height=target_height, size="both", crop="centre")
             elif fit == "fill":
-                resized = image.thumbnail_image(target_width, height=target_height, size="force", kernel=kernel)
+                resized = image.thumbnail_image(target_width, height=target_height, size="force")
             elif fit == "stretch":
                 resized = image.resize(target_width / original_width, vscale=target_height / original_height, kernel=kernel)
             elif fit == "outside":
-                resized = image.thumbnail_image(target_width, height=target_height, size="up", kernel=kernel)
+                resized = image.thumbnail_image(target_width, height=target_height, size="up")
             elif fit == "inside":
-                resized = image.thumbnail_image(target_width, height=target_height, size="down", kernel=kernel)
+                resized = image.thumbnail_image(target_width, height=target_height, size="down")
             else:
-                resized = image.thumbnail_image(target_width, height=target_height, size="both", kernel=kernel)
+                resized = image.thumbnail_image(target_width, height=target_height, size="both")
                 if resized.width != target_width or resized.height != target_height:
                     background_value = self._hex_background(background)
                     left = max(0, (target_width - resized.width) // 2)
