@@ -15,6 +15,7 @@ Expanded reference for current environment variables.
 | `OUTPUT_DIR` | backend | derived | `/opt/pdftool/data/outputs` | No | processed outputs |
 | `TEMP_DIR` | backend | derived | `/opt/pdftool/data/temp` | No | previews and temp files |
 | `MAX_FILE_SIZE_MB` | backend | `25` | `25` | No | must stay 25 for public launch policy |
+| `FILE_TOOLS_MAX_FILE_SIZE_MB` | backend | `100` | `100` | No | per-file limit for `/api/file-tools/*` only |
 | `MAX_BATCH_BYTES` | backend | `104857600` | same | No | 100 MB |
 | `MAX_ARCHIVE_EXTRACTED_BYTES` | backend | `104857600` | same | No | 100 MB |
 | `MAX_ARCHIVE_FILES` | backend | `200` | `200` | No | extracted archive member cap |
@@ -27,12 +28,15 @@ Expanded reference for current environment variables.
 | `RATE_LIMIT_STATUS_PER_HOUR` | backend | `1000` | `1000` | No | per-tool status and preview bucket |
 | `RATE_LIMIT_DOWNLOADS_PER_HOUR` | backend | `200` | `200` | No | per-tool download bucket |
 | `RATE_LIMIT_TRUST_PROXY` | backend | `true` | `true` | No | only correct behind trusted reverse proxy |
+| `CLAMD_SOCKET` | backend/workers | `/var/run/clamav/clamd.ctl` | same | No | ClamAV daemon Unix socket for basic virus scanning |
 
 ## Notes
 
 - Rate limiting is applied per IP and per bucket key such as `job:compress`, `status:convert`, or `download:image`.
 - Status polling uses its own higher bucket and does not spend the same strict quota as uploads or job creation.
 - A polling `429` should be treated as "slow down polling", not as an actual job failure.
+- File Tools use `FILE_TOOLS_MAX_FILE_SIZE_MB`; other route families continue using `MAX_FILE_SIZE_MB`.
+- ClamAV availability is optional in readiness and scanner failures fail open.
 
 ## Related Documents
 

@@ -19,12 +19,13 @@ This document covers the live web architecture in the current repository: fronte
 
 PDFTools is a split web application:
 
-- **Frontend**: Next.js App Router app serving pages, workspace UI, previews, status polling, and download actions
+- **Frontend**: Next.js App Router app serving pages, split navigation dropdowns, workspace UI, previews, status polling, inline results, and download actions
 - **Backend**: FastAPI API for uploads, previews, task creation, status, and downloads
 - **Queue and state**: Redis used for Celery broker/result backend and rate limiting
 - **Workers**: Celery workers split into `fast` and `heavy` execution classes
 - **Storage**: filesystem-backed uploads, outputs, temp previews, and cleanup retention
-- **External processing**: CLI tools for PDF, OCR, conversion, compression, and rasterization work
+- **External processing**: CLI tools for PDF, OCR, conversion, compression, archive, Office, and rasterization work
+- **Basic virus scanning**: ClamAV daemon access through `virus_scanner.py` with fail-open behavior
 
 ## Frontend Architecture
 
@@ -33,6 +34,8 @@ PDFTools is a split web application:
 - `frontend/app`: route-level pages
 - `frontend/components/layout`: shell, header, footer, static layout
 - `frontend/components/workspace`: shared workspace UI patterns
+- `frontend/components/file-tools`: File Tools workspace page and configuration
+- `frontend/components/ui/VirusScanBadge.tsx`: neutral scan notice for relevant upload areas
 - `frontend/lib`: API helpers, upload helpers, settings persistence, previews, and state hooks
 
 ### UI patterns
@@ -41,6 +44,7 @@ PDFTools is a split web application:
 - Shared compact workspaces: convert, compress, OCR, image info
 - Grid workspaces: merge, rotate, images-to-pdf, batch-resize
 - Visual editor workspaces: watermark, resize, rotate image, crop
+- File Tools workspaces: mostly compact/grid pages under `/file/*`, backed by `/api/file-tools/*`
 
 ### State and persistence
 
@@ -64,6 +68,8 @@ PDFTools is a split web application:
 
 - Validate uploads and enforce policy
 - Store uploaded files under random IDs
+- Enforce the global 25 MB limit for normal uploads and the File Tools 100 MB limit on `/api/file-tools/*`
+- Run fail-open ClamAV scanning where implemented for File Tools, archives, and Office uploads
 - Generate preview metadata
 - Start background jobs
 - Report job status
@@ -100,6 +106,8 @@ docker exec -it pdftool-redis redis-cli ping
 
 This keeps long-running tasks from being over-prefetched and allows worker loss to return jobs to the queue more safely.
 
+`file_tools_tasks.py` is registered in `celery_app.py`. Most File Tools route to `fast`; archive creation/extraction and metadata cleaning route to `heavy`.
+
 ## File Storage
 
 Configured by environment variables:
@@ -129,6 +137,7 @@ Browser
   -> upload helper / workspace hook
   -> FastAPI route
   -> validation and file storage
+  -> optional ClamAV scan for configured high-risk upload flows
   -> Celery task enqueue
   -> Redis broker
   -> worker
@@ -169,6 +178,7 @@ Worker/service error
 - File IDs are random hex strings and validated before use
 - Output/download paths must resolve inside configured storage roots
 - Archive extraction checks for traversal, excessive member count, and size limits
+- ClamAV scanning is implemented for configured File Tools, archive, and Office flows. Scanner unavailability logs a warning and fails open.
 - SVG watermark files are inspected before rasterization
 - CORS defaults to production-safe explicit origin, not wildcard
 - Tracebacks and internal paths are not exposed in user-facing API errors
@@ -228,4 +238,3 @@ The current public tool site is separate from the planned future authenticated A
 - [docs/workspace-system.md](./docs/workspace-system.md)
 - [docs/backend-services.md](./docs/backend-services.md)
 - [docs/celery-workers.md](./docs/celery-workers.md)
-

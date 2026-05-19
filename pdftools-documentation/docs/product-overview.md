@@ -36,7 +36,7 @@ PDFTools by WellFriend is a public web workspace for PDF and image processing. I
 - not the future authenticated API product yet
 - not a long-term file storage system
 - not a zero-retention secure vault
-- not an unlimited public processing service
+- not an open-ended public processing service
 
 ## Public Website Facts
 

@@ -31,7 +31,8 @@ Matrix of non-Python/non-Node tools used by the current codebase.
 | Docker | `docker` | Redis container operations | Operational | VPS stack |
 | PM2 | `pm2` | app process supervision | Operational | current deployment stack |
 | Celery | `celery` | worker inspection | Operational | backend queue system |
+| ClamAV daemon | Unix socket via `clamd` Python package | basic virus scanning | Optional warning | socket path from `CLAMD_SOCKET`; readiness warning only |
 
 ## Readiness Check
 
-Run `python3 -m app.scripts.check_readiness` from the backend virtualenv to check Redis, writable runtime directories, critical CLI tools, optional optimizer tools, Python imports, and key config values. Missing optional tools are warnings; missing critical tools or failed critical checks should block readiness.
+Run `python3 -m app.scripts.check_readiness` from the backend virtualenv to check Redis, writable runtime directories, critical CLI tools, optional optimizer tools, Python imports, ClamAV daemon ping, and key config values. Missing optional tools and ClamAV availability are warnings; missing critical tools or failed critical checks should block readiness.

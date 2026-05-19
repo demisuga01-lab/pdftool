@@ -15,11 +15,11 @@ Fast entry point to the full documentation system for **PDFTools by WellFriend**
 
 ## Scope
 
-This documentation covers the public website, frontend routes, backend API, Celery jobs, workers, file lifecycle, production deployment, support workflows, security hardening, rate limiting, mobile workspace behavior, and known limitations.
+This documentation covers the public website, frontend routes, backend API, Celery jobs, workers, File Tools, virus scanning, file lifecycle, production deployment, support workflows, security hardening, rate limiting, mobile workspace behavior, and known limitations.
 
 ## Product Summary
 
-PDFTools by WellFriend is a browser-based file processing workspace for PDFs and images. The current public app is open and free to use, focuses on common PDF/image workflows, and relies on a Next.js frontend with a FastAPI and Celery backend for asynchronous processing.
+PDFTools by WellFriend is a browser-based file processing workspace for PDFs, images, and general file utilities. The current public app is open and free to use, focuses on common PDF/image/file workflows, and relies on a Next.js frontend with a FastAPI and Celery backend for asynchronous processing.
 
 ## Live Services
 
@@ -35,7 +35,8 @@ PDFTools by WellFriend is a browser-based file processing workspace for PDFs and
 
 ## Current Production Limits
 
-- Maximum upload size: `25 MB` per file
+- Maximum upload size: `25 MB` per file for PDF, image, compress, convert, and OCR routes
+- File Tools upload size: `100 MB` per file under `/api/file-tools/*`
 - Maximum multi-file batch total: `100 MB`
 - Maximum extracted archive total: `100 MB`
 - Maximum extracted archive files: `200`
@@ -46,7 +47,11 @@ PDFTools by WellFriend is a browser-based file processing workspace for PDFs and
 
 - PDF tools: merge, split, rotate, watermark, protect, decrypt, extract text, PDF to images, images to PDF, Office to PDF
 - Image tools: resize, batch resize, rotate, crop, watermark, info, remove background
+- OCR tools: PDF OCR redirects, image OCR redirect, and shared OCR workspace
+- Privacy tools: metadata viewing/cleaning, filename checks, archive safety, macro checks, and virus scanning
+- File Tools: 23 general `/file/*` routes plus Virus Scanner, covering hashes, file inspection, archives, rename/organize, split/join, metadata, Office inspection, reports, text encoding, and scanning
 - Shared workspaces: convert, compress, OCR
+- Basic virus scanning: ClamAV integration for File Tools, archive, and Office uploads where implemented; scanner failures fail open and do not block uploads
 - Workspace system: compact, grid, and visual editor layouts
 - Mobile editor: bottom drawer, sticky actions, safe-area handling
 - Theme system: light, dark, system, with system as the default for new visitors

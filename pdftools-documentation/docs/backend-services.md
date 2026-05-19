@@ -66,3 +66,20 @@ Map each backend service file to its responsibilities.
 - [celery-workers.md](./celery-workers.md)
 - [workers-and-queues.md](./workers-and-queues.md)
 
+## Current File Tools Services
+
+- `hash_service.py` - hashes and checksum verification
+- `filetype_service.py` - file type and extension mismatch inspection
+- `metadata_service.py` - metadata view and cleaning helpers
+- `archive_service.py` - archive create, extract, inspect, and post-extraction scan integration
+- `rename_service.py` - batch rename and filename sanitization
+- `duplicate_service.py` - duplicate detection
+- `compare_service.py` - binary/text file comparison
+- `split_join_service.py` - generic file split and join
+- `office_file_service.py` - Office metadata, media, and macro inspection
+- `security_file_service.py` - archive safety, macro checks, and filename checks
+- `report_service.py` - inventory/report output helpers
+- `file_tools_service.py` - shared orchestration helpers for File Tools
+- `virus_scanner.py` - ClamAV Unix socket integration with fail-open behavior
+
+File Tools are exposed through `/api/file-tools/*` and processed by `file_tools_tasks.py`.

@@ -82,3 +82,9 @@ celery -A app.workers.celery_app inspect scheduled
 - [workers-and-queues.md](./workers-and-queues.md)
 - [deployment-vps.md](./deployment-vps.md)
 - [troubleshooting-index.md](./troubleshooting-index.md)
+
+## File Tools Registration
+
+`app.workers.file_tools_tasks` is included in the Celery app include list. If File Tools jobs remain queued, confirm the deployed `celery_app.py` includes that module and workers were restarted with `--update-env`.
+
+Most File Tools use the `fast` queue. Archive create/extract and metadata-cleaning File Tools use the `heavy` queue.

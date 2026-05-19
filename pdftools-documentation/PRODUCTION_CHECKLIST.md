@@ -16,7 +16,8 @@ This checklist assumes the current PM2 process names and current public policy i
 
 ## Policy Snapshot
 
-- Upload size: `25 MB` per file
+- Upload size: `25 MB` per file for PDF, image, compress, convert, and OCR routes
+- File Tools upload size: `100 MB` per file under `/api/file-tools/*`
 - Batch total: `100 MB`
 - Archive extracted total: `100 MB`
 - Archive extracted file count: `200`
@@ -27,6 +28,8 @@ This checklist assumes the current PM2 process names and current public policy i
 - Downloads per tool bucket: `200 requests/hour/IP`
 - Retention horizon: verify against runtime environment before deploy.
 - Production ImageMagick command: `convert`
+- ClamAV socket: `CLAMD_SOCKET`, default `/var/run/clamav/clamd.ctl`
+- ClamAV readiness is optional: warning only, never a deployment blocker by itself.
 
 ## PM2 Processes
 
@@ -159,6 +162,9 @@ curl -I https://tools.wellfriend.online
 - Contact page shows correct support and contact emails
 - File upload under 25 MB succeeds
 - File over 25 MB is rejected with safe message
+- File Tools upload between 25 MB and 100 MB succeeds on a `/file/*` route
+- File Tools upload over 100 MB is rejected with safe File Tools limit copy
+- Virus Scanner accepts a harmless executable-like extension and returns an inline scan result
 - PDF to JPG succeeds
 - PNG compression succeeds
 - OCR works for at least one sample
@@ -170,6 +176,7 @@ curl -I https://tools.wellfriend.online
 - Recent Jobs panel records metadata only and can clear/remove entries
 - Failed job panel points user to `support@wellfriend.online` with job ID
 - Failed job panel can copy report details without internal paths, tracebacks, logs, secrets, or command lines
+- File Tools navigation, OCR Tools navigation, Privacy Tools navigation, and the small Tools dropdown all open on desktop and mobile
 
 ## Rate-Limit Tests
 

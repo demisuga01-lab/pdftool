@@ -18,6 +18,15 @@ Cross-index the current tool set and infrastructure features.
 - `/convert`
 - `/tools/ocr`
 
+### Navigation categories
+
+- PDF Tools
+- Image Tools
+- OCR Tools
+- Privacy Tools
+- File Tools
+- Tools: Compress and Convert
+
 ### PDF routes
 
 - `/pdf/merge`
@@ -50,6 +59,33 @@ Cross-index the current tool set and infrastructure features.
   - `/image/convert`
   - `/image/ocr`
 
+### File routes
+
+- `/file/hash`
+- `/file/checksum-verify`
+- `/file/hash-batch`
+- `/file/duplicate-find`
+- `/file/file-type`
+- `/file/extension-check`
+- `/file/metadata-view`
+- `/file/file-compare`
+- `/file/filename-check`
+- `/file/archive-safety`
+- `/file/archive-create`
+- `/file/archive-extract`
+- `/file/archive-inspect`
+- `/file/batch-rename`
+- `/file/filename-sanitize`
+- `/file/inventory-report`
+- `/file/file-split`
+- `/file/file-join`
+- `/file/metadata-clean`
+- `/file/office-metadata-clean`
+- `/file/office-media-extract`
+- `/file/macro-check`
+- `/file/text-encoding-convert`
+- `/file/virus-scan`
+
 ## Platform Features
 
 - upload and preview
@@ -60,6 +96,10 @@ Cross-index the current tool set and infrastructure features.
 - browser-local Recent Jobs
 - mobile settings drawer
 - dark mode and system theme
+- File Tools 100 MB upload limit
+- VirusScanBadge for relevant upload areas
+- ClamAV scan service with fail-open behavior
+- `/api/file-tools/*` route family and `file_tools_tasks.py`
 - configured retention cleanup
 - rate limiting
 - security headers

@@ -17,7 +17,17 @@ Avoid uploading highly sensitive files unless you trust the service for that spe
 - It does mean the service is designed for temporary processing rather than long-term storage.
 - It does not mean that files never touch server-side infrastructure while a job runs.
 - It does not guarantee that every file is appropriate for every privacy or compliance requirement.
-- It does not mean PDFTools performs malware or virus scanning.
+- It does not mean PDFTools detects every harmful file.
+- Relevant File Tools and high-risk upload flows can use ClamAV signature detection for known threats.
+
+## Upload limits
+
+- Standard PDF, image, compress, convert, and OCR routes use a 25 MB per-file limit.
+- File Tools under `/file/*` use a 100 MB per-file limit.
+
+## Virus scanning
+
+Virus Scanner accepts any file type and scans it with ClamAV signature detection. The scan result is informational and signature-based. It does not detect zero-day exploits or unknown malware, and it should not be your only security measure.
 
 ## Recent jobs and local browser storage
 

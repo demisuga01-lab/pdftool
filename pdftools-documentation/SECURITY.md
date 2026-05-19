@@ -36,7 +36,7 @@ PDFTools is a public file-processing service. That means the backend must expect
 - oversized uploads
 - archive bombs
 - unsafe SVG input
-- malicious PDF/image/Office files
+- malicious PDF/image/Office/archive files
 - path traversal attempts
 - abuse through repeated automated requests
 - CLI tool failure and timeout scenarios
@@ -48,11 +48,13 @@ PDFTools is a public file-processing service. That means the backend must expect
 - File extensions are allowlisted
 - obviously dangerous extensions are blocked
 - file size is enforced during streaming save
+- File Tools use a separate 100 MB upload limit
 - saved `file_id` references are revalidated before later processing
 
 ### File-size enforcement
 
-- `25 MB` per file
+- `25 MB` per file for standard PDF, image, compress, convert, and OCR routes
+- `100 MB` per file for `/api/file-tools/*`
 - `100 MB` multi-file batch total
 - `100 MB` extracted archive total
 - `200` extracted archive file count
@@ -113,6 +115,13 @@ Current middleware adds:
 - worker tools run under task and tool timeouts
 - failures are sanitized before user display
 
+### Basic virus scanning
+
+- `virus_scanner.py` uses `clamd.ClamdUnixSocket` and the configured `CLAMD_SOCKET`
+- scanner failures fail open, log a warning, and do not block uploads
+- user-facing errors do not expose socket paths, ClamAV internals, or raw threat names
+- `/file/virus-scan` accepts any file type and only scans the file; it does not execute or process it
+
 ## User-Facing Caution
 
 Do not upload highly sensitive documents unless you trust the service and understand the `24-hour` retention policy.
@@ -139,7 +148,7 @@ Do not upload highly sensitive documents unless you trust the service and unders
 
 ## Known Security Limitations
 
-- no antivirus or malware scanning is implemented in current code
+- ClamAV scanning detects known threats by signature only and does not detect every harmful file
 - Office, PDF, and image processing still rely on external tools that must be patched and maintained by the operator
 - the service is not a zero-retention system; files remain available until cleanup removes them
 - some UI settings imply richer backend policy handling than current endpoints actually enforce
@@ -158,4 +167,3 @@ Do not upload highly sensitive documents unless you trust the service and unders
 - [docs/rate-limiting.md](./docs/rate-limiting.md)
 - [docs/file-storage-and-retention.md](./docs/file-storage-and-retention.md)
 - [docs/error-handling.md](./docs/error-handling.md)
-

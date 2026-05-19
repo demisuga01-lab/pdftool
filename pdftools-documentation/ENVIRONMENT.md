@@ -30,6 +30,7 @@ UPLOAD_DIR=/opt/pdftool/data/uploads
 OUTPUT_DIR=/opt/pdftool/data/outputs
 TEMP_DIR=/opt/pdftool/data/temp
 MAX_FILE_SIZE_MB=25
+FILE_TOOLS_MAX_FILE_SIZE_MB=100
 MAX_BATCH_BYTES=104857600
 MAX_ARCHIVE_EXTRACTED_BYTES=104857600
 MAX_ARCHIVE_FILES=200
@@ -43,6 +44,7 @@ RATE_LIMIT_STATUS_PER_HOUR=1000
 RATE_LIMIT_DOWNLOADS_PER_HOUR=200
 RATE_LIMIT_REDIS_URL=redis://localhost:6379/0
 RATE_LIMIT_TRUST_PROXY=true
+CLAMD_SOCKET=/var/run/clamav/clamd.ctl
 ```
 
 Rate limiting is split per tool and per bucket. Status polling and preview
@@ -61,6 +63,7 @@ when the frontend is only checking progress.
 ### Limits
 
 - `MAX_FILE_SIZE_MB`
+- `FILE_TOOLS_MAX_FILE_SIZE_MB`
 - `MAX_BATCH_BYTES`
 - `MAX_ARCHIVE_EXTRACTED_BYTES`
 - `MAX_ARCHIVE_FILES`
@@ -80,6 +83,10 @@ when the frontend is only checking progress.
 - `RATE_LIMIT_DOWNLOADS_PER_HOUR`
 - `RATE_LIMIT_REDIS_URL`
 - `RATE_LIMIT_TRUST_PROXY`
+
+### Virus scanning
+
+- `CLAMD_SOCKET`
 
 ## Detailed Reference
 

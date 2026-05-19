@@ -12,7 +12,8 @@ Track real gaps and caveats found during repository inspection.
 - OCR and conversion reliability depend on host CLI installation.
 - Very large PDFs can produce many thumbnail requests in visual page workspaces; thumbnails are lazy-loaded in the browser, but real-device UX should still be checked for high page counts.
 - Touch drag/drop can vary by mobile browser; visual page grids include arrow move buttons as a reliable reorder fallback.
-- No antivirus or malware scanning is implemented.
+- ClamAV scanning is implemented for configured high-risk flows, but it detects known threats by signature and does not detect every harmful file.
+- The current source contains 23 general File Tools plus Virus Scanner. Some summaries may count them together as 24 `/file/*` routes.
 - Runtime cleanup is not immediate deletion; verify the configured retention horizon in the environment.
 - Some static marketing or pricing copy may require periodic review to avoid drifting from backend policy.
 - `frontend/app/pricing/page.tsx` contains text encoding artifacts in current repository content and should be reviewed separately.

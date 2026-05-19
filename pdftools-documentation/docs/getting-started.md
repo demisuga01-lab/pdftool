@@ -2,12 +2,15 @@
 
 ## What PDFTools does
 
-PDFTools by WellFriend is a browser-based workspace for common PDF and image tasks. You can merge files, split pages, compress uploads, convert formats, add watermarks, extract text with OCR, and download a finished result without creating an account.
+PDFTools by WellFriend is a browser-based workspace for common PDF, image, and file tasks. You can merge files, split pages, compress uploads, convert formats, add watermarks, inspect files, work with archives, scan files for known threats, extract text with OCR, and download a finished result without creating an account.
 
 ## How to choose a tool
 
 - Use a PDF tool when your source file is already a PDF and you want to change, protect, split, merge, or export it.
 - Use an image tool when you want to resize, crop, rotate, convert, watermark, or inspect image files.
+- Use a File Tool when you want hashes, checksum verification, archive handling, file type inspection, metadata tools, filename cleanup, split/join, reports, or Virus Scanner.
+- Use OCR Tools when the goal is text extraction from scanned PDFs or images.
+- Use Privacy Tools when the goal is metadata cleanup, filename review, archive safety, macro checks, or Virus Scanner.
 - Use the shared workspaces for broad jobs such as compression, conversion, and OCR across multiple file types.
 
 ## How to upload files
@@ -17,6 +20,10 @@ PDFTools by WellFriend is a browser-based workspace for common PDF and image tas
 3. Wait for the upload to complete before changing settings or starting processing.
 
 If a tool supports multiple files, add everything you want in the same workspace before processing.
+
+Most tools accept files up to 25 MB. File Tools under `/file/*` accept files up to 100 MB.
+
+Some File Tools and high-risk upload flows show a neutral scanning notice. ClamAV signature detection can identify known threats, but it does not detect zero-day exploits or unknown malware.
 
 ## How to adjust settings
 
@@ -33,6 +40,8 @@ If you are unsure, start with the default settings and only change one or two op
 Some advanced settings are intentionally hidden or marked as planned when the backend does not apply them yet. This keeps the workspace honest: visible controls should either work now or clearly say they are not available yet.
 
 On `/compress`, the Processing Engine setting lets you leave the engine on Auto or choose a compatible manual engine. Auto is recommended for most files. Manual engines depend on the file type and on tools installed on the server.
+
+On `/convert`, the engine selector follows the same rule: Auto is recommended, and manual engines depend on the selected conversion and server tools.
 
 ## How processing and downloads work
 

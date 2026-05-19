@@ -200,3 +200,12 @@ Current model:
 - [mobile-ui.md](./mobile-ui.md)
 - [tool-workflows.md](./tool-workflows.md)
 - [frontend-components.md](./frontend-components.md)
+
+## File Tools Workspace Notes
+
+- File Tools use `FileToolWorkspacePage`.
+- File Tools use a 100 MB per-file upload limit; standard PDF, image, compress, convert, and OCR routes keep the 25 MB global limit.
+- File Tools may use compact or grid layout depending on upload mode and result type.
+- `VirusScanBadge` appears below relevant File Tools upload areas.
+- Inline results are used for hashes, file inspection, metadata view, comparison, archive safety, macro checks, filename checks, and Virus Scanner.
+- Download results are used for generated archives, cleaned files, reports, split/join outputs, and transformed files.

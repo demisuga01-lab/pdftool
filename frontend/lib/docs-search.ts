@@ -43,6 +43,21 @@ export const docsNavSections: DocsNavSection[] = [
     groupIds: ["help-pdf-tools", "help-image-tools"],
   },
   {
+    title: "OCR Tools",
+    description: "Scanned PDF, searchable PDF, image OCR, and shared OCR workspace.",
+    groupIds: ["help-ocr-tools"],
+  },
+  {
+    title: "Privacy Tools",
+    description: "Metadata, filename, archive safety, macro check, and scan tools.",
+    groupIds: ["help-privacy-tools"],
+  },
+  {
+    title: "File Tools",
+    description: "Hash, inspect, archive, rename, split, join, and text workflows.",
+    groupIds: ["help-file-tools"],
+  },
+  {
     title: "User help",
     description: "Files, failures, privacy, and contact paths.",
     groupIds: ["help-file-handling", "help-troubleshooting", "help-contact"],
@@ -71,6 +86,9 @@ const categoryByGroupId = new Map<string, DocsSearchCategory>([
   ["help-contact", "Support"],
   ["help-pdf-tools", "Tool guide"],
   ["help-image-tools", "Tool guide"],
+  ["help-ocr-tools", "Tool guide"],
+  ["help-privacy-tools", "Tool guide"],
+  ["help-file-tools", "Tool guide"],
   ["dev-product", "Technical"],
   ["dev-architecture", "Technical"],
   ["dev-operations", "Operations"],

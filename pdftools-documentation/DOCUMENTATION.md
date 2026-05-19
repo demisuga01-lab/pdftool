@@ -162,6 +162,7 @@ Update the documentation whenever any of the following changes:
 - Deployment commands or PM2 process names change
 - Support emails, abuse workflow, or public copy changes
 - Theme, branding, or mobile interaction behavior changes
+- Navigation categories, File Tools, upload limits, or virus scanning behavior changes
 
 ## Required Documentation for New Work
 

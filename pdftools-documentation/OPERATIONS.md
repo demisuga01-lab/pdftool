@@ -20,6 +20,7 @@ This guide covers routine checks, incident handling, logs, queue health, disk us
 - `curl -f http://localhost:8000/api/health`
 - `docker exec -it pdftool-redis redis-cli ping`
 - backend readiness script after deploys or server changes
+- review ClamAV readiness warning if File Tools or Office/archive scanning changes
 - quick test of homepage and one upload route
 - check support inbox for repeated failures or abuse reports
 
@@ -58,7 +59,7 @@ python3 -m app.scripts.check_readiness
 
 `OK` means the check passed. `WARNING` means an optional tool or non-critical setting needs review. `MISSING` or `FAIL` on a critical check should be fixed before considering the deployment ready.
 
-The script checks Redis, writable runtime directories, critical CLI tools, optional optimizer tools, Python imports, and production config values. It redacts Redis credentials and does not connect to the public internet.
+The script checks Redis, writable runtime directories, critical CLI tools, optional optimizer tools, Python imports, ClamAV daemon ping, and production config values. It redacts Redis credentials and does not connect to the public internet. ClamAV is optional in readiness: unavailable daemon or socket reports `WARNING`, not `FAIL`.
 
 ## Queue and Worker Checks
 

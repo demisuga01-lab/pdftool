@@ -59,6 +59,35 @@ This is the feature inventory for the current repository state. It covers implem
 
 ## Feature Notes
 
+### Current File Tools coverage
+
+The current codebase implements `/api/file-tools/*`, `file_tools_tasks.py`, and 23 general `/file/*` File Tools plus Virus Scanner. Older task notes may refer to 23 File Tools when Virus Scanner is counted separately.
+
+File Tools groups:
+
+- Hash & Integrity: Hash Checker, Checksum Verifier, Batch Hash Generator, Duplicate Finder
+- File Inspection: File Type Detector, Extension Mismatch, File Metadata, File Compare, Filename Checker, Archive Safety Check
+- Archives: Create Archive, Extract Archive, Archive Inspector
+- Rename & Organize: Batch Rename, Filename Sanitizer, File Inventory Report
+- Split & Join: Split File, Join File Parts
+- Metadata and Office inspection routes also exist: Metadata Cleaner, Office Metadata Cleaner, Office Media Extractor, Macro Checker
+- Text Files: Text Encoding Convert
+- Scanning: Virus Scanner
+
+File Tools use a 100 MB per-file upload limit. Standard PDF, image, compress, convert, and OCR routes keep the 25 MB global per-file upload limit.
+
+### Current navigation coverage
+
+Desktop navigation is split into PDF Tools, Image Tools, OCR Tools, Privacy Tools, File Tools, Tools, and plain links. Mobile navigation uses six collapsible tool sections.
+
+### Current scanning coverage
+
+`virus_scanner.py` uses ClamAV through `CLAMD_SOCKET`. Scanner errors fail open and are logged. User-facing messages should say a file was "flagged by virus scanning" and should not expose threat names, socket paths, or ClamAV internals.
+
+### Current conversion engine coverage
+
+`/convert` accepts an engine setting. Auto is recommended; manual engines are rejected with safe messages when unavailable or unsupported.
+
 ### What this matrix shows
 
 - The app mixes fully implemented routes with a few wrappers and partial UI-to-backend mappings.

@@ -23,6 +23,9 @@ type DocGroupId =
   | "help-getting-started"
   | "help-pdf-tools"
   | "help-image-tools"
+  | "help-ocr-tools"
+  | "help-privacy-tools"
+  | "help-file-tools"
   | "help-file-handling"
   | "help-troubleshooting"
   | "help-contact"
@@ -96,6 +99,24 @@ const GROUP_DEFINITIONS: Array<{
     id: "help-image-tools",
     title: "Image Tools",
     description: "Find the right workflow for resizing, compressing, converting, cropping, rotating, watermarking, OCR, and background removal.",
+    audience: "user",
+  },
+  {
+    id: "help-ocr-tools",
+    title: "OCR Tools",
+    description: "Extract text from scanned PDFs and images, or create searchable OCR output.",
+    audience: "user",
+  },
+  {
+    id: "help-privacy-tools",
+    title: "Privacy Tools",
+    description: "Inspect metadata, clean filenames, check archives, scan files, and inspect Office macros.",
+    audience: "user",
+  },
+  {
+    id: "help-file-tools",
+    title: "File Tools",
+    description: "Hash, inspect, archive, rename, split, join, clean metadata, and scan files.",
     audience: "user",
   },
   {
@@ -176,6 +197,76 @@ const DOC_DEFINITIONS: DocDefinition[] = [
     group: "help-image-tools",
     audience: "user",
     description: "Compare the available image workflows, including resize, compress, convert, crop, rotate, watermark, and OCR.",
+  },
+  {
+    slug: "ocr-tools",
+    source: "docs/ocr-tools-help.md",
+    group: "help-ocr-tools",
+    audience: "user",
+    description: "Compare OCR tools for scanned PDFs, searchable PDFs, image OCR, and the shared OCR workspace.",
+  },
+  {
+    slug: "privacy-tools",
+    source: "docs/privacy-tools-help.md",
+    group: "help-privacy-tools",
+    audience: "user",
+    description: "Compare metadata, filename, archive safety, macro check, and Virus Scanner tools.",
+  },
+  {
+    slug: "file-tools",
+    source: "docs/file-tools-help.md",
+    group: "help-file-tools",
+    audience: "user",
+    description: "Compare File Tools for hashes, inspection, archives, metadata, split/join, text encoding, and Virus Scanner.",
+  },
+  {
+    slug: "file-tools-hash-integrity",
+    source: "docs/file-tools-hash-integrity.md",
+    group: "help-file-tools",
+    audience: "user",
+    description: "Hash Checker, Checksum Verifier, Batch Hash Generator, and Duplicate Finder.",
+  },
+  {
+    slug: "file-tools-file-inspection",
+    source: "docs/file-tools-file-inspection.md",
+    group: "help-file-tools",
+    audience: "user",
+    description: "File Type Detector, Extension Mismatch, File Metadata, File Compare, Filename Checker, and Archive Safety Check.",
+  },
+  {
+    slug: "file-tools-archives",
+    source: "docs/file-tools-archives.md",
+    group: "help-file-tools",
+    audience: "user",
+    description: "Create Archive, Extract Archive, and Archive Inspector.",
+  },
+  {
+    slug: "file-tools-rename-organize",
+    source: "docs/file-tools-rename-organize.md",
+    group: "help-file-tools",
+    audience: "user",
+    description: "Batch Rename, Filename Sanitizer, and File Inventory Report.",
+  },
+  {
+    slug: "file-tools-split-join",
+    source: "docs/file-tools-split-join.md",
+    group: "help-file-tools",
+    audience: "user",
+    description: "Split File and Join File Parts.",
+  },
+  {
+    slug: "file-tools-metadata-privacy",
+    source: "docs/file-tools-metadata-privacy.md",
+    group: "help-file-tools",
+    audience: "user",
+    description: "Metadata Cleaner, Office Metadata Cleaner, Office Media Extractor, Macro Checker, and Virus Scanner.",
+  },
+  {
+    slug: "file-tools-text-files",
+    source: "docs/file-tools-text-files.md",
+    group: "help-file-tools",
+    audience: "user",
+    description: "Text Encoding Convert.",
   },
   {
     slug: "file-handling-and-privacy",

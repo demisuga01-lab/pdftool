@@ -40,6 +40,21 @@ const userHelpDocs: FeaturedDoc[] = [
     fallbackDescription: "Compare resize, compress, convert, crop, rotate, watermark, OCR, and background removal.",
   },
   {
+    href: "/docs/ocr-tools",
+    fallbackTitle: "OCR Tools",
+    fallbackDescription: "Compare scanned PDF OCR, searchable PDFs, image OCR, and the shared OCR workspace.",
+  },
+  {
+    href: "/docs/privacy-tools",
+    fallbackTitle: "Privacy Tools",
+    fallbackDescription: "Compare metadata, filename, archive safety, macro check, and Virus Scanner tools.",
+  },
+  {
+    href: "/docs/file-tools",
+    fallbackTitle: "File Tools",
+    fallbackDescription: "Compare hashing, inspection, archives, metadata, split/join, reports, and Virus Scanner.",
+  },
+  {
     href: "/docs/troubleshooting",
     fallbackTitle: "Troubleshooting",
     fallbackDescription: "Fix upload issues, failed jobs, missing downloads, OCR problems, and preview glitches.",
@@ -240,6 +255,11 @@ export default async function DocsIndexPage() {
             description="Resize, crop, rotate, watermark, remove backgrounds, and inspect files."
             icon={BookOpen}
             title={`${imageTools.length} image tools`}
+          />
+          <MetricCard
+            description="Hash, inspect, archive, rename, split, join, clean metadata, and scan files."
+            icon={ShieldCheck}
+            title="23 File Tools + Virus Scanner"
           />
         </section>
 

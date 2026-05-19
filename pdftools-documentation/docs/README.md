@@ -22,6 +22,16 @@ Index of the deeper topic pages under `pdftools-documentation/docs/`.
 | [tool-workflows.md](./tool-workflows.md) | Generic lifecycle across tools |
 | [pdf-tools.md](./pdf-tools.md) | PDF tool behavior |
 | [image-tools.md](./image-tools.md) | Image tool behavior |
+| [ocr-tools-help.md](./ocr-tools-help.md) | User-facing OCR Tools guide |
+| [privacy-tools-help.md](./privacy-tools-help.md) | User-facing Privacy Tools guide |
+| [file-tools-help.md](./file-tools-help.md) | User-facing File Tools guide |
+| [file-tools-hash-integrity.md](./file-tools-hash-integrity.md) | File Tools Hash & Integrity section |
+| [file-tools-file-inspection.md](./file-tools-file-inspection.md) | File Tools File Inspection section |
+| [file-tools-archives.md](./file-tools-archives.md) | File Tools Archives section |
+| [file-tools-rename-organize.md](./file-tools-rename-organize.md) | File Tools Rename & Organize section |
+| [file-tools-split-join.md](./file-tools-split-join.md) | File Tools Split & Join section |
+| [file-tools-metadata-privacy.md](./file-tools-metadata-privacy.md) | File Tools Metadata & Privacy section |
+| [file-tools-text-files.md](./file-tools-text-files.md) | File Tools Text Files section |
 | [compression.md](./compression.md) | Compression internals |
 | [conversion.md](./conversion.md) | Conversion internals |
 | [ocr.md](./ocr.md) | OCR workflows |
@@ -51,4 +61,3 @@ Index of the deeper topic pages under `pdftools-documentation/docs/`.
 | [support-playbook.md](./support-playbook.md) | Internal support playbook |
 | [release-process.md](./release-process.md) | Release workflow |
 | [smoke-test-results-template.md](./smoke-test-results-template.md) | Reusable smoke-test template |
-

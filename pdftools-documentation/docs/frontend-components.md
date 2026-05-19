@@ -54,3 +54,11 @@ Map major frontend component groups to their responsibilities.
 
 - [workspace-system.md](./workspace-system.md)
 - [theme-and-branding.md](./theme-and-branding.md)
+
+## Current Additions
+
+- `FileToolWorkspacePage.tsx` is the shared `/file/*` workspace builder with File Tools configuration, 100 MB upload limit, VirusScanBadge placement, inline/download result modes, and `/api/file-tools/*` job submission.
+- `VirusScanBadge.tsx` is a neutral zinc pill shown below relevant upload areas with the text "Files are scanned for threats before processing."
+- `Header.tsx` now splits desktop navigation into PDF Tools, Image Tools, OCR Tools, Privacy Tools, File Tools, Tools, and plain site links.
+- Desktop grouped dropdowns use the same panel/link style; PDF Tools, Image Tools, and OCR Tools are left-aligned, while Privacy Tools, File Tools, and Tools are centered.
+- Mobile navigation uses six collapsible tool sections.

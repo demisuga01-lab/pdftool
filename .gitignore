@@ -43,3 +43,7 @@ pm2-worker-heavy-backup.txt
 Thumbs.db
 .vscode/
 .idea/
+
+# Private local design and brand reference
+website-overview/
+brand-assets/

@@ -31,6 +31,7 @@ This file summarizes the route families and expected behaviors. The deeper per-e
 | `/api/convert` | Universal conversion | [docs/conversion.md](./docs/conversion.md) |
 | `/api/compress` | Universal compression | [docs/compression.md](./docs/compression.md) |
 | `/api/ocr` | Shared OCR entry point | [docs/ocr.md](./docs/ocr.md) |
+| `/api/file-tools` | General File Tools, inline results, downloads, and Virus Scanner | [docs/backend-api.md](./docs/backend-api.md) |
 
 ## Common API Patterns
 
@@ -98,7 +99,8 @@ Headers:
 
 ## File and Policy Constraints
 
-- Maximum upload size: `25 MB` per file
+- Maximum upload size: `25 MB` per file for PDF, image, compress, convert, and OCR routes
+- File Tools upload size: `100 MB` per file under `/api/file-tools/*`
 - Maximum batch total: `100 MB`
 - Maximum extracted archive total: `100 MB`
 - Maximum extracted archive files: `200`
@@ -138,10 +140,43 @@ Headers:
 - `GET /api/convert/status/{job_id}`
 - `GET /api/convert/download/{job_id}`
 
+`POST /api/convert` accepts an optional `engine` setting. Auto is the default; manual engines are rejected with a safe message when unavailable or unsupported for the selected conversion.
+
 ### OCR
 
 - `POST /api/ocr`
 - `POST /api/ocr/`
+
+### File Tools
+
+- `POST /api/file-tools/hash`
+- `POST /api/file-tools/hash-batch`
+- `POST /api/file-tools/checksum-verify`
+- `POST /api/file-tools/file-type`
+- `POST /api/file-tools/virus-scan`
+- `POST /api/file-tools/extension-check`
+- `POST /api/file-tools/metadata-view`
+- `POST /api/file-tools/metadata-clean`
+- `POST /api/file-tools/archive-create`
+- `POST /api/file-tools/archive-extract`
+- `POST /api/file-tools/archive-inspect`
+- `POST /api/file-tools/archive-safety`
+- `POST /api/file-tools/batch-rename`
+- `POST /api/file-tools/filename-sanitize`
+- `POST /api/file-tools/duplicate-find`
+- `POST /api/file-tools/file-compare`
+- `POST /api/file-tools/file-split`
+- `POST /api/file-tools/file-join`
+- `POST /api/file-tools/office-metadata-clean`
+- `POST /api/file-tools/office-media-extract`
+- `POST /api/file-tools/macro-check`
+- `POST /api/file-tools/filename-check`
+- `POST /api/file-tools/inventory-report`
+- `POST /api/file-tools/text-encoding-convert`
+- `GET /api/file-tools/status/{job_id}`
+- `GET /api/file-tools/download/{job_id}`
+
+`/api/file-tools/virus-scan` accepts any file extension and returns an inline JSON result. Other File Tools keep their normal validation. File Tools use the 100 MB route limit.
 
 ### PDF routes
 

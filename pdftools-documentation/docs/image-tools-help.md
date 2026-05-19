@@ -41,3 +41,5 @@ Inspect image dimensions, format, file size, and related details before you proc
 ## Extract text from images
 
 Use OCR on screenshots, scans, and photos that contain readable text. Clean, high-contrast images usually produce better results.
+
+Image OCR links in navigation route through the OCR Tools category. Plain image tools keep the standard 25 MB per-file upload limit and do not show the File Tools virus scanning notice.

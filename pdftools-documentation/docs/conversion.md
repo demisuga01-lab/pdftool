@@ -12,7 +12,7 @@ Document the shared conversion system and route wrappers around it.
 
 ## Overview
 
-The universal conversion route is asynchronous and accepts many input families. Support is explicit, not unlimited.
+The universal conversion route is asynchronous and accepts many input families. Support is explicit and limited to implemented conversion pairs.
 
 ## Format Normalization
 

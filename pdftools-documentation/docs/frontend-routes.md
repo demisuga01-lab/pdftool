@@ -32,6 +32,16 @@ Inventory the current Next.js routes and explain what each page does.
 | `/convert` | Universal conversion workspace | `frontend/app/convert/page.tsx` | Compact workspace |
 | `/tools/ocr` | Shared OCR workspace | `frontend/app/tools/ocr/page.tsx` | Compact workspace |
 
+### Navigation categories
+
+Desktop navigation is:
+
+```text
+Home | PDF Tools | Image Tools | OCR Tools | Privacy Tools | File Tools | Tools | Pricing | About | Docs | Contact
+```
+
+Mobile navigation uses six collapsible tool sections: PDF Tools, Image Tools, OCR Tools, Privacy Tools, File Tools, and Tools.
+
 ### PDF routes
 
 | URL | Purpose | File | Notes |
@@ -66,6 +76,35 @@ Inventory the current Next.js routes and explain what each page does.
 | `/image/convert` | Redirect to `/convert?from=image` | `frontend/app/image/convert/page.tsx` | Redirect only |
 | `/image/ocr` | Redirect to `/tools/ocr?input=image` | `frontend/app/image/ocr/page.tsx` | Redirect only |
 
+### File routes
+
+| URL | Purpose | File | Notes |
+| --- | --- | --- | --- |
+| `/file/hash` | Generate hashes for one file | `frontend/app/file/hash/page.tsx` | Inline result |
+| `/file/checksum-verify` | Verify expected checksum | `frontend/app/file/checksum-verify/page.tsx` | Inline result |
+| `/file/hash-batch` | Generate hash report for multiple files | `frontend/app/file/hash-batch/page.tsx` | Download result |
+| `/file/duplicate-find` | Find duplicates | `frontend/app/file/duplicate-find/page.tsx` | Inline JSON plus download |
+| `/file/file-type` | Detect file type by content | `frontend/app/file/file-type/page.tsx` | Inline result |
+| `/file/extension-check` | Check extension mismatch | `frontend/app/file/extension-check/page.tsx` | Download result |
+| `/file/metadata-view` | View file metadata | `frontend/app/file/metadata-view/page.tsx` | Inline result |
+| `/file/file-compare` | Compare two files | `frontend/app/file/file-compare/page.tsx` | Inline result |
+| `/file/filename-check` | Check a filename or uploaded filename | `frontend/app/file/filename-check/page.tsx` | Inline result |
+| `/file/archive-safety` | Check archive structure risks | `frontend/app/file/archive-safety/page.tsx` | Inline result |
+| `/file/archive-create` | Create ZIP/7Z/TAR archive | `frontend/app/file/archive-create/page.tsx` | Download result |
+| `/file/archive-extract` | Extract archive contents | `frontend/app/file/archive-extract/page.tsx` | Download result |
+| `/file/archive-inspect` | Inspect archive listing | `frontend/app/file/archive-inspect/page.tsx` | Inline result |
+| `/file/batch-rename` | Rename multiple files | `frontend/app/file/batch-rename/page.tsx` | Download result |
+| `/file/filename-sanitize` | Sanitize filenames | `frontend/app/file/filename-sanitize/page.tsx` | Download result |
+| `/file/inventory-report` | Create inventory report | `frontend/app/file/inventory-report/page.tsx` | Download result |
+| `/file/file-split` | Split a file into parts | `frontend/app/file/file-split/page.tsx` | Download result |
+| `/file/file-join` | Join file parts | `frontend/app/file/file-join/page.tsx` | Download result |
+| `/file/metadata-clean` | Clean general metadata | `frontend/app/file/metadata-clean/page.tsx` | Download result |
+| `/file/office-metadata-clean` | Clean Office metadata | `frontend/app/file/office-metadata-clean/page.tsx` | Download result |
+| `/file/office-media-extract` | Extract Office embedded media | `frontend/app/file/office-media-extract/page.tsx` | Download result |
+| `/file/macro-check` | Inspect Office macro presence | `frontend/app/file/macro-check/page.tsx` | Inline result |
+| `/file/text-encoding-convert` | Convert text encoding | `frontend/app/file/text-encoding-convert/page.tsx` | Download result |
+| `/file/virus-scan` | Scan any file with ClamAV signature detection | `frontend/app/file/virus-scan/page.tsx` | Inline result; accepts all file extensions |
+
 ### Dynamic route
 
 | URL | Purpose | File | Status |
@@ -82,6 +121,9 @@ Inventory the current Next.js routes and explain what each page does.
 - Workspace failure panels include support-ready report details with copy and email actions.
 - Workspace pages can show Recent Jobs stored only in browser localStorage.
 - `/compress` includes a Processing Engine selector with Auto recommended and manual engines scoped by detected file type.
+- `/convert` includes an engine selector; Auto is recommended.
+- File Tools pages use `FileToolWorkspacePage`, show the 100 MB limit, and include `VirusScanBadge`.
+- `/file/virus-scan` only scans and returns an inline result; it does not execute or transform the uploaded file.
 
 ## Contact and Support Copy
 

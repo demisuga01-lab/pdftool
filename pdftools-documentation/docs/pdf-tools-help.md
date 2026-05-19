@@ -73,3 +73,5 @@ Add text or image watermarks to a PDF for branding, ownership, or internal label
 ## OCR scanned PDFs
 
 Use OCR when the PDF is image-based and you need selectable or searchable text. Results depend on scan quality, language, resolution, and contrast.
+
+PDF OCR links in navigation route through the OCR Tools category. Plain PDF tools keep the standard 25 MB per-file upload limit. Office to PDF uploads may be scanned with ClamAV signature detection before processing.

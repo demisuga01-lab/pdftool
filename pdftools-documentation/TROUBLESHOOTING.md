@@ -47,6 +47,9 @@ du -sh /opt/pdftool/data/*
 | Job stuck queued | no healthy worker or wrong routing | Celery inspect commands | restart workers, inspect queues |
 | Job active but slow | heavy processing or large file | worker logs | wait, reduce input, or tune tools |
 | File upload rejected | over size limit | frontend/backend error text | use smaller file |
+| File Tools upload rejected at 25 MB | route using standard upload path instead of File Tools path | check request URL starts with `/api/file-tools/` | use the `/file/*` route or fix route wiring |
+| Virus Scanner rejects executable extension | virus-scan route not using its bypass path | check `/api/file-tools/virus-scan` logs and route | ensure virus-scan uses its dedicated upload path |
+| ClamAV unavailable warning | daemon down or socket access issue | readiness script and worker logs | restore daemon/socket access; uploads should still proceed fail-open |
 | 429 rate limit | expected bucket hit | response headers | wait or tune policy |
 | SVG watermark fails | unsafe or unsupported SVG | worker logs | use PNG/JPG/WebP or simplify SVG |
 | PDF to JPG fails | missing tool or format mismatch | conversion logs | confirm `mutool` and normalization path |
@@ -60,6 +63,7 @@ du -sh /opt/pdftool/data/*
 - Timeouts on OCR or compression
 - Cleanup removing expired files before the user retries download
 - Reverse proxy or CORS misconfiguration
+- Documentation drift after navigation or File Tools additions
 
 ## Related Documents
 
@@ -67,4 +71,3 @@ du -sh /opt/pdftool/data/*
 - [docs/error-handling.md](./docs/error-handling.md)
 - [OPERATIONS.md](./OPERATIONS.md)
 - [DEPLOYMENT.md](./DEPLOYMENT.md)
-
