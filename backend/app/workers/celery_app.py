@@ -14,6 +14,7 @@ celery_app = Celery(
         "app.workers.image_tasks",
         "app.workers.convert_tasks",
         "app.workers.compress_tasks",
+        "app.workers.file_tools_tasks",
     ],
 )
 app = celery_app
