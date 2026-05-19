@@ -9,6 +9,7 @@ import {
   type UploadedFileMetadata,
   type UploadProgressHandler,
 } from "@/lib/files";
+import { trackEvent } from "@/lib/matomo";
 
 export type WorkspaceFileStatus = "ready" | "uploading" | "error";
 
@@ -81,6 +82,11 @@ function reorderRecords(records: WorkspaceFileRecord[]) {
   return records.map((record, index) => ({ ...record, order: index }));
 }
 
+function fileExtensionForAnalytics(file: File) {
+  const extension = file.name.split(".").pop()?.trim().toLowerCase();
+  return extension && extension !== file.name.toLowerCase() ? extension : "unknown";
+}
+
 export function useWorkspaceFiles({ accept, maxSizeMB, multiple = false, uploadScope }: UseWorkspaceFilesOptions) {
   const [files, setFiles] = useState<WorkspaceFileRecord[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -142,6 +148,9 @@ export function useWorkspaceFiles({ accept, maxSizeMB, multiple = false, uploadS
       setUploadRemainingSecs(0);
       setUploadedBytes(0);
       setUploadTotalBytes(nextFiles.reduce((sum, file) => sum + file.size, 0));
+      nextFiles.forEach((file) => {
+        trackEvent("Upload", "upload_started", fileExtensionForAnalytics(file));
+      });
 
       try {
         const uploaded =

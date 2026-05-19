@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { ApiRateLimitError, downloadFile, pollJobStatus, toApiPath, type JobApiPrefix, type JobStatus } from "@/lib/api";
+import { trackEvent } from "@/lib/matomo";
 import { upsertRecentJob, type RecentJobStatus } from "@/lib/recent-jobs";
 import { uploadWithProgress } from "@/lib/upload";
 
@@ -21,6 +22,23 @@ type ProcessOptions = {
   recentMetadata?: WorkspaceJobMetadata;
   timeoutKind?: TimeoutKind;
 };
+
+function analyticsToolNameFromPath(pathname: string, fallback?: string) {
+  return pathname.replace(/\//g, "_").replace(/^_/, "") || fallback?.toLowerCase().replace(/[^a-z0-9]+/g, "_") || "unknown_tool";
+}
+
+function fileExtensionForAnalytics(file: File) {
+  const extension = file.name.split(".").pop()?.trim().toLowerCase();
+  return extension && extension !== file.name.toLowerCase() ? extension : "unknown";
+}
+
+function trackUploadExtensions(formData: FormData) {
+  formData.forEach((value) => {
+    if (value instanceof File) {
+      trackEvent("Upload", "upload_started", fileExtensionForAnalytics(value));
+    }
+  });
+}
 
 export function useWorkspaceJob({
   approximateFileSize,
@@ -41,6 +59,7 @@ export function useWorkspaceJob({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const analyticsToolName = analyticsToolNameFromPath(pathname, toolName);
   const [queryString, setQueryString] = useState("");
   const searchParams = useMemo(() => new URLSearchParams(queryString), [queryString]);
   const [state, setState] = useState<ProcessingState>("idle");
@@ -56,6 +75,8 @@ export function useWorkspaceJob({
   const [uploadRemainingSecs, setUploadRemainingSecs] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
   const recentMetadataRef = useRef<WorkspaceJobMetadata>({});
+  const activeTrackingJobRef = useRef<string | null>(null);
+  const terminalTrackingRef = useRef<{ jobId: string | null; state: ProcessingState | null }>({ jobId: null, state: null });
   const queryJobId = searchParams.get("job_id");
 
   const metadataFromStatus = useCallback((status: JobStatus): WorkspaceJobMetadata => {
@@ -183,6 +204,7 @@ export function useWorkspaceJob({
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      activeTrackingJobRef.current = null;
       setState("uploading");
       setError(null);
       setErrorDetails(null);
@@ -197,6 +219,7 @@ export function useWorkspaceJob({
 
       try {
         recentMetadataRef.current = options?.recentMetadata ?? {};
+        trackUploadExtensions(formData);
         const response = await uploadWithProgress(
           endpoint,
           formData,
@@ -212,9 +235,11 @@ export function useWorkspaceJob({
           throw new Error("Processing did not return a job ID.");
         }
         startedJobId = nextJobId;
+        activeTrackingJobRef.current = nextJobId;
         setJobId(nextJobId);
         syncJobQuery(nextJobId);
         setState("queued");
+        trackEvent("Tool", "job_started", analyticsToolName);
         writeRecentJob(nextJobId, "queued");
         return await startPolling(nextJobId, controller, options?.timeoutKind ?? timeoutKind);
       } catch (caughtError) {
@@ -228,6 +253,7 @@ export function useWorkspaceJob({
           setNotice(null);
           setRateLimitScope("job");
           setErrorDetails(null);
+          trackEvent("Tool", "job_failed", analyticsToolName);
           return null;
         }
 
@@ -240,16 +266,30 @@ export function useWorkspaceJob({
         const failedJobId = startedJobId ?? jobId;
         if (failedJobId) {
           writeRecentJob(failedJobId, "failed", { errorMessage: nextError });
+        } else {
+          trackEvent("Tool", "job_failed", analyticsToolName);
         }
         return null;
       }
     },
-    [jobId, startPolling, state, syncJobQuery, timeoutKind, writeRecentJob],
+    [analyticsToolName, jobId, startPolling, state, syncJobQuery, timeoutKind, writeRecentJob],
   );
+
+  useEffect(() => {
+    if (!jobId || activeTrackingJobRef.current !== jobId || (state !== "success" && state !== "failure")) {
+      return;
+    }
+    if (terminalTrackingRef.current.jobId === jobId && terminalTrackingRef.current.state === state) {
+      return;
+    }
+    terminalTrackingRef.current = { jobId, state };
+    trackEvent("Tool", state === "success" ? "job_completed" : "job_failed", analyticsToolName);
+  }, [analyticsToolName, jobId, state]);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    activeTrackingJobRef.current = null;
     setState("idle");
     setJobId(null);
     setResult(null);
@@ -271,6 +311,7 @@ export function useWorkspaceJob({
   const cancelUpload = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    activeTrackingJobRef.current = null;
     setState("idle");
     setUploadPercent(0);
     setUploadSpeedKBs(0);
@@ -291,6 +332,7 @@ export function useWorkspaceJob({
     const controller = new AbortController();
     abortRef.current?.abort();
     abortRef.current = controller;
+    activeTrackingJobRef.current = queryJobId;
     setJobId(queryJobId);
     setState("queued");
     setPanelDismissed(false);

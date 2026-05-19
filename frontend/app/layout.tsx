@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
+import { Suspense } from "react";
 
+import { MatomoPageTracker } from "@/components/analytics/MatomoPageTracker";
 import { AppShell } from "@/components/layout/AppShell";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { GlobalSettingsProvider } from "@/lib/settings";
@@ -76,8 +78,31 @@ export default function RootLayout({
           id="theme-init"
           strategy="beforeInteractive"
         />
+        <Script
+          id="matomo-init"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+      var _paq = window._paq = window._paq || [];
+      _paq.push(['trackPageView']);
+      _paq.push(['enableLinkTracking']);
+      (function() {
+        var u="//analytics.wellfriend.online/";
+        _paq.push(['setTrackerUrl', u+'matomo.php']);
+        _paq.push(['setSiteId', '1']);
+        var d=document, g=d.createElement('script'),
+            s=d.getElementsByTagName('script')[0];
+        g.async=true; g.src=u+'matomo.js';
+        s.parentNode.insertBefore(g,s);
+      })();
+    `,
+          }}
+        />
       </head>
       <body className={`${inter.className} min-h-screen bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100`}>
+        <Suspense fallback={null}>
+          <MatomoPageTracker />
+        </Suspense>
         <ThemeProvider>
           <GlobalSettingsProvider>
             <AppShell>{children}</AppShell>

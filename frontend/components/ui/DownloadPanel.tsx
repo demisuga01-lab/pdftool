@@ -4,6 +4,8 @@ import { Check, Clipboard, Download, LoaderCircle, Mail, PencilLine, RotateCcw }
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { trackEvent } from "@/lib/matomo";
+
 type DownloadPanelState = "queued" | "processing" | "success" | "failure";
 
 function cleanReportValue(value?: string | null): string | undefined {
@@ -16,6 +18,10 @@ function cleanReportValue(value?: string | null): string | undefined {
     .replace(/[A-Za-z]:\\[^\s]+/g, "[path]")
     .replace(/\/(?:opt|tmp|var|home)\/[^\s]+/g, "[path]")
     .slice(0, 600);
+}
+
+function analyticsToolNameFromPath(pathname: string, fallback?: string) {
+  return pathname.replace(/\//g, "_").replace(/^_/, "") || fallback?.toLowerCase().replace(/[^a-z0-9]+/g, "_") || "unknown_tool";
 }
 
 export function DownloadPanel({
@@ -99,6 +105,7 @@ export function DownloadPanel({
   const supportSubject = encodeURIComponent(`PDFTools job failure: ${toolName || resolvedRoute || "job"}`);
   const supportBody = encodeURIComponent(reportDetails);
   const mailtoHref = `mailto:support@wellfriend.online?subject=${supportSubject}&body=${supportBody}`;
+  const analyticsToolName = analyticsToolNameFromPath(pathname, toolName);
 
   const copyReport = async () => {
     await navigator.clipboard.writeText(reportDetails);
@@ -194,7 +201,14 @@ export function DownloadPanel({
 
         <div className="grid gap-3">
           {isReady && onDownload ? (
-            <button className="primary-button h-12 w-full gap-2 text-sm sm:text-base" onClick={onDownload} type="button">
+            <button
+              className="primary-button h-12 w-full gap-2 text-sm sm:text-base"
+              onClick={() => {
+                trackEvent("Tool", "file_downloaded", analyticsToolName);
+                onDownload();
+              }}
+              type="button"
+            >
               <Download className="h-5 w-5" />
               {readyLabel}
             </button>
