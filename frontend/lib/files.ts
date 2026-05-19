@@ -26,6 +26,10 @@ export type PdfInfo = {
 
 export type UploadProgressHandler = (progress: UploadProgressInfo) => void;
 
+type WorkspaceUploadOptions = {
+  scope?: "file-tools";
+};
+
 async function parseJsonResponse<T>(response: Response): Promise<T> {
   const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
   if (!response.ok) {
@@ -44,9 +48,13 @@ export async function uploadFileToWorkspace(
   file: File,
   onProgress?: UploadProgressHandler,
   signal?: AbortSignal,
+  options?: WorkspaceUploadOptions,
 ): Promise<UploadedFileMetadata> {
   const formData = new FormData();
   formData.append("file", file);
+  if (options?.scope) {
+    formData.append("scope", options.scope);
+  }
   const response = await uploadWithProgress(
     "files/upload",
     formData,
@@ -60,9 +68,13 @@ export async function uploadMultipleFilesToWorkspace(
   files: File[],
   onProgress?: UploadProgressHandler,
   signal?: AbortSignal,
+  options?: WorkspaceUploadOptions,
 ): Promise<UploadedFileMetadata[]> {
   const formData = new FormData();
   files.forEach((file) => formData.append("files", file));
+  if (options?.scope) {
+    formData.append("scope", options.scope);
+  }
   const response = await uploadWithProgress(
     "files/upload-multiple",
     formData,

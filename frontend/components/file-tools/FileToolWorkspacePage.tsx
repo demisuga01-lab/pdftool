@@ -71,6 +71,7 @@ const ARCHIVE_ACCEPT = ".zip,.7z,.tar,.rar,.gz,.bz2,.xz";
 const OFFICE_ACCEPT = ".docx,.xlsx,.pptx";
 const OFFICE_MACRO_ACCEPT = ".docx,.xlsx,.pptx,.xlsm,.docm,.pptm";
 const TEXT_ACCEPT = ".txt,.csv,.html,.xml,.json,.js,.ts,.css,.md,.log,text/*";
+const FILE_TOOLS_MAX_FILE_SIZE_MB = 100;
 
 const HASH_ALGORITHMS = [
   { label: "MD5", value: "md5" },
@@ -1491,7 +1492,12 @@ function StandardFileToolPage({ config }: { config: FileToolConfig }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const manifestInputRef = useRef<HTMLInputElement | null>(null);
   const multiple = config.uploadMode === "multi";
-  const files = useWorkspaceFiles({ accept: config.accept ?? ANY_FILE_ACCEPT, multiple });
+  const files = useWorkspaceFiles({
+    accept: config.accept ?? ANY_FILE_ACCEPT,
+    maxSizeMB: FILE_TOOLS_MAX_FILE_SIZE_MB,
+    multiple,
+    uploadScope: "file-tools",
+  });
   useFileQuerySync(files, multiple);
   const { state: settings, update } = useObjectState(config.initialSettings);
   const [manifestFile, setManifestFile] = useState<File | null>(null);
@@ -1608,7 +1614,7 @@ function StandardFileToolPage({ config }: { config: FileToolConfig }) {
     <div className="space-y-3">
       <EmptyWorkspaceState
         accept={config.accept ?? ANY_FILE_ACCEPT}
-        description={config.uploadDescription}
+        description={`${config.uploadDescription} Files up to ${FILE_TOOLS_MAX_FILE_SIZE_MB} MB are supported.`}
         multiple={multiple}
         onFilesSelected={(nextFiles) => {
           void files.addFiles(nextFiles, multiple ? "append" : "replace");
@@ -1720,8 +1726,18 @@ function StandardFileToolPage({ config }: { config: FileToolConfig }) {
 }
 
 function CompareFileToolPage({ config }: { config: FileToolConfig }) {
-  const filesA = useWorkspaceFiles({ accept: config.accept ?? ANY_FILE_ACCEPT, multiple: false });
-  const filesB = useWorkspaceFiles({ accept: config.accept ?? ANY_FILE_ACCEPT, multiple: false });
+  const filesA = useWorkspaceFiles({
+    accept: config.accept ?? ANY_FILE_ACCEPT,
+    maxSizeMB: FILE_TOOLS_MAX_FILE_SIZE_MB,
+    multiple: false,
+    uploadScope: "file-tools",
+  });
+  const filesB = useWorkspaceFiles({
+    accept: config.accept ?? ANY_FILE_ACCEPT,
+    maxSizeMB: FILE_TOOLS_MAX_FILE_SIZE_MB,
+    multiple: false,
+    uploadScope: "file-tools",
+  });
   const { state: settings, update } = useObjectState(config.initialSettings);
   const fileA = filesA.files[0];
   const fileB = filesB.files[0];
@@ -1804,6 +1820,9 @@ function CompareFileToolPage({ config }: { config: FileToolConfig }) {
               job.reset();
             }}
           />
+          <p className="text-center text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            Files up to {FILE_TOOLS_MAX_FILE_SIZE_MB} MB are supported.
+          </p>
           <VirusScanBadge />
         </div>
       }
@@ -1859,7 +1878,12 @@ function CompareFileToolPage({ config }: { config: FileToolConfig }) {
 }
 
 function FilenameCheckToolPage({ config }: { config: FileToolConfig }) {
-  const files = useWorkspaceFiles({ accept: ANY_FILE_ACCEPT, multiple: false });
+  const files = useWorkspaceFiles({
+    accept: ANY_FILE_ACCEPT,
+    maxSizeMB: FILE_TOOLS_MAX_FILE_SIZE_MB,
+    multiple: false,
+    uploadScope: "file-tools",
+  });
   const { state: settings, update } = useObjectState(config.initialSettings);
   const file = files.files[0];
   const hasFilename = String(settings.filename || "").trim().length > 0;
@@ -1914,7 +1938,7 @@ function FilenameCheckToolPage({ config }: { config: FileToolConfig }) {
         <div className="space-y-3">
           <EmptyWorkspaceState
             accept={ANY_FILE_ACCEPT}
-            description={config.uploadDescription}
+            description={`${config.uploadDescription} Files up to ${FILE_TOOLS_MAX_FILE_SIZE_MB} MB are supported.`}
             onFilesSelected={(nextFiles) => {
               void files.addFiles(nextFiles, "replace");
               job.reset();

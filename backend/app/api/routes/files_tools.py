@@ -28,6 +28,7 @@ router = APIRouter()
 AppSettings = Annotated[Settings, Depends(get_app_settings)]
 
 HEAVY_TOOLS = {"archive-create", "archive-extract", "metadata-clean", "office-metadata-clean"}
+FILE_TOOLS_LIMIT_LABEL = "Maximum size for File Tools"
 ALL_TOOLS = {
     "hash",
     "hash-batch",
@@ -69,24 +70,57 @@ def _output_dir(settings: Settings) -> Path:
 async def _input_path(settings: Settings, file: UploadFile | None = None, file_id: str | None = None) -> Path:
     if file_id:
         path = resolve_upload_path(file_id, settings)
-        validate_saved_upload_path(path, settings)
+        validate_saved_upload_path(
+            path,
+            settings,
+            max_size_mb=settings.FILE_TOOLS_MAX_FILE_SIZE_MB,
+            limit_label=FILE_TOOLS_LIMIT_LABEL,
+        )
         return path
     if file is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Provide either file_id or file.")
-    validate_optional_upload(file, settings)
-    return await save_temp_upload(file, settings)
+    validate_optional_upload(
+        file,
+        settings,
+        max_size_mb=settings.FILE_TOOLS_MAX_FILE_SIZE_MB,
+        limit_label=FILE_TOOLS_LIMIT_LABEL,
+    )
+    return await save_temp_upload(
+        file,
+        settings,
+        max_size_mb=settings.FILE_TOOLS_MAX_FILE_SIZE_MB,
+        limit_label=FILE_TOOLS_LIMIT_LABEL,
+    )
 
 
 async def _input_paths(settings: Settings, files: list[UploadFile] | None = None, file_ids: list[str] | None = None) -> list[Path]:
     clean_ids = [file_id for file_id in (file_ids or []) if file_id]
     if clean_ids:
         paths = [resolve_upload_path(file_id, settings) for file_id in clean_ids]
-        validate_saved_upload_paths(paths, settings)
+        validate_saved_upload_paths(
+            paths,
+            settings,
+            max_size_mb=settings.FILE_TOOLS_MAX_FILE_SIZE_MB,
+            limit_label=FILE_TOOLS_LIMIT_LABEL,
+        )
         return paths
     if not files:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Provide either file_ids or files.")
-    validate_upload_batch(files, settings)
-    return [await save_temp_upload(file, settings) for file in files]
+    validate_upload_batch(
+        files,
+        settings,
+        max_size_mb=settings.FILE_TOOLS_MAX_FILE_SIZE_MB,
+        limit_label=FILE_TOOLS_LIMIT_LABEL,
+    )
+    return [
+        await save_temp_upload(
+            file,
+            settings,
+            max_size_mb=settings.FILE_TOOLS_MAX_FILE_SIZE_MB,
+            limit_label=FILE_TOOLS_LIMIT_LABEL,
+        )
+        for file in files
+    ]
 
 
 def _task_progress(state: str) -> int:

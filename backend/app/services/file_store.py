@@ -146,7 +146,12 @@ def metadata_response(metadata: dict[str, Any]) -> dict[str, Any]:
     return response
 
 
-async def save_upload_file(file: UploadFile, settings: Settings) -> dict[str, Any]:
+async def save_upload_file(
+    file: UploadFile,
+    settings: Settings,
+    max_size_mb: int | None = None,
+    limit_label: str = "Maximum size",
+) -> dict[str, Any]:
     settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     file_id = uuid4().hex
     suffix = _safe_suffix(file.filename)
@@ -154,7 +159,8 @@ async def save_upload_file(file: UploadFile, settings: Settings) -> dict[str, An
     destination = _ensure_inside(settings.UPLOAD_DIR / filename, settings.UPLOAD_DIR, label="Upload path")
     original_name = _safe_original_name(file.filename)
 
-    max_bytes = settings.max_upload_bytes
+    configured_mb = max_size_mb or settings.MAX_FILE_SIZE_MB
+    max_bytes = configured_mb * 1024 * 1024
     bytes_written = 0
     await file.seek(0)
     async with aiofiles.open(destination, "wb") as output_file:
@@ -166,7 +172,7 @@ async def save_upload_file(file: UploadFile, settings: Settings) -> dict[str, An
                 raise HTTPException(
                     status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                     detail=(
-                        f"File is too large. Maximum size is {settings.MAX_FILE_SIZE_MB} MB."
+                        f"File is too large. {limit_label} is {configured_mb} MB."
                     ),
                 )
             await output_file.write(chunk)
@@ -201,8 +207,16 @@ async def save_upload_file(file: UploadFile, settings: Settings) -> dict[str, An
     return metadata_response(metadata)
 
 
-async def save_upload_files(files: list[UploadFile], settings: Settings) -> list[dict[str, Any]]:
-    return [await save_upload_file(file, settings) for file in files]
+async def save_upload_files(
+    files: list[UploadFile],
+    settings: Settings,
+    max_size_mb: int | None = None,
+    limit_label: str = "Maximum size",
+) -> list[dict[str, Any]]:
+    return [
+        await save_upload_file(file, settings, max_size_mb=max_size_mb, limit_label=limit_label)
+        for file in files
+    ]
 
 
 def resolve_upload_path(file_id: str, settings: Settings) -> Path:

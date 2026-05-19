@@ -28,6 +28,7 @@ class Settings(BaseSettings):
 
     # Public production limits.
     MAX_FILE_SIZE_MB: int = Field(default=25, gt=0)
+    FILE_TOOLS_MAX_FILE_SIZE_MB: int = Field(default=100, gt=0)
     MAX_BATCH_BYTES: int = Field(default=100 * 1024 * 1024, gt=0)
     MAX_ARCHIVE_EXTRACTED_BYTES: int = Field(default=100 * 1024 * 1024, gt=0)
     MAX_ARCHIVE_FILES: int = Field(default=200, gt=0)
@@ -70,6 +71,10 @@ class Settings(BaseSettings):
     @property
     def max_upload_bytes(self) -> int:
         return self.MAX_FILE_SIZE_MB * 1024 * 1024
+
+    @property
+    def file_tools_max_upload_bytes(self) -> int:
+        return self.FILE_TOOLS_MAX_FILE_SIZE_MB * 1024 * 1024
 
 
 @lru_cache

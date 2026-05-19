@@ -27,7 +27,9 @@ type ReplaceMode = "append" | "replace";
 
 type UseWorkspaceFilesOptions = {
   accept?: string;
+  maxSizeMB?: number;
   multiple?: boolean;
+  uploadScope?: "file-tools";
 };
 
 function matchesAccept(file: File, accept: string | undefined) {
@@ -79,7 +81,7 @@ function reorderRecords(records: WorkspaceFileRecord[]) {
   return records.map((record, index) => ({ ...record, order: index }));
 }
 
-export function useWorkspaceFiles({ accept, multiple = false }: UseWorkspaceFilesOptions) {
+export function useWorkspaceFiles({ accept, maxSizeMB, multiple = false, uploadScope }: UseWorkspaceFilesOptions) {
   const [files, setFiles] = useState<WorkspaceFileRecord[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -103,17 +105,28 @@ export function useWorkspaceFiles({ accept, multiple = false }: UseWorkspaceFile
     (inputFiles: File[]) => {
       const nextFiles = multiple ? inputFiles : inputFiles.slice(0, 1);
       const invalid = nextFiles.find((file) => !matchesAccept(file, accept));
+      const oversize = typeof maxSizeMB === "number" ? nextFiles.find((file) => file.size > maxSizeMB * 1024 * 1024) : null;
       if (invalid) {
         throw new Error(`"${invalid.name}" is not a supported file type for this workspace.`);
       }
+      if (oversize) {
+        throw new Error(`File is too large. Maximum size is ${maxSizeMB} MB.`);
+      }
       return nextFiles;
     },
-    [accept, multiple],
+    [accept, maxSizeMB, multiple],
   );
 
   const addFiles = useCallback(
     async (inputFiles: File[], mode: ReplaceMode = multiple ? "append" : "replace") => {
-      const nextFiles = validateFiles(inputFiles);
+      let nextFiles: File[];
+      try {
+        nextFiles = validateFiles(inputFiles);
+      } catch (caughtError) {
+        setUploadState("failure");
+        setUploadError(caughtError instanceof Error ? caughtError.message : "Upload failed");
+        return [];
+      }
       if (nextFiles.length === 0) {
         return [];
       }
@@ -133,8 +146,8 @@ export function useWorkspaceFiles({ accept, multiple = false }: UseWorkspaceFile
       try {
         const uploaded =
           nextFiles.length === 1
-            ? [await uploadFileToWorkspace(nextFiles[0], applyProgress, controller.signal)]
-            : await uploadMultipleFilesToWorkspace(nextFiles, applyProgress, controller.signal);
+            ? [await uploadFileToWorkspace(nextFiles[0], applyProgress, controller.signal, { scope: uploadScope })]
+            : await uploadMultipleFilesToWorkspace(nextFiles, applyProgress, controller.signal, { scope: uploadScope });
 
         const normalized = uploaded.map((metadata, index) => normalizeRecord(metadata, index, nextFiles[index]));
         setFiles((current) => reorderRecords(mode === "append" ? [...current, ...normalized] : normalized));
@@ -151,7 +164,7 @@ export function useWorkspaceFiles({ accept, multiple = false }: UseWorkspaceFile
         return [];
       }
     },
-    [applyProgress, multiple, validateFiles],
+    [applyProgress, multiple, uploadScope, validateFiles],
   );
 
   const hydrateFromIds = useCallback(async (fileIds: string[]) => {

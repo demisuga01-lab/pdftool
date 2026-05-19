@@ -56,8 +56,9 @@ def _file_extension(file: UploadFile) -> str:
     return Path(file.filename or "").suffix.lower()
 
 
-def _validate_size(file: UploadFile, settings: Settings) -> None:
-    max_size_bytes = settings.max_upload_bytes
+def _validate_size(file: UploadFile, settings: Settings, max_size_mb: int | None = None, limit_label: str = "Maximum size") -> None:
+    configured_mb = max_size_mb or settings.MAX_FILE_SIZE_MB
+    max_size_bytes = configured_mb * 1024 * 1024
     file_size = _upload_file_size(file)
 
     if file_size <= 0:
@@ -70,7 +71,7 @@ def _validate_size(file: UploadFile, settings: Settings) -> None:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=(
-                f"File is too large. Maximum size is {settings.MAX_FILE_SIZE_MB} MB."
+                f"File is too large. {limit_label} is {configured_mb} MB."
             ),
         )
 
@@ -94,10 +95,10 @@ def _validate_extension(file: UploadFile) -> None:
         )
 
 
-def _validate_batch(files: Iterable[UploadFile], settings: Settings) -> None:
+def _validate_batch(files: Iterable[UploadFile], settings: Settings, max_size_mb: int | None = None, limit_label: str = "Maximum size") -> None:
     total = 0
     for file in files:
-        _validate_size(file, settings)
+        _validate_size(file, settings, max_size_mb=max_size_mb, limit_label=limit_label)
         _validate_extension(file)
         total += _upload_file_size(file)
     if total > settings.MAX_BATCH_BYTES:
@@ -110,16 +111,17 @@ def _validate_batch(files: Iterable[UploadFile], settings: Settings) -> None:
         )
 
 
-def _validate_saved_size(file_size: int, settings: Settings) -> None:
+def _validate_saved_size(file_size: int, settings: Settings, max_size_mb: int | None = None, limit_label: str = "Maximum size") -> None:
+    configured_mb = max_size_mb or settings.MAX_FILE_SIZE_MB
     if file_size <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Uploaded file is empty",
         )
-    if file_size > settings.max_upload_bytes:
+    if file_size > configured_mb * 1024 * 1024:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File is too large. Maximum size is {settings.MAX_FILE_SIZE_MB} MB.",
+            detail=f"File is too large. {limit_label} is {configured_mb} MB.",
         )
 
 
@@ -143,18 +145,20 @@ async def validate_upload_files_size(
 def validate_optional_upload(
     file: UploadFile | None,
     settings: Settings,
+    max_size_mb: int | None = None,
+    limit_label: str = "Maximum size",
 ) -> None:
     if file is None:
         return
-    _validate_size(file, settings)
+    _validate_size(file, settings, max_size_mb=max_size_mb, limit_label=limit_label)
     _validate_extension(file)
 
 
-def validate_upload_batch(files: Iterable[UploadFile], settings: Settings) -> None:
-    _validate_batch(files, settings)
+def validate_upload_batch(files: Iterable[UploadFile], settings: Settings, max_size_mb: int | None = None, limit_label: str = "Maximum size") -> None:
+    _validate_batch(files, settings, max_size_mb=max_size_mb, limit_label=limit_label)
 
 
-def validate_saved_upload_path(path: Path, settings: Settings) -> None:
+def validate_saved_upload_path(path: Path, settings: Settings, max_size_mb: int | None = None, limit_label: str = "Maximum size") -> None:
     try:
         file_size = path.stat().st_size
     except OSError as exc:
@@ -162,10 +166,10 @@ def validate_saved_upload_path(path: Path, settings: Settings) -> None:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Uploaded file not found. It may have expired.",
         ) from exc
-    _validate_saved_size(file_size, settings)
+    _validate_saved_size(file_size, settings, max_size_mb=max_size_mb, limit_label=limit_label)
 
 
-def validate_saved_upload_paths(paths: Iterable[Path], settings: Settings) -> None:
+def validate_saved_upload_paths(paths: Iterable[Path], settings: Settings, max_size_mb: int | None = None, limit_label: str = "Maximum size") -> None:
     total = 0
     for path in paths:
         try:
@@ -175,7 +179,7 @@ def validate_saved_upload_paths(paths: Iterable[Path], settings: Settings) -> No
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Uploaded file not found. It may have expired.",
             ) from exc
-        _validate_saved_size(file_size, settings)
+        _validate_saved_size(file_size, settings, max_size_mb=max_size_mb, limit_label=limit_label)
         total += file_size
     if total > settings.MAX_BATCH_BYTES:
         raise HTTPException(
@@ -187,23 +191,25 @@ def validate_saved_upload_paths(paths: Iterable[Path], settings: Settings) -> No
         )
 
 
-async def save_temp_upload(file: UploadFile, settings: Settings) -> Path:
-    validate_optional_upload(file, settings)
+async def save_temp_upload(file: UploadFile, settings: Settings, max_size_mb: int | None = None, limit_label: str = "Maximum size") -> Path:
+    validate_optional_upload(file, settings, max_size_mb=max_size_mb, limit_label=limit_label)
     settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     suffix = _file_extension(file) or ".bin"
     destination = settings.UPLOAD_DIR / f"{uuid4().hex}{suffix}"
 
+    configured_mb = max_size_mb or settings.MAX_FILE_SIZE_MB
+    max_bytes = configured_mb * 1024 * 1024
     bytes_written = 0
     await file.seek(0)
     async with aiofiles.open(destination, "wb") as output_file:
         while chunk := await file.read(1024 * 1024):
             bytes_written += len(chunk)
-            if bytes_written > settings.max_upload_bytes:
+            if bytes_written > max_bytes:
                 await output_file.close()
                 destination.unlink(missing_ok=True)
                 raise HTTPException(
                     status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                    detail=f"File is too large. Maximum size is {settings.MAX_FILE_SIZE_MB} MB.",
+                    detail=f"File is too large. {limit_label} is {configured_mb} MB.",
                 )
             await output_file.write(chunk)
     await file.close()

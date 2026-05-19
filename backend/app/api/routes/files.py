@@ -1,13 +1,13 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import FileResponse
 
 from app.core.config import Settings
 from app.core.dependencies import (
     get_app_settings,
-    validate_upload_file_size,
-    validate_upload_files_size,
+    validate_optional_upload,
+    validate_upload_batch,
 )
 from app.services.file_store import (
     browser_safe_preview_path,
@@ -21,19 +21,37 @@ from app.services.file_store import (
 
 router = APIRouter()
 
-ValidatedUpload = Annotated[UploadFile, Depends(validate_upload_file_size)]
-ValidatedUploads = Annotated[list[UploadFile], Depends(validate_upload_files_size)]
 AppSettings = Annotated[Settings, Depends(get_app_settings)]
+FILE_TOOLS_UPLOAD_SCOPE = "file-tools"
+FILE_TOOLS_LIMIT_LABEL = "Maximum size for File Tools"
+
+
+def _upload_limit(settings: Settings, scope: str) -> tuple[int | None, str]:
+    if scope == FILE_TOOLS_UPLOAD_SCOPE:
+        return settings.FILE_TOOLS_MAX_FILE_SIZE_MB, FILE_TOOLS_LIMIT_LABEL
+    return None, "Maximum size"
 
 
 @router.post("/upload")
-async def upload_file(file: ValidatedUpload, settings: AppSettings) -> dict[str, Any]:
-    return await save_upload_file(file, settings)
+async def upload_file(
+    settings: AppSettings,
+    file: Annotated[UploadFile, File()],
+    scope: Annotated[str, Form()] = "",
+) -> dict[str, Any]:
+    max_size_mb, limit_label = _upload_limit(settings, scope)
+    validate_optional_upload(file, settings, max_size_mb=max_size_mb, limit_label=limit_label)
+    return await save_upload_file(file, settings, max_size_mb=max_size_mb, limit_label=limit_label)
 
 
 @router.post("/upload-multiple")
-async def upload_multiple(files: ValidatedUploads, settings: AppSettings) -> dict[str, Any]:
-    return {"files": await save_upload_files(files, settings)}
+async def upload_multiple(
+    settings: AppSettings,
+    files: Annotated[list[UploadFile], File()],
+    scope: Annotated[str, Form()] = "",
+) -> dict[str, Any]:
+    max_size_mb, limit_label = _upload_limit(settings, scope)
+    validate_upload_batch(files, settings, max_size_mb=max_size_mb, limit_label=limit_label)
+    return {"files": await save_upload_files(files, settings, max_size_mb=max_size_mb, limit_label=limit_label)}
 
 
 @router.get("/preview/{file_id}")
