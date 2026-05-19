@@ -64,6 +64,97 @@ const toolSections: ToolSection[] = [
   },
 ];
 
+const fileToolSections: ToolSection[] = [
+  {
+    label: "Hash & Integrity",
+    items: [
+      { href: "/file/hash", name: "Hash Checker" },
+      { href: "/file/checksum-verify", name: "Checksum Verifier" },
+      { href: "/file/hash-batch", name: "Batch Hash Generator" },
+      { href: "/file/duplicate-find", name: "Duplicate Finder" },
+    ],
+  },
+  {
+    label: "File Inspection",
+    items: [
+      { href: "/file/file-type", name: "File Type Detector" },
+      { href: "/file/extension-check", name: "Extension Mismatch" },
+      { href: "/file/metadata-view", name: "File Metadata" },
+      { href: "/file/file-compare", name: "File Compare" },
+      { href: "/file/filename-check", name: "Filename Checker" },
+    ],
+  },
+  {
+    label: "Archives",
+    items: [
+      { href: "/file/archive-create", name: "Create Archive" },
+      { href: "/file/archive-extract", name: "Extract Archive" },
+      { href: "/file/archive-inspect", name: "Archive Inspector" },
+      { href: "/file/archive-safety", name: "Archive Safety Check" },
+    ],
+  },
+  {
+    label: "Rename & Organize",
+    items: [
+      { href: "/file/batch-rename", name: "Batch Rename" },
+      { href: "/file/filename-sanitize", name: "Filename Sanitizer" },
+      { href: "/file/inventory-report", name: "File Inventory Report" },
+    ],
+  },
+  {
+    label: "Split & Join",
+    items: [
+      { href: "/file/file-split", name: "Split File" },
+      { href: "/file/file-join", name: "Join File Parts" },
+    ],
+  },
+  {
+    label: "Metadata & Privacy",
+    items: [
+      { href: "/file/metadata-clean", name: "Metadata Cleaner" },
+      { href: "/file/office-metadata-clean", name: "Office Metadata Clean" },
+      { href: "/file/office-media-extract", name: "Office Media Extract" },
+      { href: "/file/macro-check", name: "Macro Checker" },
+    ],
+  },
+  {
+    label: "Text Files",
+    items: [
+      { href: "/file/text-encoding-convert", name: "Text Encoding Convert" },
+    ],
+  },
+];
+
+function DropdownLinkGrid({
+  sections,
+  onItemClick,
+}: {
+  sections: ToolSection[];
+  onItemClick: () => void;
+}) {
+  return (
+    <div className="grid grid-cols-4 gap-5 rounded-2xl border border-zinc-200 bg-white p-5 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+      {sections.map((section) => (
+        <div className="min-w-0" key={section.label}>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{section.label}</p>
+          <div className="grid gap-1">
+            {section.items.map((item) => (
+              <Link
+                className="rounded-2xl px-3 py-2.5 text-sm font-medium leading-5 text-zinc-600 transition hover:bg-zinc-50 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:text-zinc-200 dark:hover:bg-zinc-950 dark:hover:text-white dark:focus-visible:ring-emerald-400/35"
+                href={item.href}
+                key={item.href}
+                onClick={onItemClick}
+              >
+                {item.name}
+              </Link>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ToolsDropdown() {
   const [open, setOpen] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -125,25 +216,69 @@ function ToolsDropdown() {
           open ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
         ].join(" ")}
       >
-        <div className="grid grid-cols-4 gap-5 rounded-[28px] border border-zinc-200/90 bg-white p-5 shadow-[0_26px_70px_rgba(15,23,42,0.16)] ring-1 ring-black/[0.03] dark:border-white/10 dark:bg-zinc-950 dark:shadow-[0_30px_76px_rgba(0,0,0,0.45)] dark:ring-white/[0.04]">
-          {toolSections.map((section) => (
-            <div className="min-w-0" key={section.label}>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500">{section.label}</p>
-              <div className="grid gap-1">
-                {section.items.map((item) => (
-                  <Link
-                    className="rounded-2xl px-3 py-2.5 text-sm font-medium leading-5 text-zinc-600 transition hover:bg-zinc-50 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:text-zinc-200 dark:hover:bg-zinc-900 dark:hover:text-white dark:focus-visible:ring-emerald-400/35"
-                    href={item.href}
-                    key={item.href}
-                    onClick={() => setOpen(false)}
-                  >
-                    {item.name}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <DropdownLinkGrid sections={toolSections} onItemClick={() => setOpen(false)} />
+      </div>
+    </div>
+  );
+}
+
+function FileToolsDropdown() {
+  const [open, setOpen] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pathname = usePathname();
+  const active = pathname.startsWith("/file");
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  const openMenu = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setOpen(true);
+  };
+
+  const closeMenu = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+    }
+    closeTimerRef.current = setTimeout(() => {
+      setOpen(false);
+      closeTimerRef.current = null;
+    }, 180);
+  };
+
+  return (
+    <div className="relative" onBlur={closeMenu} onFocus={openMenu} onMouseEnter={openMenu} onMouseLeave={closeMenu}>
+      <button
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className={[
+          "inline-flex h-11 items-center border-b-2 px-1 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:focus-visible:ring-emerald-400/35",
+          active
+            ? "border-emerald-600 text-zinc-950 dark:border-emerald-400 dark:text-zinc-50"
+            : "border-transparent text-zinc-600 hover:border-emerald-300 hover:text-zinc-950 dark:text-zinc-300 dark:hover:border-emerald-800 dark:hover:text-white",
+        ].join(" ")}
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        File Tools
+        <ChevronDownIcon className="ml-1 h-4 w-4" />
+      </button>
+
+      <div
+        className={[
+          "absolute left-1/2 top-full z-[110] w-[920px] max-w-[calc(100vw-48px)] -translate-x-1/2 pt-4 transition duration-150",
+          open ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
+        ].join(" ")}
+      >
+        <DropdownLinkGrid sections={fileToolSections} onItemClick={() => setOpen(false)} />
       </div>
     </div>
   );
@@ -200,7 +335,7 @@ function MobileThemeSelector({ onSelect }: { onSelect?: () => void }) {
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
-  const mobileGroups = useMemo(() => toolSections, []);
+  const mobileGroups = useMemo(() => [...toolSections, ...fileToolSections], []);
   const pathname = usePathname();
 
   const closeMobile = useCallback(() => {
@@ -243,6 +378,7 @@ export function Header() {
             Home
           </HomeLink>
           <ToolsDropdown />
+          <FileToolsDropdown />
           <Link className={navLinkClass(pathname === "/pricing")} href="/pricing">
             Pricing
           </Link>

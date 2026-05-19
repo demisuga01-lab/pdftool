@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from app.services.command_runner import run_command_result
-from app.services.file_tools_service import collect_files
+from app.services.file_tools_service import collect_files, output_path, write_json
 
 
 class FileTypeService:
@@ -39,4 +39,13 @@ class FileTypeService:
     async def extension_report(self, input_paths: list[str], output_dir: str) -> dict[str, Any]:
         files = await collect_files(input_paths, Path(output_dir) / "extension-inputs")
         results = [await self.detect(path) for path in files if path.is_file()]
-        return {"total_files": len(results), "mismatches": [item for item in results if item["mismatch"]], "results": results}
+        report = {"total_files": len(results), "mismatches": [item for item in results if item["mismatch"]], "results": results}
+        output = output_path(output_dir, "extension-mismatch-report.json")
+        write_json(output, report)
+        return {
+            "output_path": str(output),
+            "output_filename": output.name,
+            "media_type": "application/json",
+            "extension": "json",
+            "result": report,
+        }

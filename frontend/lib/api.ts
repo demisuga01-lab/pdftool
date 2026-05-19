@@ -219,8 +219,10 @@ async function waitForPollInterval(intervalMs: number, signal?: AbortSignal): Pr
   });
 }
 
+export type JobApiPrefix = "pdf" | "image" | "convert" | "compress" | "file-tools";
+
 export async function getJobStatus(
-  prefix: "pdf" | "image" | "convert" | "compress",
+  prefix: JobApiPrefix,
   jobId: string,
   signal?: AbortSignal,
 ): Promise<JobStatus> {
@@ -249,7 +251,8 @@ export async function getJobStatus(
   const successWithoutDownload =
     normalizedStatus === "success" &&
     !outputPath &&
-    (!outputPaths || outputPaths.length === 0);
+    (!outputPaths || outputPaths.length === 0) &&
+    data.result == null;
 
   return {
     job_id: String(data.job_id ?? jobId),
@@ -272,7 +275,7 @@ export async function getJobStatus(
 }
 
 export async function pollJobStatus(
-  prefix: "pdf" | "image" | "convert" | "compress",
+  prefix: JobApiPrefix,
   jobId: string,
   signal?: AbortSignal,
   onUpdate?: (status: JobStatus) => void,
@@ -361,7 +364,7 @@ function parseContentDispositionFilename(headerValue: string | null): string | u
 }
 
 export async function downloadFile(
-  prefix: "pdf" | "image" | "convert" | "compress",
+  prefix: JobApiPrefix,
   jobId: string,
   filename: string,
 ): Promise<void> {

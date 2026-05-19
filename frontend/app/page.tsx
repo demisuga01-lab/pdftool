@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Download,
   FileArchive,
+  FileText,
   Files,
   Grid2x2,
   Image as ImageIcon,
@@ -40,6 +41,11 @@ type ToolGroup = {
   description: string;
   href: string;
   icon: LucideIcon;
+  title: string;
+};
+
+type FileToolCard = {
+  href: string;
   title: string;
 };
 
@@ -113,6 +119,32 @@ const toolGroups: ToolGroup[] = [
     href: "/docs",
     icon: Grid2x2,
   },
+];
+
+const fileToolCards: FileToolCard[] = [
+  { title: "Hash Checker", href: "/file/hash" },
+  { title: "Checksum Verifier", href: "/file/checksum-verify" },
+  { title: "File Type Detector", href: "/file/file-type" },
+  { title: "Extension Mismatch Checker", href: "/file/extension-check" },
+  { title: "File Metadata Viewer", href: "/file/metadata-view" },
+  { title: "Metadata Cleaner", href: "/file/metadata-clean" },
+  { title: "Create Archive", href: "/file/archive-create" },
+  { title: "Extract Archive", href: "/file/archive-extract" },
+  { title: "Archive Inspector", href: "/file/archive-inspect" },
+  { title: "Archive Safety Check", href: "/file/archive-safety" },
+  { title: "Batch Rename", href: "/file/batch-rename" },
+  { title: "Filename Sanitizer", href: "/file/filename-sanitize" },
+  { title: "Duplicate Finder", href: "/file/duplicate-find" },
+  { title: "File Compare", href: "/file/file-compare" },
+  { title: "Split File", href: "/file/file-split" },
+  { title: "Join File Parts", href: "/file/file-join" },
+  { title: "Office Metadata Cleaner", href: "/file/office-metadata-clean" },
+  { title: "Office Media Extractor", href: "/file/office-media-extract" },
+  { title: "Macro Checker", href: "/file/macro-check" },
+  { title: "Filename Checker", href: "/file/filename-check" },
+  { title: "File Inventory Report", href: "/file/inventory-report" },
+  { title: "Text Encoding Converter", href: "/file/text-encoding-convert" },
+  { title: "Batch Hash Generator", href: "/file/hash-batch" },
 ];
 
 function TrustChip({
@@ -275,6 +307,20 @@ function ToolGroupTile({
   );
 }
 
+function FileToolTile({ href, title }: FileToolCard) {
+  return (
+    <Link
+      className="group flex min-h-[118px] flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-emerald-700"
+      href={href}
+    >
+      <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-50 text-emerald-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-emerald-300">
+        <FileText className="h-4 w-4" />
+      </span>
+      <span className="mt-4 text-sm font-semibold leading-6 text-zinc-900 dark:text-zinc-100">{title}</span>
+    </Link>
+  );
+}
+
 export default function HomePage() {
   return (
     <main className="overflow-hidden bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.92),rgba(245,245,244,0.94)_38%,rgba(244,244,245,0.98)_100%)] text-zinc-950 dark:bg-[radial-gradient(circle_at_top,rgba(26,26,26,0.78),rgba(10,10,10,1)_42%,rgba(9,9,11,1)_100%)] dark:text-zinc-50">
@@ -352,6 +398,27 @@ export default function HomePage() {
                 key={group.title}
                 title={group.title}
               />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950" id="file-tools">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+          <div className="max-w-3xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+              File Tools
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50 sm:text-4xl">
+              File Tools
+            </h2>
+            <p className="mt-4 text-base leading-8 text-zinc-600 dark:text-zinc-300">
+              Hash, inspect, archive, rename, compare, and clean any file.
+            </p>
+          </div>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {fileToolCards.map((tool) => (
+              <FileToolTile href={tool.href} key={tool.href} title={tool.title} />
             ))}
           </div>
         </div>

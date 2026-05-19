@@ -19,7 +19,7 @@ export type RecentJob = {
   activePageCount?: number;
   outputMode?: string;
   outputType?: string;
-  prefix?: "pdf" | "image" | "convert" | "compress";
+  prefix?: "pdf" | "image" | "convert" | "compress" | "file-tools";
   selectedPageCount?: number;
   errorMessage?: string;
 };

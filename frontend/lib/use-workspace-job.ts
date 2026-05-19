@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { ApiRateLimitError, downloadFile, pollJobStatus, toApiPath, type JobStatus } from "@/lib/api";
+import { ApiRateLimitError, downloadFile, pollJobStatus, toApiPath, type JobApiPrefix, type JobStatus } from "@/lib/api";
 import { upsertRecentJob, type RecentJobStatus } from "@/lib/recent-jobs";
 import { uploadWithProgress } from "@/lib/upload";
 
@@ -35,7 +35,7 @@ export function useWorkspaceJob({
   fileType?: string;
   filename: string;
   inputFileName?: string;
-  prefix: "pdf" | "image" | "convert" | "compress";
+    prefix: JobApiPrefix;
   timeoutKind?: TimeoutKind;
   toolName?: string;
 }) {
@@ -132,7 +132,7 @@ export function useWorkspaceJob({
     setErrorDetails(null);
     setNotice(null);
     setRateLimitScope(null);
-    if (finalStatus.status === "success" && !failed && !finalStatus.output_path && !finalStatus.output_paths?.length) {
+    if (finalStatus.status === "success" && !failed && !finalStatus.output_path && !finalStatus.output_paths?.length && finalStatus.result == null) {
       setState("failure");
       setError(finalStatus.error ?? "Processing finished but no download URL was returned.");
     }
