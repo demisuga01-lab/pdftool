@@ -207,15 +207,21 @@ function DropdownLinkGrid({
 
 function ToolsDropdown({
   active,
+  align = "center",
   label,
   sections,
 }: {
   active: boolean;
+  align?: "center" | "left";
   label: string;
   sections: ToolSection[];
 }) {
   const [open, setOpen] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const panelPositionClass =
+    align === "left"
+      ? "left-0 w-[680px] max-w-[calc(100vw-24px)] translate-x-0"
+      : "left-1/2 w-[760px] max-w-[calc(100vw-48px)] -translate-x-1/2";
 
   useEffect(() => {
     return () => {
@@ -263,7 +269,8 @@ function ToolsDropdown({
 
       <div
         className={[
-          "absolute left-1/2 top-full z-[110] w-[760px] max-w-[calc(100vw-48px)] -translate-x-1/2 pt-4 transition duration-150",
+          "absolute top-full z-[110] pt-4 transition duration-150",
+          panelPositionClass,
           open ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
         ].join(" ")}
       >
@@ -510,10 +517,11 @@ export function Header() {
           <HomeLink className={navLinkClass(pathname === "/")}>
             Home
           </HomeLink>
-          <ToolsDropdown active={pathname.startsWith("/pdf")} label="PDF Tools" sections={pdfToolSections} />
-          <ToolsDropdown active={pathname.startsWith("/image")} label="Image Tools" sections={imageToolSections} />
+          <ToolsDropdown active={pathname.startsWith("/pdf")} align="left" label="PDF Tools" sections={pdfToolSections} />
+          <ToolsDropdown active={pathname.startsWith("/image")} align="left" label="Image Tools" sections={imageToolSections} />
           <ToolsDropdown
             active={pathname === "/tools/ocr" || pathname === "/pdf/ocr" || pathname === "/pdf/ocr-to-searchable" || pathname === "/image/ocr"}
+            align="left"
             label="OCR Tools"
             sections={ocrToolSections}
           />
