@@ -17,49 +17,70 @@ type ToolSection = {
   items: Array<{ href: string; name: string }>;
 };
 
-const toolSections: ToolSection[] = [
+const pdfToolSections: ToolSection[] = [
   {
-    label: "Core Workspaces",
+    label: "Organize",
     items: [
-      { href: "/convert", name: "Universal Converter" },
-      { href: "/compress", name: "Universal Compressor" },
-      { href: "/tools/ocr", name: "OCR Workspace" },
-    ],
-  },
-  {
-    label: "PDF Tools",
-    items: [
-      { href: "/compress?type=pdf", name: "Compress PDF" },
-      { href: "/pdf/merge", name: "Merge PDF" },
+      { href: "/pdf/merge", name: "Merge PDFs" },
       { href: "/pdf/split", name: "Split PDF" },
       { href: "/pdf/rotate", name: "Rotate PDF" },
-      { href: "/pdf/watermark", name: "Watermark PDF" },
-      { href: "/pdf/protect", name: "Protect PDF" },
-      { href: "/pdf/decrypt", name: "Decrypt PDF" },
-      { href: "/pdf/images-to-pdf", name: "Images to PDF" },
     ],
   },
   {
-    label: "Image Tools",
+    label: "Convert",
     items: [
-      { href: "/compress?type=image", name: "Compress Image" },
+      { href: "/pdf/to-images", name: "PDF to Images" },
+      { href: "/pdf/images-to-pdf", name: "Images to PDF" },
+      { href: "/pdf/office-to-pdf", name: "Office to PDF" },
+    ],
+  },
+  {
+    label: "Edit",
+    items: [
+      { href: "/pdf/watermark", name: "Watermark PDF" },
+      { href: "/pdf/extract-text", name: "Extract Text" },
+    ],
+  },
+  {
+    label: "Security",
+    items: [
+      { href: "/pdf/protect", name: "Protect PDF" },
+      { href: "/pdf/decrypt", name: "Decrypt PDF" },
+    ],
+  },
+  {
+    label: "Optimize",
+    items: [
+      { href: "/pdf/compress", name: "Compress PDF" },
+      { href: "/pdf/ocr", name: "OCR PDF" },
+    ],
+  },
+];
+
+const imageToolSections: ToolSection[] = [
+  {
+    label: "Edit",
+    items: [
       { href: "/image/resize", name: "Resize Image" },
       { href: "/image/crop", name: "Crop Image" },
       { href: "/image/rotate", name: "Rotate Image" },
       { href: "/image/watermark", name: "Watermark Image" },
+    ],
+  },
+  {
+    label: "Process",
+    items: [
       { href: "/image/remove-background", name: "Remove Background" },
+      { href: "/image/batch-resize", name: "Batch Resize" },
       { href: "/image/info", name: "Image Info" },
     ],
   },
   {
-    label: "Popular Conversions",
+    label: "Convert & Optimize",
     items: [
-      { href: "/convert?from=pdf&to=docx", name: "PDF to Word" },
-      { href: "/convert?from=pdf&to=xlsx", name: "PDF to Excel" },
-      { href: "/convert?from=docx&to=pdf", name: "Word to PDF" },
-      { href: "/convert?from=xlsx&to=pdf", name: "Excel to PDF" },
-      { href: "/convert?from=image&to=webp", name: "Image to WebP" },
-      { href: "/convert?from=svg&to=pdf", name: "SVG to PDF" },
+      { href: "/image/convert", name: "Convert Image" },
+      { href: "/image/compress", name: "Compress Image" },
+      { href: "/image/ocr", name: "OCR Image" },
     ],
   },
 ];
@@ -155,16 +176,17 @@ function DropdownLinkGrid({
   );
 }
 
-function ToolsDropdown() {
+function ToolsDropdown({
+  active,
+  label,
+  sections,
+}: {
+  active: boolean;
+  label: string;
+  sections: ToolSection[];
+}) {
   const [open, setOpen] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pathname = usePathname();
-  const active =
-    pathname.startsWith("/pdf") ||
-    pathname.startsWith("/image") ||
-    pathname === "/compress" ||
-    pathname === "/convert" ||
-    pathname.startsWith("/tools/ocr");
 
   useEffect(() => {
     return () => {
@@ -206,7 +228,7 @@ function ToolsDropdown() {
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
-        Tools
+        {label}
         <ChevronDownIcon className="ml-1 h-4 w-4" />
       </button>
 
@@ -216,7 +238,7 @@ function ToolsDropdown() {
           open ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
         ].join(" ")}
       >
-        <DropdownLinkGrid sections={toolSections} onItemClick={() => setOpen(false)} />
+        <DropdownLinkGrid sections={sections} onItemClick={() => setOpen(false)} />
       </div>
     </div>
   );
@@ -335,7 +357,14 @@ function MobileThemeSelector({ onSelect }: { onSelect?: () => void }) {
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
-  const mobileGroups = useMemo(() => [...toolSections, ...fileToolSections], []);
+  const mobileToolGroups = useMemo(
+    () => [
+      { label: "PDF Tools", sections: pdfToolSections },
+      { label: "Image Tools", sections: imageToolSections },
+    ],
+    [],
+  );
+  const mobileFileGroups = useMemo(() => fileToolSections, []);
   const pathname = usePathname();
 
   const closeMobile = useCallback(() => {
@@ -377,7 +406,8 @@ export function Header() {
           <HomeLink className={navLinkClass(pathname === "/")}>
             Home
           </HomeLink>
-          <ToolsDropdown />
+          <ToolsDropdown active={pathname.startsWith("/pdf")} label="PDF Tools" sections={pdfToolSections} />
+          <ToolsDropdown active={pathname.startsWith("/image")} label="Image Tools" sections={imageToolSections} />
           <FileToolsDropdown />
           <Link className={navLinkClass(pathname === "/pricing")} href="/pricing">
             Pricing
@@ -424,7 +454,46 @@ export function Header() {
           />
           <div className="fixed inset-x-0 top-16 z-50 max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain border-t border-zinc-200/80 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_24px_60px_rgba(15,23,42,0.12)] sm:top-[4.4rem] sm:max-h-[calc(100dvh-4.4rem)] md:hidden dark:border-white/10 dark:bg-zinc-950 dark:shadow-[0_30px_70px_rgba(0,0,0,0.35)]">
             <div className="space-y-4 px-4 py-4">
-              {mobileGroups.map((group) => (
+              {mobileToolGroups.map((group) => (
+                <div className="rounded-[24px] border border-zinc-200/80 bg-zinc-50 px-3 dark:border-white/10 dark:bg-zinc-900" key={group.label}>
+                  <button
+                    className="flex min-h-11 w-full items-center justify-between px-1 py-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100"
+                    onClick={() => setOpenGroup(openGroup === group.label ? null : group.label)}
+                    type="button"
+                  >
+                    {group.label}
+                    <ChevronDownIcon
+                      className={[
+                        "h-4 w-4 text-slate-400 transition-transform dark:text-zinc-500",
+                        openGroup === group.label ? "rotate-180" : "",
+                      ].join(" ")}
+                    />
+                  </button>
+                  {openGroup === group.label ? (
+                    <div className="space-y-3 pb-3">
+                      {group.sections.map((section) => (
+                        <div key={section.label}>
+                          <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{section.label}</p>
+                          <div className="grid gap-1">
+                            {section.items.map((tool) => (
+                              <Link
+                                className="block rounded-2xl px-3 py-3 text-sm font-medium text-zinc-600 transition hover:bg-white hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 active:bg-white dark:text-zinc-300 dark:hover:bg-zinc-950 dark:hover:text-white dark:focus-visible:ring-emerald-400/35 dark:active:bg-zinc-950"
+                                href={tool.href}
+                                key={tool.href}
+                                onClick={closeMobile}
+                              >
+                                {tool.name}
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+
+              {mobileFileGroups.map((group) => (
                 <div className="rounded-[24px] border border-zinc-200/80 bg-zinc-50 px-3 dark:border-white/10 dark:bg-zinc-900" key={group.label}>
                   <button
                     className="flex min-h-11 w-full items-center justify-between px-1 py-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100"
