@@ -17,6 +17,11 @@ type ToolSection = {
   items: Array<{ href: string; name: string }>;
 };
 
+const universalTools = [
+  { href: "/compress", name: "Compress" },
+  { href: "/convert", name: "Convert" },
+];
+
 const pdfToolSections: ToolSection[] = [
   {
     label: "Organize",
@@ -48,13 +53,6 @@ const pdfToolSections: ToolSection[] = [
       { href: "/pdf/decrypt", name: "Decrypt PDF" },
     ],
   },
-  {
-    label: "Optimize",
-    items: [
-      { href: "/pdf/compress", name: "Compress PDF" },
-      { href: "/pdf/ocr", name: "OCR PDF" },
-    ],
-  },
 ];
 
 const imageToolSections: ToolSection[] = [
@@ -73,14 +71,6 @@ const imageToolSections: ToolSection[] = [
       { href: "/image/remove-background", name: "Remove Background" },
       { href: "/image/batch-resize", name: "Batch Resize" },
       { href: "/image/info", name: "Image Info" },
-    ],
-  },
-  {
-    label: "Convert & Optimize",
-    items: [
-      { href: "/image/convert", name: "Convert Image" },
-      { href: "/image/compress", name: "Compress Image" },
-      { href: "/image/ocr", name: "OCR Image" },
     ],
   },
 ];
@@ -147,11 +137,11 @@ const fileToolSections: ToolSection[] = [
     label: "File Inspection",
     items: [
       { href: "/file/file-type", name: "File Type Detector" },
-      { href: "/file/virus-scan", name: "Virus Scanner" },
       { href: "/file/extension-check", name: "Extension Mismatch" },
       { href: "/file/metadata-view", name: "File Metadata" },
       { href: "/file/file-compare", name: "File Compare" },
       { href: "/file/filename-check", name: "Filename Checker" },
+      { href: "/file/archive-safety", name: "Archive Safety Check" },
     ],
   },
   {
@@ -160,7 +150,6 @@ const fileToolSections: ToolSection[] = [
       { href: "/file/archive-create", name: "Create Archive" },
       { href: "/file/archive-extract", name: "Extract Archive" },
       { href: "/file/archive-inspect", name: "Archive Inspector" },
-      { href: "/file/archive-safety", name: "Archive Safety Check" },
     ],
   },
   {
@@ -176,15 +165,6 @@ const fileToolSections: ToolSection[] = [
     items: [
       { href: "/file/file-split", name: "Split File" },
       { href: "/file/file-join", name: "Join File Parts" },
-    ],
-  },
-  {
-    label: "Metadata & Privacy",
-    items: [
-      { href: "/file/metadata-clean", name: "Metadata Cleaner" },
-      { href: "/file/office-metadata-clean", name: "Office Metadata Clean" },
-      { href: "/file/office-media-extract", name: "Office Media Extract" },
-      { href: "/file/macro-check", name: "Macro Checker" },
     ],
   },
   {
@@ -288,6 +268,79 @@ function ToolsDropdown({
         ].join(" ")}
       >
         <DropdownLinkGrid sections={sections} onItemClick={() => setOpen(false)} />
+      </div>
+    </div>
+  );
+}
+
+function UniversalToolsDropdown() {
+  const [open, setOpen] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pathname = usePathname();
+  const active = pathname === "/compress" || pathname === "/convert";
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  const openMenu = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setOpen(true);
+  };
+
+  const closeMenu = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+    }
+    closeTimerRef.current = setTimeout(() => {
+      setOpen(false);
+      closeTimerRef.current = null;
+    }, 180);
+  };
+
+  return (
+    <div className="relative" onBlur={closeMenu} onFocus={openMenu} onMouseEnter={openMenu} onMouseLeave={closeMenu}>
+      <button
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className={[
+          "inline-flex h-11 items-center border-b-2 px-1 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:focus-visible:ring-emerald-400/35",
+          active
+            ? "border-emerald-600 text-zinc-950 dark:border-emerald-400 dark:text-zinc-50"
+            : "border-transparent text-zinc-600 hover:border-emerald-300 hover:text-zinc-950 dark:text-zinc-300 dark:hover:border-emerald-800 dark:hover:text-white",
+        ].join(" ")}
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        Tools
+        <ChevronDownIcon className="ml-1 h-4 w-4" />
+      </button>
+
+      <div
+        className={[
+          "absolute left-1/2 top-full z-[110] w-[760px] max-w-[calc(100vw-48px)] -translate-x-1/2 pt-4 transition duration-150",
+          open ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none -translate-y-1 opacity-0",
+        ].join(" ")}
+      >
+        <div className="grid gap-1 rounded-2xl border border-zinc-200 bg-white p-5 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+          {universalTools.map((item) => (
+            <Link
+              className="rounded-2xl px-3 py-2.5 text-sm font-medium leading-5 text-zinc-600 transition hover:bg-zinc-50 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:text-zinc-200 dark:hover:bg-zinc-950 dark:hover:text-white dark:focus-visible:ring-emerald-400/35"
+              href={item.href}
+              key={item.href}
+              onClick={() => setOpen(false)}
+            >
+              {item.name}
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -479,6 +532,7 @@ export function Header() {
             sections={privacyToolSections}
           />
           <FileToolsDropdown />
+          <UniversalToolsDropdown />
           <Link className={navLinkClass(pathname === "/pricing")} href="/pricing">
             Pricing
           </Link>
@@ -562,6 +616,36 @@ export function Header() {
                   ) : null}
                 </div>
               ))}
+
+              <div className="rounded-[24px] border border-zinc-200/80 bg-zinc-50 px-3 dark:border-white/10 dark:bg-zinc-900">
+                <button
+                  className="flex min-h-11 w-full items-center justify-between px-1 py-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100"
+                  onClick={() => setOpenGroup(openGroup === "Tools" ? null : "Tools")}
+                  type="button"
+                >
+                  Tools
+                  <ChevronDownIcon
+                    className={[
+                      "h-4 w-4 text-slate-400 transition-transform dark:text-zinc-500",
+                      openGroup === "Tools" ? "rotate-180" : "",
+                    ].join(" ")}
+                  />
+                </button>
+                {openGroup === "Tools" ? (
+                  <div className="grid gap-1 pb-3">
+                    {universalTools.map((tool) => (
+                      <Link
+                        className="block rounded-2xl px-4 py-2 text-sm font-medium text-zinc-700 transition hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:text-zinc-300 dark:focus-visible:ring-emerald-400/35"
+                        href={tool.href}
+                        key={tool.href}
+                        onClick={closeMobile}
+                      >
+                        {tool.name}
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
 
               <MobileThemeSelector />
 
