@@ -8,9 +8,13 @@ from fastapi import HTTPException
 
 from app.core.errors import sanitize_error_message
 from app.services.conversion_service import ConversionService
+from app.services.virus_scanner import VirusScanner
 from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
+
+ARCHIVE_EXTENSIONS = {".zip", ".7z", ".rar", ".tar", ".tar.gz", ".tar.bz2", ".tar.xz"}
+OFFICE_EXTENSIONS = {".docx", ".xlsx", ".pptx", ".xlsm", ".docm", ".pptm"}
 
 
 def _task_id(task: Any) -> str:
@@ -46,6 +50,23 @@ def _failure(task: Any, exc: Exception) -> dict[str, Any]:
     }
 
 
+def _scan_failure(task: Any) -> dict[str, Any]:
+    return {
+        "task_id": _task_id(task),
+        "status": "failure",
+        "stage": "processing",
+        "output_path": None,
+        "output_paths": None,
+        "error": "This file was flagged by virus scanning and cannot be processed.",
+    }
+
+
+def _should_scan_input(path: Path) -> bool:
+    suffix = path.suffix.lower()
+    suffixes = "".join(path.suffixes[-2:]).lower()
+    return suffix in OFFICE_EXTENSIONS or suffix in ARCHIVE_EXTENSIONS or suffixes in ARCHIVE_EXTENSIONS
+
+
 def _run_service(coro: Awaitable[dict[str, Any]]) -> dict[str, Any]:
     return asyncio.run(coro)
 
@@ -68,6 +89,11 @@ def convert_file_task(
     engine: str = "auto",
 ) -> dict[str, Any]:
     try:
+        file_path = Path(input_path)
+        if _should_scan_input(file_path):
+            scan_result = VirusScanner.scan_file(file_path)
+            if not scan_result["clean"]:
+                return _scan_failure(self)
         service = ConversionService()
         normalized_to_format = service.normalize_output_format(to_format)
         conversion_settings = {**(settings or {}), "engine": engine or "auto"}

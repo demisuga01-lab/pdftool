@@ -10,6 +10,7 @@ from app.core.errors import sanitize_error_message
 from app.services.compression_service import CompressionService
 from app.services.ocr_service import OCRService
 from app.services.pdf_service import PDFService
+from app.services.virus_scanner import VirusScanner
 from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,16 @@ def _failure(task: Any, exc: Exception) -> dict[str, Any]:
         "stage": "processing",
         "output_path": None,
         "error": sanitize_error_message(str(raw_detail) if raw_detail is not None else None),
+    }
+
+
+def _scan_failure(task: Any) -> dict[str, Any]:
+    return {
+        "task_id": _task_id(task),
+        "status": "failure",
+        "stage": "processing",
+        "output_path": None,
+        "error": "This file was flagged by virus scanning and cannot be processed.",
     }
 
 
@@ -352,6 +363,10 @@ def images_to_pdf_task(self: Any, input_paths: list[str], output_path: str) -> d
 )
 def office_to_pdf_task(self: Any, input_path: str, output_dir: str) -> dict[str, Any]:
     try:
+        file_path = Path(input_path)
+        scan_result = VirusScanner.scan_file(file_path)
+        if not scan_result["clean"]:
+            return _scan_failure(self)
         output = _run_service(PDFService().office_to_pdf(input_path, output_dir))
         return _success(self, output_path=str(output))
     except Exception as exc:

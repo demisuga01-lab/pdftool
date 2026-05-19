@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     )
 
     REDIS_URL: str = Field(default="redis://localhost:6379/0")
+    CLAMD_SOCKET: str = Field(default="/var/run/clamav/clamd.ctl")
     DATA_DIR: Path = Field(default=Path("/opt/pdftool/data"))
     UPLOAD_DIR: Path = Field(default=Path("/opt/pdftool/data/uploads"))
     OUTPUT_DIR: Path = Field(default=Path("/opt/pdftool/data/outputs"))

@@ -151,6 +151,17 @@ def check_import(module_name: str, label: str, *, critical: bool = True) -> Chec
         return Check(label, "FAIL" if critical else "WARNING", f"{module_name}: {exc}", critical=critical)
 
 
+def check_clamav(settings: Settings) -> Check:
+    try:
+        import clamd
+
+        client = clamd.ClamdUnixSocket(path=settings.CLAMD_SOCKET)
+        client.ping()
+        return Check("ClamAV daemon ping", "OK", "Daemon responded to ping", critical=False)
+    except Exception:
+        return Check("ClamAV daemon ping", "WARNING", "Daemon unavailable or socket missing", critical=False)
+
+
 def positive_int_check(name: str, value: int) -> Check:
     if isinstance(value, int) and value > 0:
         return Check(f"Config: {name}", "OK", str(value), critical=True)
@@ -198,6 +209,7 @@ def collect_checks(settings: Settings) -> list[Check]:
     checks.extend(check_tool(name, critical=False) for name in OPTIONAL_TOOLS)
     checks.extend(check_import(module_name, label) for module_name, label in IMPORT_CHECKS)
     checks.extend(check_import(module_name, label, critical=False) for module_name, label in OPTIONAL_IMPORT_CHECKS)
+    checks.append(check_clamav(settings))
     checks.extend(config_checks(settings))
     return checks
 

@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 
 from app.services.command_runner import run_command
 from app.services.file_tools_service import archive_warnings, inspect_archive, output_path, safe_extract_archive, safe_filename, zip_directory
+from app.services.virus_scanner import VirusScanner
 
 
 class ArchiveService:
@@ -34,8 +35,31 @@ class ArchiveService:
         return {"output_path": str(output), "output_filename": output.name, "media_type": "application/octet-stream", "extension": output.suffix.lstrip(".")}
 
     async def extract(self, input_path: str, output_dir: str, password: str | None = None) -> dict[str, Any]:
+        archive_path = Path(input_path)
+        scan_result = VirusScanner.scan_file(archive_path)
+        if not scan_result["clean"]:
+            raise ValueError("This archive was flagged by virus scanning and cannot be extracted.")
+
         extract_dir = Path(output_dir) / "extracted"
-        await safe_extract_archive(input_path, extract_dir, password)
+        extracted_files = await safe_extract_archive(archive_path, extract_dir, password)
+
+        infected = []
+        for extracted_file in extracted_files:
+            member_scan = VirusScanner.scan_file(extracted_file)
+            if not member_scan["clean"]:
+                infected.append(extracted_file.name)
+
+        if infected:
+            for item in extracted_files:
+                try:
+                    item.unlink()
+                except Exception:
+                    pass
+            raise ValueError(
+                f"Extracted file(s) were flagged by virus scanning: {', '.join(infected[:3])}. "
+                f"The archive cannot be processed."
+            )
+
         output = output_path(output_dir, "extracted-files.zip")
         zip_directory(extract_dir, output)
         return {"output_path": str(output), "output_filename": output.name, "media_type": "application/zip", "extension": "zip"}
