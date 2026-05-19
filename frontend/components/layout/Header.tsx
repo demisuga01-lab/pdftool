@@ -361,10 +361,10 @@ export function Header() {
     () => [
       { label: "PDF Tools", sections: pdfToolSections },
       { label: "Image Tools", sections: imageToolSections },
+      { label: "File Tools", sections: fileToolSections },
     ],
     [],
   );
-  const mobileFileGroups = useMemo(() => fileToolSections, []);
   const pathname = usePathname();
 
   const closeMobile = useCallback(() => {
@@ -473,11 +473,11 @@ export function Header() {
                     <div className="space-y-3 pb-3">
                       {group.sections.map((section) => (
                         <div key={section.label}>
-                          <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{section.label}</p>
+                          <p className="mb-2 px-4 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{section.label}</p>
                           <div className="grid gap-1">
                             {section.items.map((tool) => (
                               <Link
-                                className="block rounded-2xl px-3 py-3 text-sm font-medium text-zinc-600 transition hover:bg-white hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 active:bg-white dark:text-zinc-300 dark:hover:bg-zinc-950 dark:hover:text-white dark:focus-visible:ring-emerald-400/35 dark:active:bg-zinc-950"
+                                className="block rounded-2xl px-4 py-2 text-sm font-medium text-zinc-700 transition hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:text-zinc-300 dark:focus-visible:ring-emerald-400/35"
                                 href={tool.href}
                                 key={tool.href}
                                 onClick={closeMobile}
@@ -487,38 +487,6 @@ export function Header() {
                             ))}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-
-              {mobileFileGroups.map((group) => (
-                <div className="rounded-[24px] border border-zinc-200/80 bg-zinc-50 px-3 dark:border-white/10 dark:bg-zinc-900" key={group.label}>
-                  <button
-                    className="flex min-h-11 w-full items-center justify-between px-1 py-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100"
-                    onClick={() => setOpenGroup(openGroup === group.label ? null : group.label)}
-                    type="button"
-                  >
-                    {group.label}
-                    <ChevronDownIcon
-                      className={[
-                        "h-4 w-4 text-slate-400 transition-transform dark:text-zinc-500",
-                        openGroup === group.label ? "rotate-180" : "",
-                      ].join(" ")}
-                    />
-                  </button>
-                  {openGroup === group.label ? (
-                    <div className="grid gap-1 pb-3">
-                      {group.items.map((tool) => (
-                        <Link
-                          className="block rounded-2xl px-3 py-3 text-sm font-medium text-zinc-600 transition hover:bg-white hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 active:bg-white dark:text-zinc-300 dark:hover:bg-zinc-950 dark:hover:text-white dark:focus-visible:ring-emerald-400/35 dark:active:bg-zinc-950"
-                          href={tool.href}
-                          key={tool.href}
-                          onClick={closeMobile}
-                        >
-                          {tool.name}
-                        </Link>
                       ))}
                     </div>
                   ) : null}
