@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Annotated, Any
 from uuid import uuid4
 
+import aiofiles
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
@@ -91,6 +92,48 @@ async def _input_path(settings: Settings, file: UploadFile | None = None, file_i
         max_size_mb=settings.FILE_TOOLS_MAX_FILE_SIZE_MB,
         limit_label=FILE_TOOLS_LIMIT_LABEL,
     )
+
+
+async def _virus_scan_input_path(settings: Settings, file: UploadFile | None = None, file_id: str | None = None) -> Path:
+    if file_id:
+        path = resolve_upload_path(file_id, settings)
+        validate_saved_upload_path(
+            path,
+            settings,
+            max_size_mb=settings.FILE_TOOLS_MAX_FILE_SIZE_MB,
+            limit_label=FILE_TOOLS_LIMIT_LABEL,
+        )
+        return path
+    if file is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Provide either file_id or file.")
+
+    settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    suffix = Path(file.filename or "").suffix.lower() or ".bin"
+    destination = (settings.UPLOAD_DIR / f"{uuid4().hex}{suffix}").resolve(strict=False)
+    upload_root = settings.UPLOAD_DIR.resolve(strict=False)
+    if not destination.is_relative_to(upload_root):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Upload path is invalid.")
+
+    max_bytes = settings.FILE_TOOLS_MAX_FILE_SIZE_MB * 1024 * 1024
+    bytes_written = 0
+    await file.seek(0)
+    async with aiofiles.open(destination, "wb") as output_file:
+        while chunk := await file.read(1024 * 1024):
+            bytes_written += len(chunk)
+            if bytes_written > max_bytes:
+                await output_file.close()
+                destination.unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=f"File is too large. {FILE_TOOLS_LIMIT_LABEL} is {settings.FILE_TOOLS_MAX_FILE_SIZE_MB} MB.",
+                )
+            await output_file.write(chunk)
+    await file.close()
+
+    if bytes_written <= 0:
+        destination.unlink(missing_ok=True)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty")
+    return destination
 
 
 async def _input_paths(settings: Settings, files: list[UploadFile] | None = None, file_ids: list[str] | None = None) -> list[Path]:
@@ -198,7 +241,7 @@ async def file_type(settings: AppSettings, file: Annotated[UploadFile | None, Fi
 
 @router.post("/virus-scan")
 async def virus_scan(settings: AppSettings, file: Annotated[UploadFile | None, File()] = None, file_id: Annotated[str | None, Form()] = None) -> dict[str, str]:
-    return _enqueue("virus-scan", [await _input_path(settings, file, file_id)], settings, {})
+    return _enqueue("virus-scan", [await _virus_scan_input_path(settings, file, file_id)], settings, {})
 
 
 @router.post("/extension-check")
