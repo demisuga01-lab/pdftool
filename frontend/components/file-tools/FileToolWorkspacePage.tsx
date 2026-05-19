@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { FileArchive, FileText, Hash, ShieldCheck } from "lucide-react";
+import { FileArchive, FileText, Hash, Shield, ShieldAlert, ShieldCheck } from "lucide-react";
 
 import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
+import { VirusScanBadge } from "@/components/ui/VirusScanBadge";
 import { EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
 import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
 import { FileWorkspaceGrid } from "@/components/workspace/FileWorkspaceGrid";
@@ -25,6 +26,7 @@ export type FileToolId =
   | "checksum-verify"
   | "hash-batch"
   | "file-type"
+  | "virus-scan"
   | "extension-check"
   | "metadata-view"
   | "metadata-clean"
@@ -286,6 +288,19 @@ const fileToolConfigs: Record<FileToolId, FileToolConfig> = {
     uploadMode: "single",
     resultMode: "inline",
     initialSettings: {},
+    sections: noSettingsSection(),
+  },
+  "virus-scan": {
+    toolId: "virus-scan",
+    title: "Virus Scanner",
+    description: "Scan any file for known threats using ClamAV signature detection.",
+    uploadDescription: "Upload any file to scan it with ClamAV signature detection.",
+    layout: "compact",
+    uploadMode: "single",
+    resultMode: "inline",
+    initialSettings: {},
+    processLabel: "Scan File",
+    note: "Detects known threats based on signatures. Does not detect zero-day or unknown threats.",
     sections: noSettingsSection(),
   },
   "extension-check": {
@@ -1058,6 +1073,70 @@ function InlineResult({
     );
   }
 
+  if (toolId === "virus-scan") {
+    const scanner = String(result.scanner ?? "");
+    const unavailable = scanner === "unavailable";
+    const clean = Boolean(result.clean);
+    const filename = typeof result.filename === "string" ? result.filename : "Uploaded file";
+    const size = typeof result.size_bytes === "number" ? formatBytes(result.size_bytes) : formatResultValue(result.size_bytes);
+
+    if (unavailable) {
+      return (
+        <ResultShell title="Virus scanning is currently unavailable.">
+          <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            <div className="flex items-start gap-3">
+              <Shield className="mt-0.5 h-5 w-5 shrink-0 text-zinc-500 dark:text-zinc-400" />
+              <div>
+                <p className="font-semibold">The file was not scanned.</p>
+                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Try again later.</p>
+              </div>
+            </div>
+          </div>
+          <ValueTable rows={[
+            ["Filename", filename],
+            ["File size", size],
+          ]} />
+          <NoteBox>This scan uses ClamAV signature detection and identifies known threats. It does not detect zero-day exploits or unknown malware. Do not rely on this scan as your only security measure.</NoteBox>
+        </ResultShell>
+      );
+    }
+
+    return (
+      <ResultShell title={clean ? "No threats detected" : "Threat detected"}>
+        <div
+          className={[
+            "rounded-2xl border p-4",
+            clean
+              ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20"
+              : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20",
+          ].join(" ")}
+        >
+          <div className="flex items-start gap-3">
+            {clean ? (
+              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-300" />
+            ) : (
+              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-300" />
+            )}
+            <div>
+              <p className={["font-semibold", clean ? "text-emerald-800 dark:text-emerald-200" : "text-red-800 dark:text-red-200"].join(" ")}>
+                {clean ? "No threats detected" : "Threat detected"}
+              </p>
+              <p className={["mt-1 text-sm", clean ? "text-emerald-700 dark:text-emerald-200" : "text-red-700 dark:text-red-200"].join(" ")}>
+                {clean ? "Scanned with ClamAV" : "This file was flagged by virus scanning. Do not open this file."}
+              </p>
+            </div>
+          </div>
+        </div>
+        <ValueTable rows={[
+          ["Filename", filename],
+          ["File size", size],
+          ["Scanner", clean ? "Scanned with ClamAV" : "ClamAV"],
+        ]} />
+        <NoteBox>This scan uses ClamAV signature detection and identifies known threats. It does not detect zero-day exploits or unknown malware. Do not rely on this scan as your only security measure.</NoteBox>
+      </ResultShell>
+    );
+  }
+
   if (toolId === "metadata-view") {
     const metadata = result.metadata && typeof result.metadata === "object" ? result.metadata as Record<string, unknown> : result;
     return (
@@ -1526,15 +1605,18 @@ function StandardFileToolPage({ config }: { config: FileToolConfig }) {
     ) : null;
 
   const emptyState = (
-    <EmptyWorkspaceState
-      accept={config.accept ?? ANY_FILE_ACCEPT}
-      description={config.uploadDescription}
-      multiple={multiple}
-      onFilesSelected={(nextFiles) => {
-        void files.addFiles(nextFiles, multiple ? "append" : "replace");
-        job.reset();
-      }}
-    />
+    <div className="space-y-3">
+      <EmptyWorkspaceState
+        accept={config.accept ?? ANY_FILE_ACCEPT}
+        description={config.uploadDescription}
+        multiple={multiple}
+        onFilesSelected={(nextFiles) => {
+          void files.addFiles(nextFiles, multiple ? "append" : "replace");
+          job.reset();
+        }}
+      />
+      <VirusScanBadge />
+    </div>
   );
 
   const uploadOverlay =
@@ -1709,18 +1791,21 @@ function CompareFileToolPage({ config }: { config: FileToolConfig }) {
         ) : null
       }
       emptyState={
-        <CompareUploadPanel
-          fileA={fileA}
-          fileB={fileB}
-          onSelectA={(nextFiles) => {
-            void filesA.addFiles(nextFiles, "replace");
-            job.reset();
-          }}
-          onSelectB={(nextFiles) => {
-            void filesB.addFiles(nextFiles, "replace");
-            job.reset();
-          }}
-        />
+        <div className="space-y-3">
+          <CompareUploadPanel
+            fileA={fileA}
+            fileB={fileB}
+            onSelectA={(nextFiles) => {
+              void filesA.addFiles(nextFiles, "replace");
+              job.reset();
+            }}
+            onSelectB={(nextFiles) => {
+              void filesB.addFiles(nextFiles, "replace");
+              job.reset();
+            }}
+          />
+          <VirusScanBadge />
+        </div>
       }
       estimatedTime={totalBytes > 0 ? estimateProcessingTime(totalBytes, 2) : undefined}
       fileInfo={totalBytes > 0 ? formatBytes(totalBytes) : undefined}
@@ -1826,14 +1911,17 @@ function FilenameCheckToolPage({ config }: { config: FileToolConfig }) {
         ) : null
       }
       emptyState={
-        <EmptyWorkspaceState
-          accept={ANY_FILE_ACCEPT}
-          description={config.uploadDescription}
-          onFilesSelected={(nextFiles) => {
-            void files.addFiles(nextFiles, "replace");
-            job.reset();
-          }}
-        />
+        <div className="space-y-3">
+          <EmptyWorkspaceState
+            accept={ANY_FILE_ACCEPT}
+            description={config.uploadDescription}
+            onFilesSelected={(nextFiles) => {
+              void files.addFiles(nextFiles, "replace");
+              job.reset();
+            }}
+          />
+          <VirusScanBadge />
+        </div>
       }
       fileInfo={file ? uploadedFileSummary(file) : undefined}
       fileName={file?.display_name ?? (hasFilename ? String(settings.filename) : undefined)}

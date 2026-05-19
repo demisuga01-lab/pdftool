@@ -70,7 +70,7 @@ def _scan_failure(task: Any, filename: str) -> dict[str, Any]:
 
 
 def _scan_inputs(task: Any, tool: str, input_paths: list[str]) -> dict[str, Any] | None:
-    if tool == "text-encoding-convert":
+    if tool in {"text-encoding-convert", "virus-scan"}:
         return None
 
     for index, input_path in enumerate(input_paths, start=1):
@@ -95,6 +95,19 @@ async def _dispatch(tool: str, input_paths: list[str], output_dir: str, params: 
         return {"result": HashService().verify(first, str(params.get("algorithm") or "sha256"), str(params.get("expected_hash") or ""))}
     if tool == "file-type":
         return {"result": await FileTypeService().detect(first)}
+    if tool == "virus-scan":
+        file_path = Path(first)
+        result = VirusScanner.scan_file(file_path)
+        return {
+            "status": "success",
+            "result": {
+                "clean": result["clean"],
+                "threat": result["threat"],
+                "scanner": result["scanner"],
+                "filename": file_path.name,
+                "size_bytes": file_path.stat().st_size,
+            },
+        }
     if tool == "extension-check":
         return {"result": await FileTypeService().extension_report(input_paths, output_dir)}
     if tool == "metadata-view":

@@ -6,6 +6,7 @@ import { Archive, FileCode2, FileText, Image as ImageIcon, Presentation, Table2 
 
 import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
+import { VirusScanBadge } from "@/components/ui/VirusScanBadge";
 import { EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
 import type { ControlSection } from "@/components/workspace/Controls";
 import { WorkspaceControls } from "@/components/workspace/Controls";
@@ -217,6 +218,10 @@ function detectedFileType(file: UploadedFileMetadata | null, fallback: Compressi
     return "archive";
   }
   return "auto";
+}
+
+function showsVirusScanBadge(type: CompressionFileType) {
+  return type === "archive" || type === "office";
 }
 
 function fileFromMetadata(metadata: UploadedFileMetadata): File {
@@ -979,6 +984,7 @@ export default function CompressPage() {
                     ? `File type: ${activeType === "auto" ? "unknown" : activeType}`
                     : "Upload a file to configure compression settings."}
           </div>
+          {showsVirusScanBadge(activeType) ? <VirusScanBadge /> : null}
           <WorkspaceControls sections={sectionsFor(activeType, engineOptions)} state={{ ...settings, fileType: activeType }} update={update} />
         </div>
       }

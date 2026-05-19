@@ -125,6 +125,7 @@ const fileToolCards: FileToolCard[] = [
   { title: "Hash Checker", href: "/file/hash" },
   { title: "Checksum Verifier", href: "/file/checksum-verify" },
   { title: "File Type Detector", href: "/file/file-type" },
+  { title: "Virus Scanner", href: "/file/virus-scan" },
   { title: "Extension Mismatch Checker", href: "/file/extension-check" },
   { title: "File Metadata Viewer", href: "/file/metadata-view" },
   { title: "Metadata Cleaner", href: "/file/metadata-clean" },

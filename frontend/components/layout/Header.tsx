@@ -85,6 +85,54 @@ const imageToolSections: ToolSection[] = [
   },
 ];
 
+const ocrToolSections: ToolSection[] = [
+  {
+    label: "PDF OCR",
+    items: [
+      { href: "/pdf/ocr", name: "OCR Scanned PDF" },
+      { href: "/pdf/ocr-to-searchable", name: "Make PDF Searchable" },
+    ],
+  },
+  {
+    label: "Image OCR",
+    items: [
+      { href: "/image/ocr", name: "Extract Text from Image" },
+    ],
+  },
+  {
+    label: "Universal OCR",
+    items: [
+      { href: "/tools/ocr", name: "OCR Workspace" },
+    ],
+  },
+];
+
+const privacyToolSections: ToolSection[] = [
+  {
+    label: "Metadata",
+    items: [
+      { href: "/file/metadata-view", name: "File Metadata Viewer" },
+      { href: "/file/metadata-clean", name: "Metadata Cleaner" },
+      { href: "/file/office-metadata-clean", name: "Office Metadata Cleaner" },
+    ],
+  },
+  {
+    label: "File Privacy",
+    items: [
+      { href: "/file/filename-sanitize", name: "Filename Sanitizer" },
+      { href: "/file/filename-check", name: "Secure File Shred Guide" },
+    ],
+  },
+  {
+    label: "Scanning",
+    items: [
+      { href: "/file/virus-scan", name: "Virus Scanner" },
+      { href: "/file/archive-safety", name: "Archive Safety Check" },
+      { href: "/file/macro-check", name: "Macro Checker" },
+    ],
+  },
+];
+
 const fileToolSections: ToolSection[] = [
   {
     label: "Hash & Integrity",
@@ -99,6 +147,7 @@ const fileToolSections: ToolSection[] = [
     label: "File Inspection",
     items: [
       { href: "/file/file-type", name: "File Type Detector" },
+      { href: "/file/virus-scan", name: "Virus Scanner" },
       { href: "/file/extension-check", name: "Extension Mismatch" },
       { href: "/file/metadata-view", name: "File Metadata" },
       { href: "/file/file-compare", name: "File Compare" },
@@ -361,6 +410,8 @@ export function Header() {
     () => [
       { label: "PDF Tools", sections: pdfToolSections },
       { label: "Image Tools", sections: imageToolSections },
+      { label: "OCR Tools", sections: ocrToolSections },
+      { label: "Privacy Tools", sections: privacyToolSections },
       { label: "File Tools", sections: fileToolSections },
     ],
     [],
@@ -408,6 +459,25 @@ export function Header() {
           </HomeLink>
           <ToolsDropdown active={pathname.startsWith("/pdf")} label="PDF Tools" sections={pdfToolSections} />
           <ToolsDropdown active={pathname.startsWith("/image")} label="Image Tools" sections={imageToolSections} />
+          <ToolsDropdown
+            active={pathname === "/tools/ocr" || pathname === "/pdf/ocr" || pathname === "/pdf/ocr-to-searchable" || pathname === "/image/ocr"}
+            label="OCR Tools"
+            sections={ocrToolSections}
+          />
+          <ToolsDropdown
+            active={[
+              "/file/metadata-view",
+              "/file/metadata-clean",
+              "/file/office-metadata-clean",
+              "/file/filename-sanitize",
+              "/file/filename-check",
+              "/file/virus-scan",
+              "/file/archive-safety",
+              "/file/macro-check",
+            ].includes(pathname)}
+            label="Privacy Tools"
+            sections={privacyToolSections}
+          />
           <FileToolsDropdown />
           <Link className={navLinkClass(pathname === "/pricing")} href="/pricing">
             Pricing

@@ -33,6 +33,7 @@ ALL_TOOLS = {
     "hash-batch",
     "checksum-verify",
     "file-type",
+    "virus-scan",
     "extension-check",
     "metadata-view",
     "metadata-clean",
@@ -159,6 +160,11 @@ async def checksum_verify(settings: AppSettings, expected_hash: Annotated[str, F
 @router.post("/file-type")
 async def file_type(settings: AppSettings, file: Annotated[UploadFile | None, File()] = None, file_id: Annotated[str | None, Form()] = None) -> dict[str, str]:
     return _enqueue("file-type", [await _input_path(settings, file, file_id)], settings, {})
+
+
+@router.post("/virus-scan")
+async def virus_scan(settings: AppSettings, file: Annotated[UploadFile | None, File()] = None, file_id: Annotated[str | None, Form()] = None) -> dict[str, str]:
+    return _enqueue("virus-scan", [await _input_path(settings, file, file_id)], settings, {})
 
 
 @router.post("/extension-check")

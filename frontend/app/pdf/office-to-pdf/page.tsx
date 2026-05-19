@@ -5,6 +5,7 @@ import { useState } from "react";
 import { DocumentIcon } from "@/components/icons/SiteIcons";
 import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
+import { VirusScanBadge } from "@/components/ui/VirusScanBadge";
 import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
 import { UnsupportedOptionNote } from "@/components/workspace/UnsupportedOptionNote";
 import { PDFWorkspace } from "@/components/workspace/PDFWorkspace";
@@ -78,27 +79,30 @@ export default function PdfOfficeToPdfPage() {
         ) : null
       }
       emptyState={
-        <label className="flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center transition hover:border-slate-400 hover:bg-slate-50 dark:border-white/15 dark:bg-zinc-900 dark:hover:border-emerald-400/50 dark:hover:bg-slate-900/80">
-          <input
-            accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf,.txt"
-            className="hidden"
-            onChange={(event) => {
-              setFile(event.target.files?.[0] ?? null);
-              job.reset();
-            }}
-            type="file"
-          />
-          <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ECFDF5] text-[#059669]">
-            <DocumentIcon className="h-7 w-7" />
-          </span>
-          <h2 className="text-[18px] text-slate-900 dark:text-zinc-100">Upload a document</h2>
-          <p className="mt-2 max-w-xl text-[14px] leading-7 text-slate-500 dark:text-zinc-400">
-            DOCX, XLSX, PPTX, ODT, ODS, ODP, RTF, and TXT are supported.
-          </p>
-          <span className="mt-5 inline-flex h-9 items-center rounded-lg border border-slate-200 px-3 text-[14px] text-slate-700 dark:border-white/10 dark:text-zinc-200">
-            Browse files
-          </span>
-        </label>
+        <div className="space-y-3">
+          <label className="flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center transition hover:border-slate-400 hover:bg-slate-50 dark:border-white/15 dark:bg-zinc-900 dark:hover:border-emerald-400/50 dark:hover:bg-slate-900/80">
+            <input
+              accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf,.txt"
+              className="hidden"
+              onChange={(event) => {
+                setFile(event.target.files?.[0] ?? null);
+                job.reset();
+              }}
+              type="file"
+            />
+            <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ECFDF5] text-[#059669]">
+              <DocumentIcon className="h-7 w-7" />
+            </span>
+            <h2 className="text-[18px] text-slate-900 dark:text-zinc-100">Upload a document</h2>
+            <p className="mt-2 max-w-xl text-[14px] leading-7 text-slate-500 dark:text-zinc-400">
+              DOCX, XLSX, PPTX, ODT, ODS, ODP, RTF, and TXT are supported.
+            </p>
+            <span className="mt-5 inline-flex h-9 items-center rounded-lg border border-slate-200 px-3 text-[14px] text-slate-700 dark:border-white/10 dark:text-zinc-200">
+              Browse files
+            </span>
+          </label>
+          <VirusScanBadge />
+        </div>
       }
       estimatedTime={file ? estimateProcessingTime(file.size, 1) : undefined}
       fileInfo={file ? formatBytes(file.size) : undefined}
@@ -147,6 +151,7 @@ export default function PdfOfficeToPdfPage() {
               ? job.error ?? "Conversion failed."
               : "Upload a supported Office document and convert it with the current server defaults."}
           </div>
+          {file ? <VirusScanBadge /> : null}
           <WorkspaceControls sections={sections} state={settings} update={update} />
         </div>
       }

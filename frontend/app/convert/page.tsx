@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { UploadProgress } from "@/components/ui/UploadProgress";
+import { VirusScanBadge } from "@/components/ui/VirusScanBadge";
 import { WorkspaceControls, type ControlSection } from "@/components/workspace/Controls";
 import { EmptyWorkspaceState } from "@/components/workspace/ImageWorkspace";
 import { CompactWorkspaceShell, PreviewCard } from "@/components/workspace/WorkspaceShells";
@@ -58,6 +59,7 @@ const CONVERT_ENGINE_DETAILS: Record<ConvertEngine, { description: string; label
 
 const pdfFormats = new Set(["pdf"]);
 const officeFormats = new Set(["doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "rtf"]);
+const scannedUploadFormats = new Set(["zip", "7z", "rar", "tar", "docx", "xlsx", "pptx"]);
 const imageFormats = new Set(["jpg", "jpeg", "png", "webp", "avif", "tif", "tiff", "bmp"]);
 
 function normalizeFormat(value: string | null | undefined) {
@@ -156,6 +158,10 @@ function optionsForKind(kind: ConvertKind): ConvertOption[] {
     default:
       return [];
   }
+}
+
+function showsVirusScanBadge(format: string) {
+  return scannedUploadFormats.has(format);
 }
 
 function engineOptionsForConvert(inputKind: ConvertKind, outputFormat: string) {
@@ -726,6 +732,7 @@ export default function ConvertPage() {
                       : "Choose an output format below and click Convert."
                     : "Upload a file to see available conversion formats."}
           </div>
+          {showsVirusScanBadge(inputFormat) ? <VirusScanBadge /> : null}
           <WorkspaceControls sections={sections} state={settings} update={update} />
         </div>
       }
