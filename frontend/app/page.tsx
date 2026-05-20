@@ -224,59 +224,66 @@ function WorkflowStepCard({
 
 function HeroWorkflowPanel() {
   return (
-    <div className="relative w-full max-w-[620px] overflow-hidden rounded-[32px] border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-5 lg:justify-self-end lg:p-5">
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 opacity-25 dark:opacity-20"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 1px 1px, rgba(113,113,122,0.18) 1px, transparent 0)",
-          backgroundSize: "18px 18px",
-        }}
-      />
-      <div className="relative grid gap-3.5 lg:grid-cols-[96px_minmax(0,1fr)_96px]">
-        <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-3.5 dark:border-zinc-800 dark:bg-zinc-950/40">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">Input</p>
-          <div className="mt-4 flex flex-row items-end justify-between gap-2.5 lg:flex-col lg:items-center lg:justify-start">
-            <FileTypeBadge label="PDF" tone="pdf" />
-            <FileTypeBadge label="JPG" tone="jpg" />
-            <FileTypeBadge label="PNG" tone="png" />
-            <div className="flex h-12 w-11 flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white text-center text-[10px] font-semibold leading-tight text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-              <Plus className="mb-1 h-4 w-4" />
-              Add
+    <div className="relative w-full max-w-[620px] lg:justify-self-end">
+      {/* Subtle aura - light mode: thin emerald glow
+          dark mode: thin white glow */}
+      <div className="absolute -inset-[1px] rounded-2xl bg-emerald-200/50 dark:bg-white/[0.06] blur-[2px] pointer-events-none" />
+      <div className="relative">
+        <div className="relative w-full max-w-[620px] overflow-hidden rounded-[32px] border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-5 lg:justify-self-end lg:p-5">
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 opacity-25 dark:opacity-20"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 1px 1px, rgba(113,113,122,0.18) 1px, transparent 0)",
+              backgroundSize: "18px 18px",
+            }}
+          />
+          <div className="relative grid gap-3.5 lg:grid-cols-[96px_minmax(0,1fr)_96px]">
+            <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-3.5 dark:border-zinc-800 dark:bg-zinc-950/40">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">Input</p>
+              <div className="mt-4 flex flex-row items-end justify-between gap-2.5 lg:flex-col lg:items-center lg:justify-start">
+                <FileTypeBadge label="PDF" tone="pdf" />
+                <FileTypeBadge label="JPG" tone="jpg" />
+                <FileTypeBadge label="PNG" tone="png" />
+                <div className="flex h-12 w-11 flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white text-center text-[10px] font-semibold leading-tight text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+                  <Plus className="mb-1 h-4 w-4" />
+                  Add
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              {workflowSteps.map((step, index) => (
+                <WorkflowStepCard
+                  description={step.description}
+                  icon={step.icon}
+                  isLast={index === workflowSteps.length - 1}
+                  key={step.step}
+                  label={step.label}
+                  step={step.step}
+                />
+              ))}
+            </div>
+
+            <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-3.5 dark:border-zinc-800 dark:bg-zinc-950/40">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">Output</p>
+              <div className="mt-4 flex flex-row items-end justify-between gap-2.5 lg:flex-col lg:items-center lg:justify-start">
+                <FileTypeBadge label="PDF" tone="pdf" />
+                <FileTypeBadge label="ZIP" tone="zip" />
+                <FileTypeBadge label="TXT" tone="txt" />
+                <div className="flex h-12 w-11 flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white text-center text-[10px] font-semibold leading-tight text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+                  <Download className="mb-1 h-4 w-4" />
+                  Get
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="space-y-2.5">
-          {workflowSteps.map((step, index) => (
-            <WorkflowStepCard
-              description={step.description}
-              icon={step.icon}
-              isLast={index === workflowSteps.length - 1}
-              key={step.step}
-              label={step.label}
-              step={step.step}
-            />
-          ))}
-        </div>
-
-        <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-3.5 dark:border-zinc-800 dark:bg-zinc-950/40">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">Output</p>
-          <div className="mt-4 flex flex-row items-end justify-between gap-2.5 lg:flex-col lg:items-center lg:justify-start">
-            <FileTypeBadge label="PDF" tone="pdf" />
-            <FileTypeBadge label="ZIP" tone="zip" />
-            <FileTypeBadge label="TXT" tone="txt" />
-            <div className="flex h-12 w-11 flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white text-center text-[10px] font-semibold leading-tight text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-              <Download className="mb-1 h-4 w-4" />
-              Get
-            </div>
+          <div className="relative mt-3.5 flex items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-center text-xs font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-400">
+            Temporary outputs / No account / 25 MB/file
           </div>
         </div>
-      </div>
-
-      <div className="relative mt-3.5 flex items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-center text-xs font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-400">
-        Temporary outputs / No account / 25 MB/file
       </div>
     </div>
   );
