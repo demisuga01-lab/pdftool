@@ -19,7 +19,7 @@ import {
 
 import { buildPageMetadata } from "@/lib/metadata";
 
-const GITHUB_URL = "https://github.com/demisuga01-lab/pdftool";
+const GITHUB_URL = "https://github.com";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "PDF and Image Workflows | PDFTools by WellFriend",

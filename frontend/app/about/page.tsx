@@ -16,7 +16,7 @@ import {
 import { PUBLIC_FILE_HANDLING_STATEMENT } from "@/lib/copy";
 import { buildPageMetadata } from "@/lib/metadata";
 
-const GITHUB_URL = "https://github.com/demisuga01-lab/pdftool";
+const GITHUB_URL = "https://github.com";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "About PDFTools by WellFriend",

@@ -559,7 +559,7 @@ export function Header() {
           <ThemeToggle />
           <Link
             className="hidden h-10 items-center gap-2 rounded-full border border-zinc-300 bg-white px-3.5 text-sm font-semibold text-zinc-700 transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900 dark:hover:text-white dark:focus-visible:ring-emerald-400/35 md:inline-flex"
-            href="https://github.com/demisuga01-lab/pdftool"
+            href="https://github.com"
             rel="noreferrer"
             target="_blank"
           >
@@ -681,7 +681,7 @@ export function Header() {
                 ))}
                 <Link
                   className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-2xl border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900 dark:hover:text-white dark:focus-visible:ring-emerald-400/35"
-                  href="https://github.com/demisuga01-lab/pdftool"
+                  href="https://github.com"
                   rel="noreferrer"
                   target="_blank"
                   onClick={closeMobile}

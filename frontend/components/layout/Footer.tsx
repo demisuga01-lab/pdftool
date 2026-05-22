@@ -18,7 +18,7 @@ const productLinks = [
 const supportLinks = [
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },
-  { href: "https://github.com/demisuga01-lab/pdftool", label: "GitHub", external: true },
+  { href: "https://github.com", label: "GitHub", external: true },
   { href: "https://discord.gg/ZQFmYaQbVu", label: "Discord", external: true },
 ];
 
