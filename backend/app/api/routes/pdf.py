@@ -22,6 +22,7 @@ from app.core.dependencies import (
     validate_upload_file_size,
     validate_upload_files_size,
 )
+from app.core.audit_log import log_audit_event
 from app.core.job_security import create_job_access, verify_job_access
 from app.services.file_store import (
     read_upload_metadata as read_stored_upload_metadata,
@@ -96,15 +97,16 @@ def _output_dir(settings: Settings, job_id: str) -> Path:
     return output_dir
 
 
-async def _save_uploads(files: list[UploadFile], settings: Settings) -> list[Path]:
+async def _save_uploads(files: list[UploadFile], settings: Settings, expected_category: str | None = "pdf") -> list[Path]:
     validate_upload_batch(files, settings)
-    return [await save_temp_upload(file, settings) for file in files]
+    return [await save_temp_upload(file, settings, expected_category=expected_category) for file in files]
 
 
 async def _input_path_from_file_or_id(
     settings: Settings,
     file: UploadFile | None = None,
     file_id: str | None = None,
+    expected_category: str | None = "pdf",
 ) -> Path:
     if file_id:
         path = resolve_upload_path(file_id, settings)
@@ -116,13 +118,14 @@ async def _input_path_from_file_or_id(
             detail="Provide either file_id or file",
         )
     validate_optional_upload(file, settings)
-    return await save_temp_upload(file, settings)
+    return await save_temp_upload(file, settings, expected_category=expected_category)
 
 
 async def _input_paths_from_files_or_ids(
     settings: Settings,
     files: list[UploadFile] | None = None,
     file_ids: list[str] | None = None,
+    expected_category: str | None = "pdf",
 ) -> list[Path]:
     clean_ids = [file_id for file_id in (file_ids or []) if file_id]
     if clean_ids:
@@ -134,7 +137,7 @@ async def _input_paths_from_files_or_ids(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Provide either file_ids or files",
         )
-    return await _save_uploads(files, settings)
+    return await _save_uploads(files, settings, expected_category=expected_category)
 
 
 def _meta_path(file_path: Path) -> Path:
@@ -422,7 +425,7 @@ async def watermark_pdf(
         validate_saved_upload_path(watermark_path, settings)
     elif watermark_file is not None:
         validate_optional_upload(watermark_file, settings)
-        watermark_path = await save_temp_upload(watermark_file, settings)
+        watermark_path = await save_temp_upload(watermark_file, settings, expected_category="image")
 
     task = watermark_pdf_task.apply_async(
         args=[
@@ -537,7 +540,7 @@ async def images_to_pdf(
     file_ids: Annotated[list[str] | None, Form()] = None,
     output_filename: Annotated[str, Form()] = "",
 ) -> dict[str, str]:
-    input_paths = await _input_paths_from_files_or_ids(settings, files=files, file_ids=file_ids)
+    input_paths = await _input_paths_from_files_or_ids(settings, files=files, file_ids=file_ids, expected_category="image")
     job_id, access_token = _new_job(settings)
     output_path = _output_path(settings, job_id, ".pdf", output_filename, "images")
     task = images_to_pdf_task.apply_async(
@@ -554,7 +557,7 @@ async def office_to_pdf(
     file: Annotated[UploadFile | None, File()] = None,
     file_id: Annotated[str | None, Form()] = None,
 ) -> dict[str, str]:
-    input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
+    input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id, expected_category="office")
     job_id, access_token = _new_job(settings)
     task = office_to_pdf_task.apply_async(args=[str(input_path), str(_output_dir(settings, job_id))], queue="heavy", task_id=job_id)
     return _queued_response(str(task.id), access_token, "Office to PDF conversion queued")
@@ -562,7 +565,7 @@ async def office_to_pdf(
 
 @router.post("/upload-only")
 async def upload_only(file: ValidatedUpload, settings: AppSettings) -> dict[str, Any]:
-    return await save_workspace_upload(file, settings)
+    return await save_workspace_upload(file, settings, expected_category="pdf")
 
 
 @router.get("/file/{file_id}")
@@ -776,6 +779,7 @@ async def download_output(
             detail="Output file not found. The job may have failed or expired.",
         )
 
+    log_audit_event("file_download", job_id=job_id, file_name=output_filename or file_path.name)
     return FileResponse(
         path=file_path,
         media_type=media_type or mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",

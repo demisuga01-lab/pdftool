@@ -8,6 +8,8 @@ import aiofiles
 from fastapi import Depends, File, HTTPException, UploadFile, status
 
 from app.core.config import Settings, get_settings
+from app.core.audit_log import log_audit_event
+from app.core.file_validation import expected_category_for_filename, validate_file_magic
 
 
 # Allowed extensions per tool family. Routes can pass a tighter set; we always
@@ -191,7 +193,13 @@ def validate_saved_upload_paths(paths: Iterable[Path], settings: Settings, max_s
         )
 
 
-async def save_temp_upload(file: UploadFile, settings: Settings, max_size_mb: int | None = None, limit_label: str = "Maximum size") -> Path:
+async def save_temp_upload(
+    file: UploadFile,
+    settings: Settings,
+    max_size_mb: int | None = None,
+    limit_label: str = "Maximum size",
+    expected_category: str | None = None,
+) -> Path:
     validate_optional_upload(file, settings, max_size_mb=max_size_mb, limit_label=limit_label)
     settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     suffix = _file_extension(file) or ".bin"
@@ -201,6 +209,12 @@ async def save_temp_upload(file: UploadFile, settings: Settings, max_size_mb: in
     max_bytes = configured_mb * 1024 * 1024
     bytes_written = 0
     await file.seek(0)
+    header = await file.read(8192)
+    await file.seek(0)
+    category = expected_category or expected_category_for_filename(file.filename or "")
+    if category:
+        validate_file_magic(header, category, file.filename or "upload")
+    log_audit_event("file_upload", file_name=file.filename, file_size=_upload_file_size(file))
     async with aiofiles.open(destination, "wb") as output_file:
         while chunk := await file.read(1024 * 1024):
             bytes_written += len(chunk)

@@ -9,9 +9,14 @@ jobs can appear to fail even when the worker is still running normally.
 from __future__ import annotations
 
 import logging
+import threading
 import time
+from collections import defaultdict
 from dataclasses import dataclass
 from ipaddress import ip_address
+from typing import Optional
+
+import redis as redis_module
 
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
@@ -20,6 +25,7 @@ from starlette.responses import Response
 from starlette.types import ASGIApp
 
 from app.core.config import Settings, get_settings
+from app.core.audit_log import log_audit_event
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +58,66 @@ class RateBucket:
 
 # Window length is one hour for all buckets. Limits are configurable.
 _HOUR = 3600
+
+
+class FallbackRateLimiter:
+    """
+    In-memory rate limiter used when Redis is unavailable.
+    Uses a sliding window approach.
+    Thread-safe via a lock.
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._requests: dict[str, list[float]] = defaultdict(list)
+
+    def is_allowed(self, key: str, limit: int, window_seconds: int) -> bool:
+        now = time.time()
+        window_start = now - window_seconds
+        with self._lock:
+            self._requests[key] = [timestamp for timestamp in self._requests[key] if timestamp > window_start]
+            if len(self._requests[key]) >= limit:
+                return False
+            self._requests[key].append(now)
+            return True
+
+    def cleanup_old_keys(self) -> None:
+        now = time.time()
+        with self._lock:
+            to_delete = [
+                key
+                for key, times in self._requests.items()
+                if not times or max(times) < now - 3600
+            ]
+            for key in to_delete:
+                del self._requests[key]
+
+
+_fallback_limiter = FallbackRateLimiter()
+
+
+def check_rate_limit(
+    redis_client: Optional[redis_module.Redis],
+    key: str,
+    limit: int,
+    window_seconds: int,
+) -> bool:
+    try:
+        if redis_client is None:
+            raise RuntimeError("Redis client is unavailable")
+        pipe = redis_client.pipeline()
+        now = time.time()
+        window_start = now - window_seconds
+        pipe.zremrangebyscore(key, 0, window_start)
+        pipe.zadd(key, {str(now): now})
+        pipe.zcard(key)
+        pipe.expire(key, window_seconds + 1)
+        results = pipe.execute()
+        count = int(results[2])
+        return count <= limit
+    except Exception:
+        logger.warning("Redis unavailable for rate limiting, using in-memory fallback")
+        return _fallback_limiter.is_allowed(key, limit, window_seconds)
 
 
 def _build_rules(settings: Settings) -> dict[str, RateRule]:
@@ -158,17 +224,11 @@ class _RedisLimiter:
     """Thin wrapper around redis-py for rate-limit bookkeeping."""
 
     def __init__(self, url: str) -> None:
-        import redis
+        self._client = redis_module.Redis.from_url(url, socket_timeout=0.5, socket_connect_timeout=0.5)
 
-        self._client = redis.Redis.from_url(url, socket_timeout=0.5, socket_connect_timeout=0.5)
-
-    def hit(self, key: str, window_seconds: int) -> tuple[int, int]:
-        pipeline = self._client.pipeline()
-        pipeline.incr(key)
-        pipeline.expire(key, window_seconds, nx=True)
-        pipeline.ttl(key)
-        count, _, ttl = pipeline.execute()
-        return int(count), int(ttl) if ttl and ttl > 0 else window_seconds
+    @property
+    def client(self) -> redis_module.Redis:
+        return self._client
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -181,18 +241,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._enabled = self._settings.RATE_LIMIT_ENABLED
         self._trust_proxy = self._settings.RATE_LIMIT_TRUST_PROXY
         self._limiter: _RedisLimiter | None = None
-        self._failed_open = False
 
     def _ensure_limiter(self) -> _RedisLimiter | None:
         if self._limiter is not None:
             return self._limiter
-        if self._failed_open:
-            return None
         try:
             self._limiter = _RedisLimiter(self._settings.RATE_LIMIT_REDIS_URL or self._settings.REDIS_URL)
         except Exception as exc:  # pragma: no cover - depends on Redis being live
-            logger.warning("Rate limiter disabled (redis unavailable): %s", exc)
-            self._failed_open = True
+            logger.warning("Redis unavailable for rate limiting, using in-memory fallback: %s", exc)
         return self._limiter
 
     async def dispatch(self, request: Request, call_next):  # type: ignore[override]
@@ -204,8 +260,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         limiter = self._ensure_limiter()
-        if limiter is None:
-            return await call_next(request)
+        redis_client = limiter.client if limiter is not None else None
 
         ip = _client_ip(request, trust_proxy=self._trust_proxy)
         rules_to_apply: list[tuple[RateRule, str, str]] = []
@@ -222,20 +277,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         worst_bucket = "global"
 
         for rule, redis_key, response_bucket in rules_to_apply:
-            try:
-                count, ttl = limiter.hit(redis_key, rule.window_seconds)
-            except Exception as exc:  # pragma: no cover - depends on Redis
-                logger.warning("Rate limiter pipeline failed (failing open): %s", exc)
-                return await call_next(request)
-
-            remaining = max(0, rule.limit - count)
+            allowed = check_rate_limit(redis_client, redis_key, rule.limit, rule.window_seconds)
+            ttl = rule.window_seconds
+            remaining = rule.limit if allowed else 0
             if worst_remaining is None or remaining < worst_remaining:
                 worst_remaining = remaining
                 worst_reset = ttl
                 worst_limit = rule.limit
                 worst_bucket = response_bucket
 
-            if count > rule.limit:
+            if not allowed:
                 logger.info(
                     "Rate limit hit ip=%s path=%s bucket=%s limit=%s retry_after=%s",
                     ip,
@@ -243,6 +294,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     response_bucket,
                     rule.limit,
                     ttl,
+                )
+                log_audit_event(
+                    "rate_limited",
+                    ip_address=ip,
+                    extra={"path": request.url.path, "bucket": response_bucket, "limit": rule.limit},
                 )
                 response = JSONResponse(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,

@@ -21,6 +21,8 @@ from app.core.dependencies import (
     validate_saved_upload_paths,
     validate_upload_batch,
 )
+from app.core.audit_log import log_audit_event
+from app.core.file_validation import expected_category_for_filename, validate_file_magic
 from app.core.job_security import create_job_access, verify_job_access
 from app.services.file_store import resolve_upload_path
 from app.workers.celery_app import celery_app
@@ -120,9 +122,15 @@ async def _virus_scan_input_path(settings: Settings, file: UploadFile | None = N
     if not destination.is_relative_to(upload_root):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Upload path is invalid.")
 
+    await file.seek(0)
+    header = await file.read(8192)
+    await file.seek(0)
+    category = expected_category_for_filename(file.filename or "")
+    if category:
+        validate_file_magic(header, category, file.filename or "upload")
+
     max_bytes = settings.FILE_TOOLS_MAX_FILE_SIZE_MB * 1024 * 1024
     bytes_written = 0
-    await file.seek(0)
     async with aiofiles.open(destination, "wb") as output_file:
         while chunk := await file.read(1024 * 1024):
             bytes_written += len(chunk)
@@ -139,6 +147,7 @@ async def _virus_scan_input_path(settings: Settings, file: UploadFile | None = N
     if bytes_written <= 0:
         destination.unlink(missing_ok=True)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty")
+    log_audit_event("file_upload", file_name=file.filename, file_size=bytes_written)
     return destination
 
 
@@ -398,4 +407,5 @@ async def download_output(
         file_path = await _zip_outputs(job_id, [str(path) for path in output_paths], settings, output_filename)
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="This file-tools job does not have a downloadable output.")
+    log_audit_event("file_download", job_id=job_id, file_name=output_filename or file_path.name)
     return FileResponse(path=file_path, media_type=media_type or mimetypes.guess_type(file_path.name)[0] or "application/octet-stream", filename=output_filename or file_path.name, headers={"Cache-Control": "no-store"})

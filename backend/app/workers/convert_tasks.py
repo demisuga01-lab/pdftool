@@ -6,6 +6,7 @@ from typing import Any, Awaitable
 
 from fastapi import HTTPException
 
+from app.core.audit_log import log_audit_event
 from app.core.errors import sanitize_error_message
 from app.services.conversion_service import ConversionService
 from app.services.virus_scanner import VirusScanner
@@ -28,6 +29,7 @@ def _success(task: Any, **result: Any) -> dict[str, Any]:
         result["output_filename"] = path.name
         result["media_type"] = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
         result["extension"] = path.suffix.lstrip(".")
+    log_audit_event("job_completed", job_id=_task_id(task), extra={"tool": getattr(task, "name", None)})
     return {
         "task_id": _task_id(task),
         "status": "success",
@@ -40,6 +42,7 @@ def _success(task: Any, **result: Any) -> dict[str, Any]:
 def _failure(task: Any, exc: Exception) -> dict[str, Any]:
     raw_detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
     logger.exception("Convert task %s failed", _task_id(task))
+    log_audit_event("job_failed", job_id=_task_id(task), extra={"tool": getattr(task, "name", None)})
     return {
         "task_id": _task_id(task),
         "status": "failure",
@@ -51,6 +54,7 @@ def _failure(task: Any, exc: Exception) -> dict[str, Any]:
 
 
 def _scan_failure(task: Any) -> dict[str, Any]:
+    log_audit_event("job_failed", job_id=_task_id(task), extra={"tool": getattr(task, "name", None), "reason": "virus_scan"})
     return {
         "task_id": _task_id(task),
         "status": "failure",

@@ -17,6 +17,7 @@ from app.core.dependencies import (
     validate_saved_upload_path,
     validate_upload_file_size,
 )
+from app.core.audit_log import log_audit_event
 from app.core.job_security import create_job_access, verify_job_access
 from app.services.file_store import resolve_upload_path
 from app.workers.celery_app import celery_app
@@ -240,6 +241,7 @@ async def download_output(
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Output file not found. The job may have failed or expired.")
 
+    log_audit_event("file_download", job_id=job_id, file_name=output_filename or file_path.name)
     return FileResponse(
         path=file_path,
         media_type=media_type or mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",

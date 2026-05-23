@@ -17,6 +17,7 @@ from app.core.dependencies import (
     save_temp_upload,
     validate_saved_upload_path,
 )
+from app.core.audit_log import log_audit_event
 from app.core.job_security import create_job_access, verify_job_access
 from app.services.conversion_service import ConversionService
 from app.services.engine_registry import validate_engine_for_workflow
@@ -147,6 +148,7 @@ async def _input_path_from_file_or_id(
     settings: Settings,
     file: UploadFile | None,
     file_id: str | None,
+    expected_category: str | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     if file_id:
         metadata = read_upload_metadata(file_id, settings)
@@ -160,7 +162,7 @@ async def _input_path_from_file_or_id(
             detail="Provide either file_id or file",
         )
 
-    input_path = await save_temp_upload(file, settings)
+    input_path = await save_temp_upload(file, settings, expected_category=expected_category)
     mime_type = file.content_type or "application/octet-stream"
     return input_path, {
         "original_name": file.filename or input_path.name,
@@ -193,7 +195,10 @@ async def convert_file(
 
         validate_optional_upload(file, settings)
 
-    input_path, metadata = await _input_path_from_file_or_id(settings, file, file_id)
+    expected_category = _conversion_input_category(from_format) if from_format else None
+    if expected_category == "unknown":
+        expected_category = None
+    input_path, metadata = await _input_path_from_file_or_id(settings, file, file_id, expected_category=expected_category)
     parsed_settings: dict[str, Any] = {}
     if settings_json:
         try:
@@ -334,6 +339,7 @@ async def download_output(
             detail="Output file not found. The job may have failed or expired.",
         )
 
+    log_audit_event("file_download", job_id=job_id, file_name=output_filename or file_path.name)
     return FileResponse(
         path=file_path,
         media_type=media_type or mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",

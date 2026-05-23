@@ -11,6 +11,8 @@ import aiofiles
 from fastapi import HTTPException, UploadFile, status
 
 from app.core.config import Settings
+from app.core.audit_log import log_audit_event
+from app.core.file_validation import expected_category_for_filename, validate_file_magic
 from app.services.command_runner import run_command
 from app.services.svg_rasterizer import rasterize_svg_to_png
 
@@ -38,6 +40,16 @@ def _safe_suffix(filename: str | None) -> str:
     if not suffix or not re.fullmatch(r"\.[a-z0-9]+", suffix):
         return ".bin"
     return suffix
+
+
+def _upload_file_size(file: UploadFile) -> int:
+    try:
+        file.file.seek(0, 2)
+        file_size = file.file.tell()
+        file.file.seek(0)
+        return int(file_size)
+    except OSError:
+        return int(getattr(file, "size", 0) or 0)
 
 
 def _metadata_path(settings: Settings, file_id: str) -> Path:
@@ -151,6 +163,7 @@ async def save_upload_file(
     settings: Settings,
     max_size_mb: int | None = None,
     limit_label: str = "Maximum size",
+    expected_category: str | None = None,
 ) -> dict[str, Any]:
     settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     file_id = uuid4().hex
@@ -163,6 +176,13 @@ async def save_upload_file(
     max_bytes = configured_mb * 1024 * 1024
     bytes_written = 0
     await file.seek(0)
+    header = await file.read(8192)
+    await file.seek(0)
+    category = expected_category or expected_category_for_filename(file.filename or "")
+    detected_mime = None
+    if category:
+        detected_mime = validate_file_magic(header, category, file.filename or "upload")
+    log_audit_event("file_upload", file_name=file.filename, file_size=_upload_file_size(file))
     async with aiofiles.open(destination, "wb") as output_file:
         while chunk := await file.read(1024 * 1024):
             bytes_written += len(chunk)
@@ -179,7 +199,7 @@ async def save_upload_file(
     await file.close()
 
     size_bytes = destination.stat().st_size
-    mime_type = file.content_type or mimetypes.guess_type(original_name)[0] or "application/octet-stream"
+    mime_type = detected_mime or file.content_type or mimetypes.guess_type(original_name)[0] or "application/octet-stream"
     extension = suffix.lstrip(".")
     extra: dict[str, Any] = {}
 
@@ -212,9 +232,10 @@ async def save_upload_files(
     settings: Settings,
     max_size_mb: int | None = None,
     limit_label: str = "Maximum size",
+    expected_category: str | None = None,
 ) -> list[dict[str, Any]]:
     return [
-        await save_upload_file(file, settings, max_size_mb=max_size_mb, limit_label=limit_label)
+        await save_upload_file(file, settings, max_size_mb=max_size_mb, limit_label=limit_label, expected_category=expected_category)
         for file in files
     ]
 

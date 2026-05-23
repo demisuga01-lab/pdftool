@@ -20,6 +20,7 @@ from app.core.dependencies import (
     validate_upload_file_size,
     validate_upload_files_size,
 )
+from app.core.audit_log import log_audit_event
 from app.core.job_security import create_job_access, verify_job_access
 from app.services.file_store import resolve_upload_path
 from app.services.image_service import IMAGE_OUTPUT_FORMAT_ERROR, ImageService, normalize_image_output_format
@@ -97,15 +98,16 @@ def _output_dir(settings: Settings, job_id: str) -> Path:
     return output_dir
 
 
-async def _save_uploads(files: list[UploadFile], settings: Settings) -> list[Path]:
+async def _save_uploads(files: list[UploadFile], settings: Settings, expected_category: str | None = "image") -> list[Path]:
     validate_upload_batch(files, settings)
-    return [await save_temp_upload(file, settings) for file in files]
+    return [await save_temp_upload(file, settings, expected_category=expected_category) for file in files]
 
 
 async def _input_path_from_file_or_id(
     settings: Settings,
     file: UploadFile | None = None,
     file_id: str | None = None,
+    expected_category: str | None = "image",
 ) -> Path:
     if file_id:
         path = resolve_upload_path(file_id, settings)
@@ -117,13 +119,14 @@ async def _input_path_from_file_or_id(
             detail="Provide either file_id or file",
         )
     validate_optional_upload(file, settings)
-    return await save_temp_upload(file, settings)
+    return await save_temp_upload(file, settings, expected_category=expected_category)
 
 
 async def _input_paths_from_files_or_ids(
     settings: Settings,
     files: list[UploadFile] | None = None,
     file_ids: list[str] | None = None,
+    expected_category: str | None = "image",
 ) -> list[Path]:
     clean_ids = [file_id for file_id in (file_ids or []) if file_id]
     if clean_ids:
@@ -135,7 +138,7 @@ async def _input_paths_from_files_or_ids(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Provide either file_ids or files",
         )
-    return await _save_uploads(files, settings)
+    return await _save_uploads(files, settings, expected_category=expected_category)
 
 
 def _task_progress(state: str) -> int:
@@ -471,7 +474,7 @@ async def watermark_image(
         validate_saved_upload_path(watermark_path, settings)
     elif watermark_file is not None:
         validate_optional_upload(watermark_file, settings)
-        watermark_path = await save_temp_upload(watermark_file, settings)
+        watermark_path = await save_temp_upload(watermark_file, settings, expected_category="image")
     task = watermark_image_task.apply_async(
         args=[
             str(input_path),
@@ -526,7 +529,7 @@ async def ocr_image(
     denoise: Annotated[bool, Form()] = False,
     enhance_contrast: Annotated[bool, Form()] = False,
 ) -> dict[str, Any]:
-    input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
+    input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id, expected_category=None)
     job_id, access_token = _new_job(settings)
     output_dir = _output_dir(settings, job_id)
     task = ocr_image_task.apply_async(
@@ -546,14 +549,14 @@ async def batch_resize(
     file_ids: Annotated[list[str] | None, Form()] = None,
 ) -> dict[str, str]:
     if file_ids:
-        input_paths = await _input_paths_from_files_or_ids(settings, files=files, file_ids=file_ids)
+        input_paths = await _input_paths_from_files_or_ids(settings, files=files, file_ids=file_ids, expected_category="image")
     elif not files:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least one image is required",
         )
     elif len(files) == 1 and Path(files[0].filename or "").suffix.lower() == ".zip":
-        zip_path = await save_temp_upload(files[0], settings)
+        zip_path = await save_temp_upload(files[0], settings, expected_category="archive")
         input_paths = await _extract_zip_images(zip_path, settings)
     else:
         input_paths = await _save_uploads(files, settings)
@@ -669,6 +672,7 @@ async def download_output(
             detail="Output file not found. The job may have failed or expired.",
         )
 
+    log_audit_event("file_download", job_id=job_id, file_name=output_filename or file_path.name)
     return FileResponse(
         path=file_path,
         media_type=media_type or mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",

@@ -8,6 +8,7 @@ from typing import Any, Awaitable
 from celery.exceptions import SoftTimeLimitExceeded
 from fastapi import HTTPException
 
+from app.core.audit_log import log_audit_event
 from app.core.errors import sanitize_error_message
 from app.services.compression_service import CompressionService
 from app.workers.celery_app import celery_app
@@ -31,6 +32,7 @@ def _success(task: Any, **result: Any) -> dict[str, Any]:
         result["output_filename"] = path.name
         result["media_type"] = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
         result["extension"] = path.suffix.lstrip(".")
+    log_audit_event("job_completed", job_id=_task_id(task), extra={"tool": getattr(task, "name", None), "duration_ms": result.get("duration_ms")})
     return {
         "task_id": _task_id(task),
         "status": "success",
@@ -50,6 +52,7 @@ def _failure(task: Any, exc: Exception, *, message: str | None = None) -> dict[s
     else:
         raw_error = str(exc) or exc.__class__.__name__
     logger.exception("Compression task %s failed", _task_id(task))
+    log_audit_event("job_failed", job_id=_task_id(task), extra={"tool": getattr(task, "name", None)})
     return {
         "task_id": _task_id(task),
         "status": "failure",
@@ -98,6 +101,7 @@ def compress_file_task(self: Any, input_path: str, output_dir: str, settings: di
             result.get("output_size"),
             result.get("attempts"),
         )
+        result["duration_ms"] = int(elapsed * 1000)
         return _success(self, **result)
     except SoftTimeLimitExceeded as exc:
         elapsed = time.monotonic() - started

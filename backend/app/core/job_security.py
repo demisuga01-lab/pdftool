@@ -6,6 +6,7 @@ from functools import lru_cache
 
 from fastapi import HTTPException, status
 
+from app.core.audit_log import log_audit_event
 from app.core.config import Settings, get_settings
 
 JOB_TOKEN_TTL_SECONDS = 86_400
@@ -26,12 +27,20 @@ def _client(settings: Settings | None = None):
 def create_job_access(job_id: str, settings: Settings | None = None) -> str:
     access_token = secrets.token_urlsafe(32)
     _client(settings).set(f"job_token:{job_id}", access_token, ex=JOB_TOKEN_TTL_SECONDS)
+    log_audit_event("job_created", job_id=job_id)
     return access_token
 
 
-def verify_job_access(job_id: str, token: str | None = None, header_token: str | None = None, settings: Settings | None = None) -> None:
+def verify_job_access(
+    job_id: str,
+    token: str | None = None,
+    header_token: str | None = None,
+    settings: Settings | None = None,
+    ip_address: str | None = None,
+) -> None:
     provided = (token or header_token or "").strip()
     if not provided:
+        log_audit_event("access_denied", job_id=job_id, ip_address=ip_address, extra={"reason": "missing_token"})
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Job access token is required.")
 
     stored = _client(settings).get(f"job_token:{job_id}")
@@ -39,4 +48,5 @@ def verify_job_access(job_id: str, token: str | None = None, header_token: str |
         stored = stored.decode("utf-8", errors="replace")
 
     if not stored or not hmac.compare_digest(str(stored), provided):
+        log_audit_event("access_denied", job_id=job_id, ip_address=ip_address, extra={"reason": "invalid_token"})
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid job access token.")
