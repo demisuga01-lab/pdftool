@@ -10,6 +10,7 @@ from app.core.errors import sanitize_error_message
 from app.services.compression_service import CompressionService
 from app.services.image_service import ImageService
 from app.services.ocr_service import OCRService
+from app.services.output_naming import job_id_from_output_dir, safe_output_name
 from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -338,7 +339,7 @@ def ocr_image_task(
     try:
         output = Path(_run_service(OCRService().ocr(input_path, output_dir, language, output_format, dpi, password=password)))
         if output_filename and output_filename.strip():
-            safe_name = f"{_safe_stem(output_filename, output.stem)}{output.suffix}"
+            safe_name = safe_output_name(job_id_from_output_dir(output.parent), f"{_safe_stem(output_filename, output.stem)}{output.suffix}")
             renamed = output.parent / safe_name
             output.replace(renamed)
             output = renamed

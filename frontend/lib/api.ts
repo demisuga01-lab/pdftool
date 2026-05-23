@@ -19,6 +19,7 @@ export type JobStatus = {
 
 export type ApiResponse = {
   job_id: string;
+  access_token?: string;
   status: string;
   message: string;
 };
@@ -224,6 +225,7 @@ export type JobApiPrefix = "pdf" | "image" | "convert" | "compress" | "file-tool
 export async function getJobStatus(
   prefix: JobApiPrefix,
   jobId: string,
+  accessToken: string,
   signal?: AbortSignal,
 ): Promise<JobStatus> {
   let response: Response;
@@ -231,6 +233,7 @@ export async function getJobStatus(
   try {
     response = await fetch(toApiPath(`${prefix}/status/${jobId}`), {
       cache: "no-store",
+      headers: accessToken ? { "X-Access-Token": accessToken } : undefined,
       signal,
     });
   } catch (error: unknown) {
@@ -277,6 +280,7 @@ export async function getJobStatus(
 export async function pollJobStatus(
   prefix: JobApiPrefix,
   jobId: string,
+  accessToken: string,
   signal?: AbortSignal,
   onUpdate?: (status: JobStatus) => void,
   timeoutKind: "fast" | "heavy" | "ocr" = "heavy",
@@ -292,7 +296,7 @@ export async function pollJobStatus(
     let status: JobStatus;
 
     try {
-      status = await getJobStatus(prefix, jobId, signal);
+      status = await getJobStatus(prefix, jobId, accessToken, signal);
       lastKnownStatus = status;
     } catch (error: unknown) {
       if (isAbortError(error)) {
@@ -366,12 +370,14 @@ function parseContentDispositionFilename(headerValue: string | null): string | u
 export async function downloadFile(
   prefix: JobApiPrefix,
   jobId: string,
+  accessToken: string,
   filename: string,
 ): Promise<void> {
   let response: Response;
   try {
     response = await fetch(toApiPath(`${prefix}/download/${jobId}`), {
       cache: "no-store",
+      headers: accessToken ? { "X-Access-Token": accessToken } : undefined,
     });
   } catch (error: unknown) {
     throw normalizeNetworkError(error, NETWORK_ERROR_MESSAGE);

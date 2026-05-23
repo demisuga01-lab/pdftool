@@ -6,7 +6,7 @@ from typing import Annotated, Any
 from uuid import uuid4
 
 from celery.result import AsyncResult
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -17,6 +17,7 @@ from app.core.dependencies import (
     validate_saved_upload_path,
     validate_upload_file_size,
 )
+from app.core.job_security import create_job_access, verify_job_access
 from app.services.file_store import resolve_upload_path
 from app.workers.celery_app import celery_app
 from app.workers.compress_tasks import compress_file_task
@@ -33,12 +34,17 @@ class CompressJsonRequest(BaseModel):
     settings: dict[str, Any] = Field(default_factory=dict)
 
 
-def _queued_response(job_id: str, message: str) -> dict[str, str]:
-    return {"job_id": job_id, "status": "queued", "message": message}
+def _new_job(settings: Settings) -> tuple[str, str]:
+    job_id = uuid4().hex
+    return job_id, create_job_access(job_id, settings)
 
 
-def _output_dir(settings: Settings) -> Path:
-    output_dir = settings.OUTPUT_DIR / uuid4().hex
+def _queued_response(job_id: str, access_token: str, message: str) -> dict[str, str]:
+    return {"job_id": job_id, "access_token": access_token, "status": "queued", "message": message}
+
+
+def _output_dir(settings: Settings, job_id: str) -> Path:
+    output_dir = settings.OUTPUT_DIR / job_id
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 
@@ -129,8 +135,9 @@ async def compress(
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
     payload = _parse_settings(compression_settings, mode, type)
-    task = compress_file_task.apply_async(args=[str(input_path), str(_output_dir(settings)), payload], queue="heavy")
-    return _queued_response(str(task.id), "Compression started")
+    job_id, access_token = _new_job(settings)
+    task = compress_file_task.apply_async(args=[str(input_path), str(_output_dir(settings, job_id)), payload], queue="heavy", task_id=job_id)
+    return _queued_response(str(task.id), access_token, "Compression started")
 
 
 @router.post("/json")
@@ -138,12 +145,19 @@ async def compress_json(payload: CompressJsonRequest, settings: AppSettings) -> 
     input_path = resolve_upload_path(payload.file_id, settings)
     validate_saved_upload_path(input_path, settings)
     request_settings = {**payload.settings, "mode": payload.mode}
-    task = compress_file_task.apply_async(args=[str(input_path), str(_output_dir(settings)), request_settings], queue="heavy")
-    return _queued_response(str(task.id), "Compression started")
+    job_id, access_token = _new_job(settings)
+    task = compress_file_task.apply_async(args=[str(input_path), str(_output_dir(settings, job_id)), request_settings], queue="heavy", task_id=job_id)
+    return _queued_response(str(task.id), access_token, "Compression started")
 
 
 @router.get("/status/{job_id}")
-async def get_status(job_id: str) -> dict[str, Any]:
+async def get_status(
+    job_id: str,
+    settings: AppSettings,
+    token: str | None = None,
+    x_access_token: Annotated[str | None, Header(alias="X-Access-Token")] = None,
+) -> dict[str, Any]:
+    verify_job_access(job_id, token, x_access_token, settings)
     task = _task_result(job_id)
     response: dict[str, Any] = {
         "job_id": job_id,
@@ -187,7 +201,13 @@ async def get_status(job_id: str) -> dict[str, Any]:
 
 
 @router.get("/download/{job_id}")
-async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
+async def download_output(
+    job_id: str,
+    settings: AppSettings,
+    token: str | None = None,
+    x_access_token: Annotated[str | None, Header(alias="X-Access-Token")] = None,
+) -> FileResponse:
+    verify_job_access(job_id, token, x_access_token, settings)
     task = _task_result(job_id)
     if not task.ready():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Task is not complete yet")

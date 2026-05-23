@@ -6,7 +6,7 @@ from typing import Annotated, Any
 from uuid import uuid4
 
 from celery.result import AsyncResult
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.core.config import Settings
@@ -20,6 +20,7 @@ from app.core.dependencies import (
     validate_upload_file_size,
     validate_upload_files_size,
 )
+from app.core.job_security import create_job_access, verify_job_access
 from app.services.file_store import resolve_upload_path
 from app.services.image_service import IMAGE_OUTPUT_FORMAT_ERROR, ImageService, normalize_image_output_format
 from app.workers.celery_app import celery_app
@@ -44,8 +45,13 @@ AppSettings = Annotated[Settings, Depends(get_app_settings)]
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff", ".avif", ".bmp", ".svg", ".pdf"}
 
 
-def _queued_response(job_id: str, message: str) -> dict[str, str]:
-    return {"job_id": job_id, "status": "queued", "message": message}
+def _new_job(settings: Settings) -> tuple[str, str]:
+    job_id = uuid4().hex
+    return job_id, create_job_access(job_id, settings)
+
+
+def _queued_response(job_id: str, access_token: str, message: str) -> dict[str, str]:
+    return {"job_id": job_id, "access_token": access_token, "status": "queued", "message": message}
 
 
 def _extension_from_format(format: str | None, fallback: str | None = None) -> str:
@@ -72,21 +78,21 @@ def _safe_stem(value: str | None, fallback_stem: str) -> str:
     return safe or fallback or "output"
 
 
-def _output_path(settings: Settings, suffix: str = ".jpg", requested_name: str | None = None, fallback_stem: str = "output") -> Path:
+def _output_path(settings: Settings, job_id: str, suffix: str = ".jpg", requested_name: str | None = None, fallback_stem: str = "output") -> Path:
     settings.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     if requested_name and requested_name.strip():
-        return settings.OUTPUT_DIR / f"{_safe_stem(requested_name, fallback_stem)}{suffix}"
-    return settings.OUTPUT_DIR / f"{uuid4().hex}{suffix}"
+        return settings.OUTPUT_DIR / f"{job_id}_{_safe_stem(requested_name, fallback_stem)}{suffix}"
+    return settings.OUTPUT_DIR / f"{job_id}_output{suffix}"
 
 
 def _safe_output_name(value: str, fallback_stem: str, suffix: str) -> Path:
     if not value.strip():
-        return Path(f"{uuid4().hex}{suffix}")
+        return Path(f"output{suffix}")
     return Path(f"{_safe_stem(value, fallback_stem)}{suffix}")
 
 
-def _output_dir(settings: Settings) -> Path:
-    output_dir = settings.OUTPUT_DIR / uuid4().hex
+def _output_dir(settings: Settings, job_id: str) -> Path:
+    output_dir = settings.OUTPUT_DIR / job_id
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 
@@ -289,13 +295,15 @@ async def convert_image(
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
     original_name = file.filename if file is not None else input_path.name
     suffix = _extension_from_format(format, fallback=_safe_suffix(original_name))
+    job_id, access_token = _new_job(settings)
     requested_name = _safe_output_name(output_filename, Path(original_name or "converted").stem, suffix)
-    output_path = settings.OUTPUT_DIR / requested_name
+    output_path = settings.OUTPUT_DIR / f"{job_id}_{requested_name.name}"
     task = convert_image_task.apply_async(
         args=[str(input_path), str(output_path), format, quality, preserve_metadata, color_space],
         queue="fast",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "Image conversion queued")
+    return _queued_response(str(task.id), access_token, "Image conversion queued")
 
 
 @router.post("/resize")
@@ -319,7 +327,8 @@ async def resize_image(
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
     original_name = file.filename if file is not None else input_path.name
     suffix = _extension_from_format(output_format or "auto", fallback=_safe_suffix(original_name))
-    output_path = _output_path(settings, suffix, output_filename, Path(original_name).stem)
+    job_id, access_token = _new_job(settings)
+    output_path = _output_path(settings, job_id, suffix, output_filename, Path(original_name).stem)
     task = resize_image_task.apply_async(
         args=[
             str(input_path),
@@ -336,8 +345,9 @@ async def resize_image(
             background,
         ],
         queue="fast",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "Image resize queued")
+    return _queued_response(str(task.id), access_token, "Image resize queued")
 
 
 @router.post("/compress")
@@ -355,7 +365,8 @@ async def compress_image(
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
     original_name = file.filename if file is not None else input_path.name
     normalized_format = format or "auto"
-    output_path = _output_path(settings, _extension_from_format(normalized_format, fallback=_safe_suffix(original_name)))
+    job_id, access_token = _new_job(settings)
+    output_path = _output_dir(settings, job_id) / f"{job_id}_output{_extension_from_format(normalized_format, fallback=_safe_suffix(original_name))}"
     task = compress_image_task.apply_async(
         args=[
             str(input_path),
@@ -368,8 +379,9 @@ async def compress_image(
             force_recompress,
         ],
         queue="fast",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "Image compression queued")
+    return _queued_response(str(task.id), access_token, "Image compression queued")
 
 
 @router.post("/crop")
@@ -384,12 +396,14 @@ async def crop_image(
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
     original_name = file.filename if file is not None else input_path.name
-    output_path = _output_path(settings, _safe_suffix(original_name))
+    job_id, access_token = _new_job(settings)
+    output_path = _output_path(settings, job_id, _safe_suffix(original_name))
     task = crop_image_task.apply_async(
         args=[str(input_path), str(output_path), x, y, width, height],
         queue="fast",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "Image crop queued")
+    return _queued_response(str(task.id), access_token, "Image crop queued")
 
 
 @router.post("/rotate")
@@ -409,12 +423,14 @@ async def rotate_image(
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
     original_name = file.filename if file is not None else input_path.name
     suffix = _extension_from_format(output_format or "auto", fallback=_safe_suffix(original_name))
-    output_path = _output_path(settings, suffix, output_filename, Path(original_name).stem)
+    job_id, access_token = _new_job(settings)
+    output_path = _output_path(settings, job_id, suffix, output_filename, Path(original_name).stem)
     task = rotate_image_task.apply_async(
         args=[str(input_path), str(output_path), angle, flip_horizontal, flip_vertical, output_format, expand_canvas, background, auto_crop],
         queue="fast",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "Image rotation queued")
+    return _queued_response(str(task.id), access_token, "Image rotation queued")
 
 
 @router.post("/watermark")
@@ -446,7 +462,8 @@ async def watermark_image(
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
     original_name = file.filename if file is not None else input_path.name
-    output_path = _output_path(settings, _safe_suffix(original_name), output_filename, Path(original_name).stem)
+    job_id, access_token = _new_job(settings)
+    output_path = _output_path(settings, job_id, _safe_suffix(original_name), output_filename, Path(original_name).stem)
     watermark_path: Path | None = None
     asset_id = uploaded_watermark_file_id or watermark_file_id
     if asset_id:
@@ -477,8 +494,9 @@ async def watermark_image(
             tile,
         ],
         queue="fast",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "Image watermark queued")
+    return _queued_response(str(task.id), access_token, "Image watermark queued")
 
 
 @router.post("/remove-background")
@@ -488,9 +506,10 @@ async def remove_background(
     file_id: Annotated[str | None, Form()] = None,
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
-    output_path = _output_path(settings, ".png")
-    task = remove_background_task.apply_async(args=[str(input_path), str(output_path)], queue="fast")
-    return _queued_response(str(task.id), "Background removal queued")
+    job_id, access_token = _new_job(settings)
+    output_path = _output_path(settings, job_id, ".png")
+    task = remove_background_task.apply_async(args=[str(input_path), str(output_path)], queue="fast", task_id=job_id)
+    return _queued_response(str(task.id), access_token, "Background removal queued")
 
 
 @router.post("/ocr")
@@ -500,7 +519,7 @@ async def ocr_image(
     file_id: Annotated[str | None, Form()] = None,
     language: Annotated[str, Form()] = "eng",
     output_format: Annotated[str, Form()] = "txt",
-    dpi: Annotated[int, Form()] = 300,
+    dpi: Annotated[int, Form(ge=72, le=300)] = 300,
     input_type: Annotated[str, Form()] = "auto",
     page_range: Annotated[str, Form()] = "all",
     deskew: Annotated[bool, Form()] = False,
@@ -508,12 +527,14 @@ async def ocr_image(
     enhance_contrast: Annotated[bool, Form()] = False,
 ) -> dict[str, Any]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
-    output_dir = _output_dir(settings)
+    job_id, access_token = _new_job(settings)
+    output_dir = _output_dir(settings, job_id)
     task = ocr_image_task.apply_async(
         args=[str(input_path), str(output_dir), language, output_format, input_type, page_range, deskew, denoise, enhance_contrast, dpi],
         queue="heavy",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "OCR queued")
+    return _queued_response(str(task.id), access_token, "OCR queued")
 
 
 @router.post("/batch-resize")
@@ -536,12 +557,14 @@ async def batch_resize(
         input_paths = await _extract_zip_images(zip_path, settings)
     else:
         input_paths = await _save_uploads(files, settings)
-    output_dir = _output_dir(settings)
+    job_id, access_token = _new_job(settings)
+    output_dir = _output_dir(settings, job_id)
     task = batch_resize_task.apply_async(
         args=[[str(path) for path in input_paths], str(output_dir), width, height],
         queue="heavy",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "Batch image resize queued")
+    return _queued_response(str(task.id), access_token, "Batch image resize queued")
 
 
 @router.post("/info")
@@ -556,7 +579,13 @@ async def get_image_info(
 
 
 @router.get("/status/{job_id}")
-async def get_status(job_id: str) -> dict[str, Any]:
+async def get_status(
+    job_id: str,
+    settings: AppSettings,
+    token: str | None = None,
+    x_access_token: Annotated[str | None, Header(alias="X-Access-Token")] = None,
+) -> dict[str, Any]:
+    verify_job_access(job_id, token, x_access_token, settings)
     task = _task_result(job_id)
     response: dict[str, Any] = {
         "job_id": job_id,
@@ -592,7 +621,13 @@ async def get_status(job_id: str) -> dict[str, Any]:
 
 
 @router.get("/download/{job_id}")
-async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
+async def download_output(
+    job_id: str,
+    settings: AppSettings,
+    token: str | None = None,
+    x_access_token: Annotated[str | None, Header(alias="X-Access-Token")] = None,
+) -> FileResponse:
+    verify_job_access(job_id, token, x_access_token, settings)
     task = _task_result(job_id)
 
     if not task.ready():

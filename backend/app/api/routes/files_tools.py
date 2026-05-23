@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import aiofiles
 from celery.result import AsyncResult
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.core.config import Settings
@@ -21,6 +21,7 @@ from app.core.dependencies import (
     validate_saved_upload_paths,
     validate_upload_batch,
 )
+from app.core.job_security import create_job_access, verify_job_access
 from app.services.file_store import resolve_upload_path
 from app.workers.celery_app import celery_app
 from app.workers.file_tools_tasks import file_tool_task
@@ -58,12 +59,17 @@ ALL_TOOLS = {
 }
 
 
-def _queued_response(job_id: str, message: str) -> dict[str, str]:
-    return {"job_id": job_id, "status": "queued", "message": message}
+def _new_job(settings: Settings) -> tuple[str, str]:
+    job_id = uuid4().hex
+    return job_id, create_job_access(job_id, settings)
 
 
-def _output_dir(settings: Settings) -> Path:
-    output_dir = settings.OUTPUT_DIR / uuid4().hex
+def _queued_response(job_id: str, access_token: str, message: str) -> dict[str, str]:
+    return {"job_id": job_id, "access_token": access_token, "status": "queued", "message": message}
+
+
+def _output_dir(settings: Settings, job_id: str) -> Path:
+    output_dir = settings.OUTPUT_DIR / job_id
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 
@@ -211,12 +217,14 @@ async def _zip_outputs(job_id: str, output_paths: list[str], settings: Settings,
 def _enqueue(tool: str, input_paths: list[Path], settings: Settings, params: dict[str, Any]) -> dict[str, str]:
     if tool not in ALL_TOOLS:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown file tool.")
-    output_dir = _output_dir(settings)
+    job_id, access_token = _new_job(settings)
+    output_dir = _output_dir(settings, job_id)
     task = file_tool_task.apply_async(
         args=[tool, [str(path) for path in input_paths], str(output_dir), params],
         queue="heavy" if tool in HEAVY_TOOLS else "fast",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), f"{tool} queued")
+    return _queued_response(str(task.id), access_token, f"{tool} queued")
 
 
 @router.post("/hash")
@@ -341,7 +349,13 @@ async def text_encoding_convert(settings: AppSettings, file: Annotated[UploadFil
 
 
 @router.get("/status/{job_id}")
-async def get_status(job_id: str) -> dict[str, Any]:
+async def get_status(
+    job_id: str,
+    settings: AppSettings,
+    token: str | None = None,
+    x_access_token: Annotated[str | None, Header(alias="X-Access-Token")] = None,
+) -> dict[str, Any]:
+    verify_job_access(job_id, token, x_access_token, settings)
     task = _task_result(job_id)
     response: dict[str, Any] = {"job_id": job_id, "status": _normalized_task_state(task.state), "stage": "queued" if _normalized_task_state(task.state) == "queued" else "processing", "progress": _task_progress(task.state)}
     if task.successful():
@@ -359,7 +373,13 @@ async def get_status(job_id: str) -> dict[str, Any]:
 
 
 @router.get("/download/{job_id}")
-async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
+async def download_output(
+    job_id: str,
+    settings: AppSettings,
+    token: str | None = None,
+    x_access_token: Annotated[str | None, Header(alias="X-Access-Token")] = None,
+) -> FileResponse:
+    verify_job_access(job_id, token, x_access_token, settings)
     task = _task_result(job_id)
     if not task.ready():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Task is not complete yet.")

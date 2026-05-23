@@ -18,7 +18,7 @@ import {
   type UploadProgressHandler,
 } from "@/lib/files";
 import { estimateProcessingTime, formatBytes, formatFileType, slugifyBaseName } from "@/lib/format";
-import { upsertRecentJob } from "@/lib/recent-jobs";
+import { readRecentJobs, upsertRecentJob } from "@/lib/recent-jobs";
 import {
   imageSummary,
   uploadedFileDetails,
@@ -29,7 +29,7 @@ import {
 } from "@/lib/workspace-data";
 
 type OcrSettings = {
-  dpi: 200 | 300 | 400;
+  dpi: 200 | 300;
   language: "eng";
   outputFilename: string;
   outputFormat: "txt" | "json" | "searchable_pdf" | "docx" | "hocr";
@@ -70,6 +70,7 @@ export default function OcrPage() {
   const [uploadTotalBytes, setUploadTotalBytes] = useState(0);
   const [jobState, setJobState] = useState<ProcessState>("idle");
   const [jobId, setJobId] = useState<string | null>(searchParams.get("job_id"));
+  const [accessToken, setAccessToken] = useState("");
   const [jobResult, setJobResult] = useState<JobStatus | null>(null);
   const [jobError, setJobError] = useState<string | null>(null);
   const [jobNotice, setJobNotice] = useState<string | null>(null);
@@ -268,7 +269,7 @@ export default function OcrPage() {
         method: "POST",
         signal: controller.signal,
       });
-      const data = (await response.json()) as { bucket?: string; detail?: string; error?: string; job_id?: string; retry_after_seconds?: number };
+      const data = (await response.json()) as { access_token?: string; bucket?: string; detail?: string; error?: string; job_id?: string; retry_after_seconds?: number };
       if (response.status === 429) {
         const retryAfterSeconds = parseRetryAfterSeconds(response, data);
         throw new ApiRateLimitError(formatRateLimitMessage("job", retryAfterSeconds), {
@@ -281,8 +282,14 @@ export default function OcrPage() {
         throw new Error(data.detail || data.error || "Unable to start OCR");
       }
       const nextJobId = data.job_id;
+      const nextAccessToken = data.access_token ?? "";
+      if (!nextAccessToken) {
+        throw new Error("Processing did not return a job access token.");
+      }
       setJobId(nextJobId);
+      setAccessToken(nextAccessToken);
       upsertRecentJob({
+        accessToken: nextAccessToken,
         approximateFileSize: formatBytes(fileMeta.size_bytes),
         downloadUrl: toApiPath(`image/download/${nextJobId}`),
         fileType: fileMeta.extension,
@@ -295,13 +302,14 @@ export default function OcrPage() {
         toolName: "OCR",
       });
       syncQuery({ file_id: fileMeta.file_id, job_id: nextJobId });
-      const finalStatus = await pollJobStatus("image", nextJobId, controller.signal, (status) => {
+      const finalStatus = await pollJobStatus("image", nextJobId, nextAccessToken, controller.signal, (status) => {
         setJobResult(status);
         setJobNotice(status.notice ?? null);
         setRateLimitScope(status.notice ? "status" : null);
         if (status.status === "queued" || status.status === "processing") {
           setJobState(status.status);
           upsertRecentJob({
+            accessToken: nextAccessToken,
             approximateFileSize: formatBytes(fileMeta.size_bytes),
             downloadUrl: toApiPath(`image/download/${nextJobId}`),
             fileType: fileMeta.extension,
@@ -321,6 +329,7 @@ export default function OcrPage() {
       setJobNotice(null);
       setRateLimitScope(null);
       upsertRecentJob({
+        accessToken: nextAccessToken,
         approximateFileSize: formatBytes(fileMeta.size_bytes),
         downloadUrl: toApiPath(`image/download/${nextJobId}`),
         errorMessage: finalStatus.error,
@@ -387,6 +396,8 @@ export default function OcrPage() {
   useEffect(() => {
     const queryJobId = searchParams.get("job_id");
     if (queryJobId && !jobId) {
+      const storedJob = readRecentJobs().find((job) => job.id === queryJobId);
+      setAccessToken(storedJob?.accessToken ?? "");
       setJobId(queryJobId);
     }
   }, [jobId, searchParams]);
@@ -421,7 +432,7 @@ export default function OcrPage() {
       return;
     }
     try {
-      await downloadFile("image", jobId, outputName);
+      await downloadFile("image", jobId, accessToken, outputName);
       setJobNotice(null);
       setRateLimitScope(null);
     } catch (caughtError) {
@@ -441,7 +452,7 @@ export default function OcrPage() {
         });
       }
     }
-  }, [jobId, outputName]);
+  }, [accessToken, jobId, outputName]);
 
   const sections: Array<ControlSection<OcrSettings>> = useMemo(
     () => [
@@ -462,7 +473,6 @@ export default function OcrPage() {
             options: [
               { label: "200 DPI", value: 200 },
               { label: "300 DPI", value: 300 },
-              { label: "400 DPI", value: 400 },
             ],
           },
           {

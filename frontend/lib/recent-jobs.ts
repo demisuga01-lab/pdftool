@@ -15,6 +15,7 @@ export type RecentJob = {
   createdAt: string;
   updatedAt: string;
   downloadUrl?: string;
+  accessToken?: string;
   outputFilename?: string;
   activePageCount?: number;
   outputMode?: string;
@@ -46,6 +47,7 @@ function normalizeJob(job: RecentJob): RecentJob {
     fileType: cleanString(job.fileType),
     approximateFileSize: cleanString(job.approximateFileSize),
     downloadUrl: cleanString(job.downloadUrl),
+    accessToken: cleanString(job.accessToken),
     outputFilename: cleanString(job.outputFilename),
     activePageCount: typeof job.activePageCount === "number" && Number.isFinite(job.activePageCount)
       ? job.activePageCount
@@ -107,6 +109,7 @@ export function upsertRecentJob(job: {
   approximateFileSize?: string;
   status: RecentJobStatus;
   downloadUrl?: string;
+  accessToken?: string;
   outputFilename?: string;
   activePageCount?: number;
   outputMode?: string;

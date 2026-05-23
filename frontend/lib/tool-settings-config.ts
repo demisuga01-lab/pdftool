@@ -82,7 +82,6 @@ export const pdfToImagesSections: Array<SettingSection<PDFToImagesSettings>> = [
           { label: "72 DPI", value: 72 },
           { label: "150 DPI", value: 150 },
           { label: "300 DPI", value: 300 },
-          { label: "600 DPI", value: 600 },
         ],
       },
       {

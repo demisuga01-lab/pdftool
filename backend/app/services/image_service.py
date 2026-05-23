@@ -10,6 +10,7 @@ from typing import Any, Literal
 from fastapi import HTTPException, status
 
 from app.services.command_runner import run_command
+from app.services.output_naming import job_id_from_output_dir, safe_output_name
 from app.services.svg_rasterizer import validate_svg_file
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,14 @@ ImageFormat = Literal["auto", "jpg", "jpeg", "png", "webp", "tiff", "tif", "avif
 ResizeFit = Literal["cover", "contain", "fill", "inside", "outside", "stretch"]
 IMAGE_OUTPUT_FORMAT_ERROR = "Output format is invalid. Please choose Same as input, JPG, PNG, WebP, TIFF, AVIF, or BMP."
 IMAGE_COMMAND_TIMEOUT_SECONDS = 120
+
+
+def _safe_output_name(job_id: str, original_name: str) -> str:
+    """
+    Create a safe output filename prefixed with job_id.
+    Strips path separators and dangerous characters.
+    """
+    return safe_output_name(job_id, original_name)
 
 
 def get_imagemagick_command() -> str:
@@ -806,13 +815,14 @@ class ImageService:
 
         output_directory = Path(output_dir)
         output_directory.mkdir(parents=True, exist_ok=True)
+        job_id = job_id_from_output_dir(output_directory)
         input_file = Path(input_path)
 
         if normalized_output in {"txt", "docx"}:
             stdout, _ = await self._run_command(["tesseract", str(input_file), "stdout", "-l", language])
             text = stdout.strip()
             if normalized_output == "docx":
-                output = self._ensure_parent(output_directory / "ocr-output.docx")
+                output = self._ensure_parent(output_directory / _safe_output_name(job_id, "ocr-output.docx"))
 
                 def write_docx() -> None:
                     from docx import Document
@@ -825,24 +835,24 @@ class ImageService:
                 await asyncio.to_thread(write_docx)
                 return str(output)
 
-            output = self._ensure_parent(output_directory / "ocr-output.txt")
+            output = self._ensure_parent(output_directory / _safe_output_name(job_id, "ocr-output.txt"))
             await asyncio.to_thread(output.write_text, text, "utf-8")
             return str(output)
 
         if normalized_output == "json":
-            output_base = output_directory / "ocr-output"
+            output_base = output_directory / f"{job_id}_ocr-output"
             await self._run_command(["tesseract", str(input_file), str(output_base), "-l", language, "tsv"])
             payload = {"language": language, "pages": [self._parse_tsv_content(output_base.with_suffix(".tsv").read_text(encoding="utf-8"))]}
-            output = self._ensure_parent(output_directory / "ocr-output.json")
+            output = self._ensure_parent(output_directory / _safe_output_name(job_id, "ocr-output.json"))
             await asyncio.to_thread(output.write_text, json.dumps(payload, indent=2), "utf-8")
             return str(output)
 
         if normalized_output == "hocr":
-            output_base = output_directory / "ocr-output"
+            output_base = output_directory / f"{job_id}_ocr-output"
             await self._run_command(["tesseract", str(input_file), str(output_base), "-l", language, "hocr"])
             return str(output_base.with_suffix(".hocr"))
 
-        output_base = output_directory / "ocr-output"
+        output_base = output_directory / f"{job_id}_ocr-output"
         await self._run_command(["tesseract", str(input_file), str(output_base), "-l", language, "pdf"])
         return str(output_base.with_suffix(".pdf"))
 
@@ -866,11 +876,12 @@ class ImageService:
 
         output_directory = Path(output_dir)
         output_directory.mkdir(parents=True, exist_ok=True)
+        job_id = job_id_from_output_dir(output_directory)
 
         def resize_one(input_path: str | Path) -> str:
             image = self._load_image(input_path)
             resized = image.thumbnail_image(width, height=height, size="both", crop="centre")
-            output = output_directory / f"{Path(input_path).stem}.jpg"
+            output = output_directory / _safe_output_name(job_id, f"{Path(input_path).stem}.jpg")
             return self._save_image(resized, output)
 
         loop = asyncio.get_running_loop()

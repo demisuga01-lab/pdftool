@@ -44,7 +44,7 @@ const sections: Array<ControlSection<ToImagesSettings>> = [
         label: "DPI",
         type: "slider",
         min: 72,
-        max: 600,
+        max: 300,
         valueSuffix: " DPI",
       },
       {
@@ -103,7 +103,6 @@ export default function PdfToImagesPage() {
         { label: "Quick Preview", values: { dpi: 72, format: "jpeg", jpegQuality: 70 } },
         { label: "Standard", values: { dpi: 150, format: "png" } },
         { label: "Print Quality", values: { dpi: 300, format: "png", transparent: true } },
-        { label: "Ultra HD", values: { dpi: 600, format: "png" } },
       ]}
       sections={sections}
       title="PDF to Images"

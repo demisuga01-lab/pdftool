@@ -14,6 +14,7 @@ from fastapi import HTTPException, status
 from app.services.command_runner import run_command
 from app.services.image_service import ImageService
 from app.services.ocr_service import OCRService
+from app.services.output_naming import job_id_from_output_dir, safe_output_name
 from app.services.pdf_service import PDFService
 
 PDF_FORMATS = {"pdf"}
@@ -37,6 +38,21 @@ logger = logging.getLogger(__name__)
 
 SELECTED_ENGINE_UNAVAILABLE = "Selected engine is not available on this server. Try Auto."
 SELECTED_ENGINE_UNSUPPORTED = "Selected engine does not support this conversion. Try Auto."
+MAX_PUBLIC_DPI = 300
+
+
+def _safe_output_name(job_id: str, original_name: str) -> str:
+    """
+    Create a safe output filename prefixed with job_id.
+    Strips path separators and dangerous characters.
+    """
+    return safe_output_name(job_id, original_name)
+
+
+def _clamp_dpi(dpi: int | None, default: int = 150) -> int:
+    if dpi is None:
+        return default
+    return max(72, min(int(dpi), MAX_PUBLIC_DPI))
 
 
 class ConversionService:
@@ -127,7 +143,7 @@ class ConversionService:
 
     def _safe_output_path(self, output_dir: Path, filename: str) -> Path:
         output_dir.mkdir(parents=True, exist_ok=True)
-        return output_dir / filename
+        return output_dir / _safe_output_name(job_id_from_output_dir(output_dir), filename)
 
     def _single_result(
         self,
@@ -187,7 +203,10 @@ class ConversionService:
                 media_type=self.media_type_for(normalized_extension),
             )
 
-        zip_name = self._safe_filename(requested_name, fallback_stem, "zip")
+        zip_name = _safe_output_name(
+            job_id_from_output_dir(destination_root),
+            self._safe_filename(requested_name, fallback_stem, "zip"),
+        )
         return self._multi_result(output_paths, output_filename=zip_name, original_name=original_name)
 
     async def _csv_to_xlsx(self, input_path: Path, output_path: Path) -> str:
@@ -333,7 +352,7 @@ class ConversionService:
                     self._require_executable("mutool")
                 elif engine != "auto":
                     self._reject_engine()
-                dpi = int(options.get("dpi", 180))
+                dpi = _clamp_dpi(int(options.get("dpi", 180)), default=180)
                 jpeg_quality = int(options.get("quality", 85))
                 page_base = re.sub(r"[^A-Za-z0-9._-]+", "-", (requested_name or source.stem)).strip(".-") or source.stem
                 if target_format in {"png", "jpg"}:
@@ -398,7 +417,7 @@ class ConversionService:
                     destination_root,
                     str(options.get("language", "eng")),
                     "pdf",
-                    int(options.get("dpi", 300)),
+                    _clamp_dpi(int(options.get("dpi", 300)), default=300),
                 )
                 final_path = Path(output_path)
                 if final_path.name != output_name:

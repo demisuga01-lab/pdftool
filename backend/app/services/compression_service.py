@@ -3,6 +3,7 @@ import gzip
 import json
 import logging
 import mimetypes
+import uuid
 import re
 import shutil
 import stat
@@ -18,6 +19,7 @@ from app.core.config import get_settings
 from app.services.command_runner import redact_command
 from app.services.engine_registry import validate_engine_for_workflow
 from app.services.image_service import normalize_image_output_format
+from app.services.output_naming import job_id_from_output_dir, safe_output_name
 from app.services.svg_rasterizer import validate_svg_file
 
 logger = logging.getLogger(__name__)
@@ -34,6 +36,7 @@ TARGET_NOT_REACHED_MESSAGE = "Could not reach the exact target size safely. This
 UNSUPPORTED_MESSAGE = "This format cannot be compressed meaningfully. Use ZIP or 7z packaging instead."
 UNSUPPORTED_ARCHIVE_MESSAGE = "This archive type is not safely supported for extraction yet. You can package it as ZIP/7z instead."
 COMMAND_TIMEOUT_SECONDS = 60
+MAX_PUBLIC_DPI = 300
 
 # Per-tool timeouts (seconds). Keep these short so a single stuck tool cannot
 # burn the heavy worker's entire task budget.
@@ -54,6 +57,21 @@ TOOL_TIMEOUTS: dict[str, int] = {
 MAX_IMAGE_CANDIDATES_TARGET = 6
 MAX_IMAGE_CANDIDATES_NORMAL = 1
 MAX_IMAGE_CANDIDATES_MAXIMUM = 2
+
+
+def _safe_output_name(job_id: str, original_name: str) -> str:
+    """
+    Create a safe output filename prefixed with job_id.
+    Strips path separators and dangerous characters.
+    """
+    return safe_output_name(job_id or str(uuid.uuid4())[:8], original_name)
+
+
+def _clamp_dpi(dpi: int | None, default: int = 150) -> int:
+    if dpi is None:
+        return default
+    return max(72, min(int(dpi), MAX_PUBLIC_DPI))
+
 
 def get_imagemagick_command() -> str:
     import shutil
@@ -150,7 +168,7 @@ class CompressionService:
         data["output_suffix"] = str(data.get("output_suffix") or "-compressed")
         data["quality"] = self._int(data.get("quality"), self._mode_quality(mode), 1, 100)
         data["pdf_quality"] = str(data.get("pdf_quality") or self._mode_pdf_quality(mode))
-        data["image_dpi"] = self._int(data.get("image_dpi"), self._mode_dpi(mode), 72, 600)
+        data["image_dpi"] = _clamp_dpi(self._int(data.get("image_dpi"), self._mode_dpi(mode), 72, 600), self._mode_dpi(mode))
         data["archive_level"] = self._int(data.get("archive_level"), 9 if mode == "maximum" else 7, 1, 9)
         data["target_size_bytes"] = self._optional_positive_int(data.get("target_size_bytes"))
         strategy = str(data.get("target_size_strategy") or "best_effort").lower()
@@ -208,7 +226,7 @@ class CompressionService:
         temp_dir.mkdir(parents=True, exist_ok=True)
         candidates: list[dict[str, Any]] = []
         requested_quality = self._pdf_quality(settings)
-        requested_dpi = self._int(settings.get("image_dpi"), 150, 72, 600)
+        requested_dpi = _clamp_dpi(self._int(settings.get("image_dpi"), 150, 72, 600))
         grayscale = self._bool(settings.get("grayscale") or settings.get("convert_to_grayscale"), False)
         target_size = settings.get("target_size_bytes")
         engine = str(settings.get("engine") or "auto")
@@ -745,7 +763,7 @@ class CompressionService:
         else:
             safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "-", input_file.stem).strip(".-") or "compressed"
             safe_name = f"{safe_stem}{settings.get('output_suffix', '-compressed')}{suffix}"
-        return output_dir / safe_name
+        return output_dir / _safe_output_name(job_id_from_output_dir(output_dir), safe_name)
 
     def _copy_result(
         self,

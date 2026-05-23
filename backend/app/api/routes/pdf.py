@@ -7,9 +7,9 @@ from typing import Annotated, Any
 from uuid import uuid4
 
 from celery.result import AsyncResult
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.config import Settings
 from app.core.dependencies import (
@@ -22,6 +22,7 @@ from app.core.dependencies import (
     validate_upload_file_size,
     validate_upload_files_size,
 )
+from app.core.job_security import create_job_access, verify_job_access
 from app.services.file_store import (
     read_upload_metadata as read_stored_upload_metadata,
     resolve_upload_path,
@@ -57,7 +58,7 @@ AppSettings = Annotated[Settings, Depends(get_app_settings)]
 
 class ConvertFromIdRequest(BaseModel):
     conversion_type: str
-    dpi: int = 150
+    dpi: int = Field(default=150, ge=72, le=300)
     file_id: str
     format: str = "png"
     jpeg_quality: int = 82
@@ -66,8 +67,13 @@ class ConvertFromIdRequest(BaseModel):
     transparent: bool = False
 
 
-def _queued_response(job_id: str, message: str) -> dict[str, str]:
-    return {"job_id": job_id, "status": "queued", "message": message}
+def _new_job(settings: Settings) -> tuple[str, str]:
+    job_id = uuid4().hex
+    return job_id, create_job_access(job_id, settings)
+
+
+def _queued_response(job_id: str, access_token: str, message: str) -> dict[str, str]:
+    return {"job_id": job_id, "access_token": access_token, "status": "queued", "message": message}
 
 
 def _safe_stem(value: str | None, fallback_stem: str) -> str:
@@ -77,15 +83,15 @@ def _safe_stem(value: str | None, fallback_stem: str) -> str:
     return safe or fallback or "output"
 
 
-def _output_path(settings: Settings, suffix: str, requested_name: str | None = None, fallback_stem: str = "output") -> Path:
+def _output_path(settings: Settings, job_id: str, suffix: str, requested_name: str | None = None, fallback_stem: str = "output") -> Path:
     settings.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     if requested_name and requested_name.strip():
-        return settings.OUTPUT_DIR / f"{_safe_stem(requested_name, fallback_stem)}{suffix}"
-    return settings.OUTPUT_DIR / f"{uuid4().hex}{suffix}"
+        return settings.OUTPUT_DIR / f"{job_id}_{_safe_stem(requested_name, fallback_stem)}{suffix}"
+    return settings.OUTPUT_DIR / f"{job_id}_output{suffix}"
 
 
-def _output_dir(settings: Settings) -> Path:
-    output_dir = settings.OUTPUT_DIR / uuid4().hex
+def _output_dir(settings: Settings, job_id: str) -> Path:
+    output_dir = settings.OUTPUT_DIR / job_id
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 
@@ -248,7 +254,8 @@ async def compress_pdf(
     force_recompress: Annotated[bool, Form()] = False,
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
-    output_path = _output_path(settings, ".pdf")
+    job_id, access_token = _new_job(settings)
+    output_path = _output_dir(settings, job_id) / f"{job_id}_output.pdf"
     task = compress_pdf_task.apply_async(
         args=[
             str(input_path),
@@ -262,8 +269,9 @@ async def compress_pdf(
             force_recompress,
         ],
         queue="heavy",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "PDF compression queued")
+    return _queued_response(str(task.id), access_token, "PDF compression queued")
 
 
 @router.post("/merge")
@@ -282,12 +290,14 @@ async def merge_pdfs(
             detail="At least two PDFs are required to merge",
         )
 
-    output_path = _output_path(settings, ".pdf", output_filename, "merged")
+    job_id, access_token = _new_job(settings)
+    output_path = _output_path(settings, job_id, ".pdf", output_filename, "merged")
     task = merge_pdfs_task.apply_async(
         args=[[str(path) for path in input_paths], str(output_path), add_bookmarks, metadata_title],
         queue="fast",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "PDF merge queued")
+    return _queued_response(str(task.id), access_token, "PDF merge queued")
 
 
 @router.post("/split")
@@ -306,7 +316,8 @@ async def split_pdf(
     split_method: Annotated[str, Form()] = "",
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
-    output_dir = _output_dir(settings)
+    job_id, access_token = _new_job(settings)
+    output_dir = _output_dir(settings, job_id)
     normalized_mode = mode.strip()
     if not normalized_mode and split_method.strip().lower() in {"ranges", "parts", "size"}:
         normalized_mode = "custom_ranges"
@@ -347,8 +358,9 @@ async def split_pdf(
             output_filename,
         ],
         queue="fast",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "PDF split queued")
+    return _queued_response(str(task.id), access_token, "PDF split queued")
 
 
 @router.post("/rotate")
@@ -361,12 +373,14 @@ async def rotate_pdf(
     output_filename: Annotated[str, Form()] = "",
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
-    output_path = _output_path(settings, ".pdf", output_filename, "rotated")
+    job_id, access_token = _new_job(settings)
+    output_path = _output_path(settings, job_id, ".pdf", output_filename, "rotated")
     task = rotate_pdf_task.apply_async(
         args=[str(input_path), str(output_path), angle, pages],
         queue="fast",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "PDF rotation queued")
+    return _queued_response(str(task.id), access_token, "PDF rotation queued")
 
 
 @router.post("/watermark")
@@ -399,7 +413,8 @@ async def watermark_pdf(
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
     original_name = file.filename if file is not None else input_path.name
-    output_path = _output_path(settings, ".pdf", output_filename, Path(original_name).stem)
+    job_id, access_token = _new_job(settings)
+    output_path = _output_path(settings, job_id, ".pdf", output_filename, Path(original_name).stem)
     watermark_path: Path | None = None
     asset_id = uploaded_watermark_file_id or watermark_file_id
     if asset_id:
@@ -434,8 +449,9 @@ async def watermark_pdf(
             tile,
         ],
         queue="fast",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "PDF watermark queued")
+    return _queued_response(str(task.id), access_token, "PDF watermark queued")
 
 
 @router.post("/extract-text")
@@ -448,9 +464,10 @@ async def extract_text(
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
     suffix = {"txt": ".txt", "html": ".html", "json": ".json"}.get(output_format.lower(), ".txt")
-    output_path = _output_path(settings, suffix)
-    task = extract_text_task.apply_async(args=[str(input_path), str(output_path), layout, output_format], queue="fast")
-    return _queued_response(str(task.id), "Text extraction queued")
+    job_id, access_token = _new_job(settings)
+    output_path = _output_path(settings, job_id, suffix)
+    task = extract_text_task.apply_async(args=[str(input_path), str(output_path), layout, output_format], queue="fast", task_id=job_id)
+    return _queued_response(str(task.id), access_token, "Text extraction queued")
 
 
 @router.post("/to-word")
@@ -460,9 +477,10 @@ async def pdf_to_word(
     file_id: Annotated[str | None, Form()] = None,
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
-    output_path = _output_path(settings, ".docx")
-    task = pdf_to_docx_task.apply_async(args=[str(input_path), str(output_path)], queue="fast")
-    return _queued_response(str(task.id), "PDF to Word conversion queued")
+    job_id, access_token = _new_job(settings)
+    output_path = _output_path(settings, job_id, ".docx")
+    task = pdf_to_docx_task.apply_async(args=[str(input_path), str(output_path)], queue="fast", task_id=job_id)
+    return _queued_response(str(task.id), access_token, "PDF to Word conversion queued")
 
 
 @router.post("/to-excel")
@@ -472,9 +490,10 @@ async def pdf_to_excel(
     file_id: Annotated[str | None, Form()] = None,
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
-    output_path = _output_path(settings, ".xlsx")
-    task = pdf_to_excel_task.apply_async(args=[str(input_path), str(output_path)], queue="fast")
-    return _queued_response(str(task.id), "PDF to Excel conversion queued")
+    job_id, access_token = _new_job(settings)
+    output_path = _output_path(settings, job_id, ".xlsx")
+    task = pdf_to_excel_task.apply_async(args=[str(input_path), str(output_path)], queue="fast", task_id=job_id)
+    return _queued_response(str(task.id), access_token, "PDF to Excel conversion queued")
 
 
 @router.post("/to-html")
@@ -484,9 +503,10 @@ async def pdf_to_html(
     file_id: Annotated[str | None, Form()] = None,
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
-    output_path = _output_path(settings, ".html")
-    task = pdf_to_html_task.apply_async(args=[str(input_path), str(output_path)], queue="fast")
-    return _queued_response(str(task.id), "PDF to HTML conversion queued")
+    job_id, access_token = _new_job(settings)
+    output_path = _output_path(settings, job_id, ".html")
+    task = pdf_to_html_task.apply_async(args=[str(input_path), str(output_path)], queue="fast", task_id=job_id)
+    return _queued_response(str(task.id), access_token, "PDF to HTML conversion queued")
 
 
 @router.post("/to-images")
@@ -494,18 +514,20 @@ async def pdf_to_images(
     settings: AppSettings,
     file: Annotated[UploadFile | None, File()] = None,
     file_id: Annotated[str | None, Form()] = None,
-    dpi: Annotated[int, Form()] = 150,
+    dpi: Annotated[int, Form(ge=72, le=300)] = 150,
     format: Annotated[str, Form()] = "png",
     jpeg_quality: Annotated[int, Form()] = 82,
     transparent: Annotated[bool, Form()] = False,
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
-    output_dir = _output_dir(settings)
+    job_id, access_token = _new_job(settings)
+    output_dir = _output_dir(settings, job_id)
     task = pdf_to_images_task.apply_async(
         args=[str(input_path), str(output_dir), dpi, format, jpeg_quality, transparent],
         queue="fast",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "PDF to images conversion queued")
+    return _queued_response(str(task.id), access_token, "PDF to images conversion queued")
 
 
 @router.post("/images-to-pdf")
@@ -516,12 +538,14 @@ async def images_to_pdf(
     output_filename: Annotated[str, Form()] = "",
 ) -> dict[str, str]:
     input_paths = await _input_paths_from_files_or_ids(settings, files=files, file_ids=file_ids)
-    output_path = _output_path(settings, ".pdf", output_filename, "images")
+    job_id, access_token = _new_job(settings)
+    output_path = _output_path(settings, job_id, ".pdf", output_filename, "images")
     task = images_to_pdf_task.apply_async(
         args=[[str(path) for path in input_paths], str(output_path)],
         queue="fast",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "Images to PDF conversion queued")
+    return _queued_response(str(task.id), access_token, "Images to PDF conversion queued")
 
 
 @router.post("/office-to-pdf")
@@ -531,8 +555,9 @@ async def office_to_pdf(
     file_id: Annotated[str | None, Form()] = None,
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
-    task = office_to_pdf_task.apply_async(args=[str(input_path), str(settings.OUTPUT_DIR)], queue="heavy")
-    return _queued_response(str(task.id), "Office to PDF conversion queued")
+    job_id, access_token = _new_job(settings)
+    task = office_to_pdf_task.apply_async(args=[str(input_path), str(_output_dir(settings, job_id))], queue="heavy", task_id=job_id)
+    return _queued_response(str(task.id), access_token, "Office to PDF conversion queued")
 
 
 @router.post("/upload-only")
@@ -550,38 +575,41 @@ async def get_uploaded_file(file_id: str, settings: AppSettings) -> FileResponse
 @router.post("/convert-from-id")
 async def convert_from_id(payload: ConvertFromIdRequest, settings: AppSettings) -> dict[str, str]:
     input_path = _file_path_from_id(payload.file_id, settings)
+    job_id, access_token = _new_job(settings)
 
     if payload.conversion_type == "to-word":
-        output_path = _output_path(settings, ".docx")
-        task = pdf_to_docx_task.apply_async(args=[str(input_path), str(output_path)], queue="fast")
+        output_path = _output_path(settings, job_id, ".docx")
+        task = pdf_to_docx_task.apply_async(args=[str(input_path), str(output_path)], queue="fast", task_id=job_id)
     elif payload.conversion_type == "to-excel":
-        output_path = _output_path(settings, ".xlsx")
-        task = pdf_to_excel_task.apply_async(args=[str(input_path), str(output_path)], queue="fast")
+        output_path = _output_path(settings, job_id, ".xlsx")
+        task = pdf_to_excel_task.apply_async(args=[str(input_path), str(output_path)], queue="fast", task_id=job_id)
     elif payload.conversion_type == "to-images":
-        output_dir = _output_dir(settings)
+        output_dir = _output_dir(settings, job_id)
         task = pdf_to_images_task.apply_async(
             args=[str(input_path), str(output_dir), payload.dpi, payload.format, payload.jpeg_quality, payload.transparent],
             queue="fast",
+            task_id=job_id,
         )
     elif payload.conversion_type == "to-html":
-        output_path = _output_path(settings, ".html")
-        task = pdf_to_html_task.apply_async(args=[str(input_path), str(output_path)], queue="fast")
+        output_path = _output_path(settings, job_id, ".html")
+        task = pdf_to_html_task.apply_async(args=[str(input_path), str(output_path)], queue="fast", task_id=job_id)
     elif payload.conversion_type == "to-text":
         suffix = {"txt": ".txt", "html": ".html", "json": ".json"}.get(payload.output_format.lower(), ".txt")
-        output_path = _output_path(settings, suffix)
+        output_path = _output_path(settings, job_id, suffix)
         task = extract_text_task.apply_async(
             args=[str(input_path), str(output_path), payload.layout, payload.output_format],
             queue="fast",
+            task_id=job_id,
         )
     elif payload.conversion_type == "office-to-pdf":
-        task = office_to_pdf_task.apply_async(args=[str(input_path), str(settings.OUTPUT_DIR)], queue="heavy")
+        task = office_to_pdf_task.apply_async(args=[str(input_path), str(_output_dir(settings, job_id))], queue="heavy", task_id=job_id)
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="conversion_type must be one of: to-word, to-excel, to-images, to-html, to-text, office-to-pdf",
         )
 
-    return _queued_response(str(task.id), "PDF conversion queued")
+    return _queued_response(str(task.id), access_token, "PDF conversion queued")
 
 
 @router.post("/encrypt")
@@ -593,12 +621,14 @@ async def encrypt_pdf(
     owner_password: Annotated[str, Form()] = "",
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
-    output_path = _output_path(settings, ".pdf")
+    job_id, access_token = _new_job(settings)
+    output_path = _output_path(settings, job_id, ".pdf")
     task = encrypt_pdf_task.apply_async(
         args=[str(input_path), str(output_path), user_password, owner_password],
         queue="fast",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "PDF encryption queued")
+    return _queued_response(str(task.id), access_token, "PDF encryption queued")
 
 
 @router.post("/decrypt")
@@ -609,12 +639,14 @@ async def decrypt_pdf(
     file_id: Annotated[str | None, Form()] = None,
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
-    output_path = _output_path(settings, ".pdf")
+    job_id, access_token = _new_job(settings)
+    output_path = _output_path(settings, job_id, ".pdf")
     task = decrypt_pdf_task.apply_async(
         args=[str(input_path), str(output_path), password],
         queue="fast",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "PDF decryption queued")
+    return _queued_response(str(task.id), access_token, "PDF decryption queued")
 
 
 @router.post("/ocr")
@@ -624,19 +656,27 @@ async def ocr_pdf(
     file_id: Annotated[str | None, Form()] = None,
     language: Annotated[str, Form()] = "eng",
     output_format: Annotated[str, Form()] = "txt",
-    dpi: Annotated[int, Form()] = 300,
+    dpi: Annotated[int, Form(ge=72, le=300)] = 300,
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
-    output_dir = _output_dir(settings)
+    job_id, access_token = _new_job(settings)
+    output_dir = _output_dir(settings, job_id)
     task = ocr_pdf_task.apply_async(
         args=[str(input_path), str(output_dir), language, output_format, dpi],
         queue="heavy",
+        task_id=job_id,
     )
-    return _queued_response(str(task.id), "PDF OCR queued")
+    return _queued_response(str(task.id), access_token, "PDF OCR queued")
 
 
 @router.get("/status/{job_id}")
-async def get_status(job_id: str) -> dict[str, Any]:
+async def get_status(
+    job_id: str,
+    settings: AppSettings,
+    token: str | None = None,
+    x_access_token: Annotated[str | None, Header(alias="X-Access-Token")] = None,
+) -> dict[str, Any]:
+    verify_job_access(job_id, token, x_access_token, settings)
     task = _task_result(job_id)
     response: dict[str, Any] = {
         "job_id": job_id,
@@ -688,7 +728,13 @@ async def get_status(job_id: str) -> dict[str, Any]:
 
 
 @router.get("/download/{job_id}")
-async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
+async def download_output(
+    job_id: str,
+    settings: AppSettings,
+    token: str | None = None,
+    x_access_token: Annotated[str | None, Header(alias="X-Access-Token")] = None,
+) -> FileResponse:
+    verify_job_access(job_id, token, x_access_token, settings)
     task = _task_result(job_id)
 
     if not task.ready():

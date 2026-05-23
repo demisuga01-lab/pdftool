@@ -8,6 +8,7 @@ import { useGlobalSettings } from "@/lib/settings";
 
 type JobProgressProps = {
   jobId?: string | null;
+  accessToken?: string;
   prefix: "pdf" | "image";
   filename: string;
   onComplete?: (status: JobStatus) => void;
@@ -30,7 +31,7 @@ function isAbortError(error: unknown): boolean {
     : error instanceof Error && error.name === "AbortError";
 }
 
-export function JobProgress({ jobId, prefix, filename, onComplete, onReset }: JobProgressProps) {
+export function JobProgress({ accessToken = "", jobId, prefix, filename, onComplete, onReset }: JobProgressProps) {
   const [state, setState] = useState<ProgressState>("idle");
   const [result, setResult] = useState<JobStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +116,7 @@ export function JobProgress({ jobId, prefix, filename, onComplete, onReset }: Jo
       }, 2050);
     }, 150);
 
-    pollJobStatus(prefix, jobId, controller.signal)
+    pollJobStatus(prefix, jobId, accessToken, controller.signal)
       .then((finalStatus) => {
         if (
           !mountedRef.current ||
@@ -159,7 +160,7 @@ export function JobProgress({ jobId, prefix, filename, onComplete, onReset }: Jo
       controller.abort();
       clearPollingTimeout();
     };
-  }, [jobId, prefix]);
+  }, [accessToken, jobId, prefix]);
 
   const statusText = useMemo(() => {
     if (state === "idle") {
@@ -187,8 +188,8 @@ export function JobProgress({ jobId, prefix, filename, onComplete, onReset }: Jo
     }
 
     autoDownloadedRef.current = jobId;
-    void downloadFile(prefix, jobId, filename).catch(() => {});
-  }, [filename, globalSettings.autoDownload, jobId, prefix, result?.output_path, state]);
+    void downloadFile(prefix, jobId, accessToken, filename).catch(() => {});
+  }, [accessToken, filename, globalSettings.autoDownload, jobId, prefix, result?.output_path, state]);
 
   const handleReset = () => {
     abortControllerRef.current?.abort();
@@ -248,7 +249,7 @@ export function JobProgress({ jobId, prefix, filename, onComplete, onReset }: Jo
             <button
               className="primary-button w-full gap-2"
               onClick={() => {
-                void downloadFile(prefix, jobId ?? "", filename).catch(() => {});
+                void downloadFile(prefix, jobId ?? "", accessToken, filename).catch(() => {});
               }}
               type="button"
             >

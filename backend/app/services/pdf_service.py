@@ -2,14 +2,18 @@ import asyncio
 import csv
 import json
 import logging
+import os
 import re
 import shutil
+import tempfile
+import uuid
 from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import HTTPException, status
 
 from app.services.command_runner import run_command, run_command_result
+from app.services.output_naming import ensure_job_prefix, job_id_from_output_dir, safe_output_name
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +23,7 @@ ColorMode = Literal["rgb", "cmyk", "gray"]
 CompatibilityLevel = Literal["1.4", "1.5", "1.6", "1.7"]
 SplitMode = Literal["split_all", "extract_selected", "split_selected", "custom_ranges", "reorder_export"]
 PDF_COMMAND_TIMEOUT_SECONDS = 180
+MAX_PUBLIC_DPI = 300
 SAFE_SPLIT_NAME_MAX_LENGTH = 120
 SPLIT_MODES: set[str] = {"split_all", "extract_selected", "split_selected", "custom_ranges", "reorder_export"}
 RESERVED_WINDOWS_NAMES = {
@@ -29,6 +34,42 @@ RESERVED_WINDOWS_NAMES = {
     *(f"COM{index}" for index in range(1, 10)),
     *(f"LPT{index}" for index in range(1, 10)),
 }
+
+
+def _write_password_file(password: str) -> str:
+    """Write password to a temp file. Caller must delete it."""
+    fd, path = tempfile.mkstemp(prefix="qpdf_pw_", suffix=".txt")
+    try:
+        os.write(fd, password.encode())
+    finally:
+        os.close(fd)
+    os.chmod(path, 0o600)
+    return path
+
+
+def _write_qpdf_args_file(args: list[str]) -> str:
+    fd, path = tempfile.mkstemp(prefix="qpdf_args_", suffix=".txt")
+    try:
+        for arg in args:
+            os.write(fd, f"{arg}\n".encode())
+    finally:
+        os.close(fd)
+    os.chmod(path, 0o600)
+    return path
+
+
+def _safe_output_name(job_id: str, original_name: str) -> str:
+    """
+    Create a safe output filename prefixed with job_id.
+    Strips path separators and dangerous characters.
+    """
+    return safe_output_name(job_id, original_name)
+
+
+def _clamp_dpi(dpi: int | None, default: int = 150) -> int:
+    if dpi is None:
+        return default
+    return max(72, min(int(dpi), MAX_PUBLIC_DPI))
 
 
 class PDFService:
@@ -562,6 +603,7 @@ class PDFService:
     ) -> dict[str, Any]:
         output_directory = Path(output_dir)
         output_directory.mkdir(parents=True, exist_ok=True)
+        job_id = job_id_from_output_dir(output_directory)
         input_stem = Path(input_path).stem
         page_count = await self._pdf_page_count(input_path)
         normalized_mode = self._normalize_split_mode(mode, pages, output_format)
@@ -572,12 +614,13 @@ class PDFService:
             for index, page in enumerate(selected_pages, start=1):
                 range_label = str(page)
                 output_name = self._format_output_name(naming_pattern, input_stem, index, range_label)
+                output_name = Path(ensure_job_prefix(job_id, f"{output_name}.pdf")).stem
                 output = self._safe_split_output_path(output_directory, output_name)
                 await self._write_pdf_selection(input_path, output, [page])
                 outputs.append(str(output))
             return {
                 "output_paths": outputs,
-                "output_filename": self._safe_split_output_filename(output_filename, f"{input_stem}-split-pages", ".zip"),
+                "output_filename": _safe_output_name(job_id, self._safe_split_output_filename(output_filename, f"{input_stem}-split-pages", ".zip")),
                 "result": {
                     "mode": normalized_mode,
                     "output_type": "zip",
@@ -594,12 +637,13 @@ class PDFService:
             for index, page in enumerate(selected_pages, start=1):
                 range_label = str(page)
                 output_name = self._format_output_name(naming_pattern, input_stem, index, range_label)
+                output_name = Path(ensure_job_prefix(job_id, f"{output_name}.pdf")).stem
                 output = self._safe_split_output_path(output_directory, output_name)
                 await self._write_pdf_selection(input_path, output, [page])
                 outputs.append(str(output))
             return {
                 "output_paths": outputs,
-                "output_filename": self._safe_split_output_filename(output_filename, f"{input_stem}-selected-pages", ".zip"),
+                "output_filename": _safe_output_name(job_id, self._safe_split_output_filename(output_filename, f"{input_stem}-selected-pages", ".zip")),
                 "result": {
                     "mode": normalized_mode,
                     "output_type": "zip",
@@ -613,7 +657,7 @@ class PDFService:
         if normalized_mode == "extract_selected":
             selected_pages = self._parse_page_selection(pages, page_count, "pages")
             output_name = self._safe_split_output_filename(output_filename, f"{input_stem}-selected", ".pdf")
-            output = self._safe_split_output_path(output_directory, Path(output_name).stem)
+            output = self._safe_split_output_path(output_directory, Path(_safe_output_name(job_id, output_name)).stem)
             await self._write_pdf_selection(input_path, output, selected_pages)
             return {
                 "output_path": str(output),
@@ -630,7 +674,7 @@ class PDFService:
         if normalized_mode == "reorder_export":
             ordered_pages = self._parse_page_selection(page_order or pages, page_count, "page_order", dedupe=False)
             output_name = self._safe_split_output_filename(output_filename, f"{input_stem}-organized", ".pdf")
-            output = self._safe_split_output_path(output_directory, Path(output_name).stem)
+            output = self._safe_split_output_path(output_directory, Path(_safe_output_name(job_id, output_name)).stem)
             await self._write_pdf_selection(input_path, output, ordered_pages)
             return {
                 "output_path": str(output),
@@ -652,6 +696,7 @@ class PDFService:
             selection_pages = self._validate_page_numbers(self._expand_split_ranges([selection]), page_count, "ranges")
             range_label = self._split_range_label(selection)
             output_name = self._format_output_name(naming_pattern, input_stem, index, range_label)
+            output_name = Path(ensure_job_prefix(job_id, f"{output_name}.pdf")).stem
             output = self._safe_split_output_path(output_directory, output_name)
             await self._write_pdf_selection(input_path, output, selection_pages)
             outputs.append(str(output))
@@ -668,12 +713,12 @@ class PDFService:
         if len(outputs) == 1:
             return {
                 "output_path": outputs[0],
-                "output_filename": self._safe_split_output_filename(output_filename, f"{input_stem}-range", ".pdf"),
+                "output_filename": _safe_output_name(job_id, self._safe_split_output_filename(output_filename, f"{input_stem}-range", ".pdf")),
                 "result": result,
             }
         return {
             "output_paths": outputs,
-            "output_filename": self._safe_split_output_filename(output_filename, f"{input_stem}-ranges", ".zip"),
+            "output_filename": _safe_output_name(job_id, self._safe_split_output_filename(output_filename, f"{input_stem}-ranges", ".zip")),
             "result": result,
         }
 
@@ -1007,16 +1052,13 @@ class PDFService:
         jpeg_quality: int = 82,
         transparent: bool = False,
     ) -> list[str]:
-        if dpi < 1 or dpi > 1200:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="dpi must be between 1 and 1200",
-            )
+        dpi = _clamp_dpi(dpi)
 
         output_directory = Path(output_dir)
         output_directory.mkdir(parents=True, exist_ok=True)
+        job_id = job_id_from_output_dir(output_directory)
         mutool_format = "png" if format == "webp" else "jpg" if format in {"jpg", "jpeg"} else format
-        output_pattern = output_directory / f"page-%03d.{mutool_format}"
+        output_pattern = output_directory / f"{job_id}_page-%03d.{mutool_format}"
         command = ["mutool", "draw", "-r", str(dpi), "-F", mutool_format, "-o", str(output_pattern)]
         if transparent and format == "png":
             command.extend(["-c", "rgba"])
@@ -1028,7 +1070,7 @@ class PDFService:
             timeout_detail="PDF page rendering took too long to finish.",
         )
 
-        outputs = sorted(output_directory.glob(f"page-*.{mutool_format}"))
+        outputs = sorted(output_directory.glob(f"{job_id}_page-*.{mutool_format}"))
         stderr_text = result.stderr.strip()
         stdout_text = result.stdout.strip()
         meaningful_error = "\n".join(
@@ -1094,6 +1136,7 @@ class PDFService:
     async def office_to_pdf(self, input_path: str | Path, output_dir: str | Path) -> str:
         output_directory = Path(output_dir)
         output_directory.mkdir(parents=True, exist_ok=True)
+        job_id = job_id_from_output_dir(output_directory)
         command = [
             "libreoffice",
             "--headless",
@@ -1104,7 +1147,12 @@ class PDFService:
             str(input_path),
         ]
         await self._run_command(command)
-        return str(output_directory / f"{Path(input_path).stem}.pdf")
+        output_path = output_directory / f"{Path(input_path).stem}.pdf"
+        prefixed = output_directory / _safe_output_name(job_id, output_path.name)
+        if output_path.exists() and output_path != prefixed:
+            output_path.replace(prefixed)
+            return str(prefixed)
+        return str(prefixed if prefixed.exists() else output_path)
 
     async def encrypt_pdf(
         self,
@@ -1120,17 +1168,24 @@ class PDFService:
             )
 
         output = self._ensure_parent(output_path)
-        command = [
-            "qpdf",
-            "--encrypt",
-            user_password,
-            owner_password,
-            "256",
-            "--",
-            str(input_path),
-            str(output),
-        ]
-        await self._run_command(command)
+        args_path = _write_qpdf_args_file(
+            [
+                "--encrypt",
+                user_password,
+                owner_password,
+                "256",
+                "--",
+                str(input_path),
+                str(output),
+            ]
+        )
+        try:
+            await self._run_command(["qpdf", f"@{args_path}"])
+        finally:
+            try:
+                os.unlink(args_path)
+            except Exception:
+                pass
         return str(output)
 
     async def decrypt_pdf(
@@ -1146,8 +1201,15 @@ class PDFService:
             )
 
         output = self._ensure_parent(output_path)
-        command = ["qpdf", "--decrypt", f"--password={password}", str(input_path), str(output)]
-        await self._run_command(command)
+        password_path = _write_password_file(password)
+        command = ["qpdf", "--decrypt", f"--password-file={password_path}", str(input_path), str(output)]
+        try:
+            await self._run_command(command)
+        finally:
+            try:
+                os.unlink(password_path)
+            except Exception:
+                pass
         return str(output)
 
     async def repair_pdf(self, input_path: str | Path, output_path: str | Path) -> str:
@@ -1167,7 +1229,8 @@ class PDFService:
         normalized_output = self._normalize_ocr_output_format(output_format)
         output_directory = Path(output_dir)
         output_directory.mkdir(parents=True, exist_ok=True)
-        page_pattern = output_directory / "page-%04d.png"
+        job_id = job_id_from_output_dir(output_directory)
+        page_pattern = output_directory / f"{job_id}_page-%04d.png"
 
         await self._run_command(
             [
@@ -1183,7 +1246,7 @@ class PDFService:
             ]
         )
 
-        page_images = sorted(output_directory.glob("page-*.png"))
+        page_images = sorted(output_directory.glob(f"{job_id}_page-*.png"))
         if not page_images:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1200,15 +1263,15 @@ class PDFService:
 
             combined_text = "\n\n".join(text for text in page_texts if text).strip()
             if normalized_output == "docx":
-                return await self._write_docx(combined_text, output_directory / "ocr-output.docx")
-            output = self._ensure_parent(output_directory / "ocr-output.txt")
+                return await self._write_docx(combined_text, output_directory / _safe_output_name(job_id, "ocr-output.docx"))
+            output = self._ensure_parent(output_directory / _safe_output_name(job_id, "ocr-output.txt"))
             await asyncio.to_thread(output.write_text, combined_text, "utf-8")
             return str(output)
 
         if normalized_output == "json":
             pages: list[dict[str, object]] = []
             for page_number, page_image in enumerate(page_images, start=1):
-                output_base = output_directory / f"ocr-page-{page_number:04d}"
+                output_base = output_directory / f"{job_id}_ocr-page-{page_number:04d}"
                 await self._run_command(
                     ["tesseract", str(page_image), str(output_base), "-l", language, "tsv"]
                 )
@@ -1217,32 +1280,32 @@ class PDFService:
 
             return await self._write_json(
                 {"language": language, "pages": pages},
-                output_directory / "ocr-output.json",
+                output_directory / _safe_output_name(job_id, "ocr-output.json"),
             )
 
         if normalized_output == "hocr":
             output_files: list[Path] = []
             for page_number, page_image in enumerate(page_images, start=1):
-                output_base = output_directory / f"ocr-page-{page_number:04d}"
+                output_base = output_directory / f"{job_id}_ocr-page-{page_number:04d}"
                 await self._run_command(
                     ["tesseract", str(page_image), str(output_base), "-l", language, "hocr"]
                 )
                 output_files.append(output_base.with_suffix(".hocr"))
 
-            merged_output = self._ensure_parent(output_directory / "ocr-output.hocr")
+            merged_output = self._ensure_parent(output_directory / _safe_output_name(job_id, "ocr-output.hocr"))
             content = "".join(path.read_text(encoding="utf-8") for path in output_files)
             await asyncio.to_thread(merged_output.write_text, content, "utf-8")
             return str(merged_output)
 
         page_pdfs: list[Path] = []
         for page_number, page_image in enumerate(page_images, start=1):
-            output_base = output_directory / f"ocr-page-{page_number:04d}"
+            output_base = output_directory / f"{job_id}_ocr-page-{page_number:04d}"
             await self._run_command(
                 ["tesseract", str(page_image), str(output_base), "-l", language, "pdf"]
             )
             page_pdfs.append(output_base.with_suffix(".pdf"))
 
-        merged_output = self._ensure_parent(output_directory / "ocr-searchable.pdf")
+        merged_output = self._ensure_parent(output_directory / _safe_output_name(job_id, "ocr-searchable.pdf"))
         await self._run_command(
             ["qpdf", "--empty", "--pages", *[str(path) for path in page_pdfs], "--", str(merged_output)]
         )

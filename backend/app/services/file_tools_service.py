@@ -8,6 +8,7 @@ import re
 import shutil
 import stat
 import tarfile
+import uuid
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
@@ -17,6 +18,7 @@ from fastapi import HTTPException, status
 
 from app.core.config import get_settings
 from app.services.command_runner import run_command, run_command_result
+from app.services.output_naming import job_id_from_output_dir, safe_output_name as shared_safe_output_name
 
 SUSPICIOUS_EXTENSIONS = {
     ".exe",
@@ -35,6 +37,14 @@ SUSPICIOUS_EXTENSIONS = {
     ".sys",
 }
 RESERVED_WINDOWS_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{index}" for index in range(1, 10)), *(f"LPT{index}" for index in range(1, 10))}
+
+
+def _safe_output_name(job_id: str, original_name: str) -> str:
+    """
+    Create a safe output filename prefixed with job_id.
+    Strips path separators and dangerous characters.
+    """
+    return shared_safe_output_name(job_id or str(uuid.uuid4())[:8], original_name)
 
 
 def bool_value(value: Any, default: bool = False) -> bool:
@@ -99,7 +109,7 @@ def ensure_inside(path: Path, root: Path) -> Path:
 def output_path(output_dir: str | Path, filename: str) -> Path:
     root = Path(output_dir)
     root.mkdir(parents=True, exist_ok=True)
-    return ensure_inside(root / safe_filename(filename), root)
+    return ensure_inside(root / _safe_output_name(job_id_from_output_dir(root), safe_filename(filename)), root)
 
 
 def file_record(path: str | Path, root: str | Path | None = None) -> dict[str, Any]:
@@ -348,11 +358,14 @@ async def safe_extract_archive(path: str | Path, output_dir: str | Path, passwor
     if tarfile.is_tarfile(archive_path):
         return safe_extract_tar(archive_path, output_dir)
     if archive_path.suffix.lower() in {".7z", ".rar"}:
+        if password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password-protected archive extraction is not supported by the public service.",
+            )
         output = Path(output_dir)
         output.mkdir(parents=True, exist_ok=True)
         command = ["7z", "x", "-y", f"-o{output}", str(archive_path)]
-        if password:
-            command.insert(2, f"-p{password}")
         await run_command(command, timeout_seconds=120, timeout_detail="Archive extraction took too long to finish.")
         files = [path for path in output.rglob("*") if path.is_file()]
         settings = get_settings()

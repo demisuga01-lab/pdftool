@@ -80,7 +80,10 @@ async function downloadRecentJob(job: RecentJob): Promise<void> {
     return;
   }
 
-  const response = await fetch(job.downloadUrl, { cache: "no-store" });
+  const response = await fetch(job.downloadUrl, {
+    cache: "no-store",
+    headers: job.accessToken ? { "X-Access-Token": job.accessToken } : undefined,
+  });
   if (response.status === 404 || response.status === 410) {
     upsertRecentJob({
       ...job,

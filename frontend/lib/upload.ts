@@ -3,6 +3,7 @@ import { ApiRateLimitError, formatRateLimitMessage, toApiPath } from "@/lib/api"
 type UploadResponse = {
   [key: string]: unknown;
   job_id?: string;
+  access_token?: string;
 };
 
 export type UploadProgressInfo = {

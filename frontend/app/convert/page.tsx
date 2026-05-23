@@ -539,7 +539,7 @@ export default function ConvertPage() {
             label: "PDF/image render DPI",
             type: "slider",
             min: 72,
-            max: 400,
+            max: 300,
             valueSuffix: " DPI",
             show: () => inputKind === "pdf",
           },

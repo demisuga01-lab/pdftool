@@ -8,7 +8,7 @@ from typing import Annotated, Any
 from uuid import uuid4
 
 from celery.result import AsyncResult
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.core.config import Settings
@@ -17,6 +17,7 @@ from app.core.dependencies import (
     save_temp_upload,
     validate_saved_upload_path,
 )
+from app.core.job_security import create_job_access, verify_job_access
 from app.services.conversion_service import ConversionService
 from app.services.engine_registry import validate_engine_for_workflow
 from app.services.file_store import read_upload_metadata, resolve_upload_path
@@ -29,12 +30,17 @@ logger = logging.getLogger(__name__)
 AppSettings = Annotated[Settings, Depends(get_app_settings)]
 
 
-def _queued_response(job_id: str, message: str) -> dict[str, str]:
-    return {"job_id": job_id, "status": "queued", "message": message}
+def _new_job(settings: Settings) -> tuple[str, str]:
+    job_id = uuid4().hex
+    return job_id, create_job_access(job_id, settings)
 
 
-def _output_dir(settings: Settings) -> Path:
-    output_dir = settings.OUTPUT_DIR / uuid4().hex
+def _queued_response(job_id: str, access_token: str, message: str) -> dict[str, str]:
+    return {"job_id": job_id, "access_token": access_token, "status": "queued", "message": message}
+
+
+def _output_dir(settings: Settings, job_id: str) -> Path:
+    output_dir = settings.OUTPUT_DIR / job_id
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 
@@ -213,16 +219,18 @@ async def convert_file(
         output_format=normalized_to_format,
     )
     parsed_settings["engine"] = validated_engine
+    job_id, access_token = _new_job(settings)
     task = convert_file_task.apply_async(
         args=[
             str(input_path),
-            str(_output_dir(settings)),
+            str(_output_dir(settings, job_id)),
             normalized_to_format,
             detected_from,
             str(metadata.get("mime_type") or ""),
             parsed_settings,
         ],
         kwargs={"engine": validated_engine},
+        task_id=job_id,
     )
     logger.info(
         "Queued conversion task job_id=%s requested_format=%s normalized_format=%s input_extension=%s",
@@ -231,11 +239,17 @@ async def convert_file(
         normalized_to_format,
         Path(input_path).suffix.lower().lstrip("."),
     )
-    return _queued_response(str(task.id), "Conversion queued")
+    return _queued_response(str(task.id), access_token, "Conversion queued")
 
 
 @router.get("/status/{job_id}")
-async def get_status(job_id: str) -> dict[str, Any]:
+async def get_status(
+    job_id: str,
+    settings: AppSettings,
+    token: str | None = None,
+    x_access_token: Annotated[str | None, Header(alias="X-Access-Token")] = None,
+) -> dict[str, Any]:
+    verify_job_access(job_id, token, x_access_token, settings)
     task = _task_result(job_id)
     response: dict[str, Any] = {
         "job_id": job_id,
@@ -271,7 +285,13 @@ async def get_status(job_id: str) -> dict[str, Any]:
 
 
 @router.get("/download/{job_id}")
-async def download_output(job_id: str, settings: AppSettings) -> FileResponse:
+async def download_output(
+    job_id: str,
+    settings: AppSettings,
+    token: str | None = None,
+    x_access_token: Annotated[str | None, Header(alias="X-Access-Token")] = None,
+) -> FileResponse:
+    verify_job_access(job_id, token, x_access_token, settings)
     task = _task_result(job_id)
 
     if not task.ready():

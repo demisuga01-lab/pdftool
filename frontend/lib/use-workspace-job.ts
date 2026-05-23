@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { ApiRateLimitError, downloadFile, pollJobStatus, toApiPath, type JobApiPrefix, type JobStatus } from "@/lib/api";
 import { trackEvent } from "@/lib/matomo";
-import { upsertRecentJob, type RecentJobStatus } from "@/lib/recent-jobs";
+import { readRecentJobs, upsertRecentJob, type RecentJobStatus } from "@/lib/recent-jobs";
 import { uploadWithProgress } from "@/lib/upload";
 
 type ProcessingState = "idle" | "uploading" | "queued" | "processing" | "success" | "failure";
@@ -64,6 +64,7 @@ export function useWorkspaceJob({
   const searchParams = useMemo(() => new URLSearchParams(queryString), [queryString]);
   const [state, setState] = useState<ProcessingState>("idle");
   const [jobId, setJobId] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string>("");
   const [result, setResult] = useState<JobStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
@@ -94,6 +95,7 @@ export function useWorkspaceJob({
       nextJobId: string,
       status: RecentJobStatus,
       updates: {
+        accessToken?: string;
         errorMessage?: string | null;
         outputFilename?: string;
         recentMetadata?: WorkspaceJobMetadata;
@@ -105,6 +107,7 @@ export function useWorkspaceJob({
       };
       upsertRecentJob({
         approximateFileSize,
+        accessToken: updates.accessToken ?? accessToken,
         downloadUrl: toApiPath(`${prefix}/download/${nextJobId}`),
         errorMessage: updates.errorMessage ?? undefined,
         fileType,
@@ -121,7 +124,7 @@ export function useWorkspaceJob({
         toolName,
       });
     },
-    [approximateFileSize, fileType, filename, inputFileName, pathname, prefix, toolName],
+    [accessToken, approximateFileSize, fileType, filename, inputFileName, pathname, prefix, toolName],
   );
 
   const syncJobQuery = useCallback(
@@ -169,10 +172,11 @@ export function useWorkspaceJob({
   }, [metadataFromStatus, writeRecentJob]);
 
   const startPolling = useCallback(
-    async (nextJobId: string, controller: AbortController, nextTimeoutKind: TimeoutKind) => {
+    async (nextJobId: string, nextAccessToken: string, controller: AbortController, nextTimeoutKind: TimeoutKind) => {
       const finalStatus = await pollJobStatus(
         prefix,
         nextJobId,
+        nextAccessToken,
         controller.signal,
         (nextStatus) => {
           setResult(nextStatus);
@@ -183,6 +187,7 @@ export function useWorkspaceJob({
             setError(nextStatus.notice ? null : (nextStatus.error ?? null));
             setErrorDetails(null);
             writeRecentJob(nextJobId, nextStatus.status, {
+              accessToken: nextAccessToken,
               errorMessage: nextStatus.error ?? null,
               outputFilename: nextStatus.output_filename,
             });
@@ -231,17 +236,22 @@ export function useWorkspaceJob({
           controller.signal,
         );
         const nextJobId = String(response.job_id ?? "");
+        const nextAccessToken = String(response.access_token ?? "");
         if (!nextJobId) {
           throw new Error("Processing did not return a job ID.");
+        }
+        if (!nextAccessToken) {
+          throw new Error("Processing did not return a job access token.");
         }
         startedJobId = nextJobId;
         activeTrackingJobRef.current = nextJobId;
         setJobId(nextJobId);
+        setAccessToken(nextAccessToken);
         syncJobQuery(nextJobId);
         setState("queued");
         trackEvent("Tool", "job_started", analyticsToolName);
-        writeRecentJob(nextJobId, "queued");
-        return await startPolling(nextJobId, controller, options?.timeoutKind ?? timeoutKind);
+        writeRecentJob(nextJobId, "queued", { accessToken: nextAccessToken });
+        return await startPolling(nextJobId, nextAccessToken, controller, options?.timeoutKind ?? timeoutKind);
       } catch (caughtError) {
         if (controller.signal.aborted) {
           return null;
@@ -292,6 +302,7 @@ export function useWorkspaceJob({
     activeTrackingJobRef.current = null;
     setState("idle");
     setJobId(null);
+    setAccessToken("");
     setResult(null);
     setError(null);
     setErrorDetails(null);
@@ -336,9 +347,11 @@ export function useWorkspaceJob({
     setJobId(queryJobId);
     setState("queued");
     setPanelDismissed(false);
-    writeRecentJob(queryJobId, "queued");
-
-    startPolling(queryJobId, controller, timeoutKind).catch((caughtError: unknown) => {
+    const storedJob = queryJobId ? readRecentJobs().find((job) => job.id === queryJobId) : undefined;
+    const storedAccessToken = storedJob?.accessToken ?? "";
+    writeRecentJob(queryJobId, "queued", { accessToken: storedAccessToken });
+    setAccessToken(storedAccessToken);
+    startPolling(queryJobId, storedAccessToken, controller, timeoutKind).catch((caughtError: unknown) => {
       if (controller.signal.aborted) {
         return;
       }
@@ -391,7 +404,7 @@ export function useWorkspaceJob({
       return;
     }
     try {
-      await downloadFile(prefix, jobId, resultOutputFilename ?? filename);
+      await downloadFile(prefix, jobId, accessToken, resultOutputFilename ?? filename);
       setNotice(null);
       setRateLimitScope(null);
     } catch (caughtError) {
@@ -411,7 +424,7 @@ export function useWorkspaceJob({
         }
       }
     }
-  }, [filename, jobId, prefix, resultOutputFilename, writeRecentJob]);
+  }, [accessToken, filename, jobId, prefix, resultOutputFilename, writeRecentJob]);
 
   return {
     cancelUpload,

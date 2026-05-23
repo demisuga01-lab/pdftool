@@ -26,7 +26,7 @@ export type PDFSplitSettings = {
 };
 
 export type PDFToImagesSettings = {
-  dpi: 72 | 150 | 300 | 600;
+  dpi: 72 | 150 | 300;
   format: "png" | "jpeg" | "webp";
   jpegQuality: number;
   transparent: boolean;

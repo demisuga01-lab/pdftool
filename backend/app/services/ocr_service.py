@@ -2,7 +2,9 @@ import asyncio
 import csv
 import json
 import logging
+import os
 import shutil
+import tempfile
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -10,9 +12,36 @@ from typing import Any
 from fastapi import HTTPException, status
 
 from app.services.command_runner import run_command, run_command_result
+from app.services.output_naming import job_id_from_output_dir, safe_output_name
 
 logger = logging.getLogger(__name__)
 OCR_COMMAND_TIMEOUT_SECONDS = 300
+MAX_PUBLIC_DPI = 300
+
+
+def _write_password_file(password: str) -> str:
+    """Write password to a temp file. Caller must delete it."""
+    fd, path = tempfile.mkstemp(prefix="qpdf_pw_", suffix=".txt")
+    try:
+        os.write(fd, password.encode())
+    finally:
+        os.close(fd)
+    os.chmod(path, 0o600)
+    return path
+
+
+def _safe_output_name(job_id: str, original_name: str) -> str:
+    """
+    Create a safe output filename prefixed with job_id.
+    Strips path separators and dangerous characters.
+    """
+    return safe_output_name(job_id, original_name)
+
+
+def _clamp_dpi(dpi: int | None, default: int = 150) -> int:
+    if dpi is None:
+        return default
+    return max(72, min(int(dpi), MAX_PUBLIC_DPI))
 
 
 class OCRService:
@@ -104,24 +133,31 @@ class OCRService:
         }
 
     async def _render_pdf_pages(self, input_path: Path, output_dir: Path, dpi: int, password: str | None = None) -> list[Path]:
-        safe_dpi = max(72, min(int(dpi or 300), 600))
-        page_pattern = output_dir / "page-%04d.png"
+        safe_dpi = _clamp_dpi(dpi, default=300)
+        job_id = job_id_from_output_dir(output_dir)
+        page_pattern = output_dir / f"{job_id}_page-%04d.png"
         if await self._pdf_is_encrypted(input_path) and not password:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=self._password_error_message())
 
         render_source = input_path
         if password and await self._pdf_is_encrypted(input_path) and shutil.which("qpdf"):
             decrypted = output_dir / "decrypted-input.pdf"
+            password_path = _write_password_file(password)
             try:
-                await self._run_command(["qpdf", f"--password={password}", "--decrypt", str(input_path), str(decrypted)])
+                await self._run_command(["qpdf", f"--password-file={password_path}", "--decrypt", str(input_path), str(decrypted)])
                 if decrypted.exists() and decrypted.stat().st_size > 0:
                     render_source = decrypted
             except HTTPException:
                 render_source = input_path
+            finally:
+                try:
+                    os.unlink(password_path)
+                except Exception:
+                    pass
 
         command = ["mutool", "draw"]
         if password and render_source == input_path:
-            command.extend(["-p", password])
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password-protected PDF OCR requires qpdf on the server.")
         command.extend(["-r", str(safe_dpi), "-F", "png", "-o", str(page_pattern), str(render_source)])
 
         result = await run_command_result(
@@ -134,7 +170,7 @@ class OCRService:
         stdout_text = result.stdout.strip()
         stderr_text = result.stderr.strip()
 
-        pages = sorted(output_dir.glob("page-*.png"))
+        pages = sorted(output_dir.glob(f"{job_id}_page-*.png"))
         if result.returncode != 0 and not pages:
             detail = stderr_text or stdout_text or "Failed to render PDF pages before OCR"
             if self._looks_like_password_error(detail):
@@ -173,16 +209,17 @@ class OCRService:
         return str(output)
 
     async def _write_hocr(self, page_images: list[Path], output_dir: Path, language: str) -> str:
+        job_id = job_id_from_output_dir(output_dir)
         hocr_paths: list[Path] = []
         for page_number, page_image in enumerate(page_images, start=1):
-            output_base = output_dir / f"ocr-page-{page_number:04d}"
+            output_base = output_dir / f"{job_id}_ocr-page-{page_number:04d}"
             await self._run_command(["tesseract", str(page_image), str(output_base), "-l", language, "hocr"])
             hocr_paths.append(output_base.with_suffix(".hocr"))
 
         if len(hocr_paths) == 1:
             return str(hocr_paths[0])
 
-        archive_path = self._ensure_parent(output_dir / "ocr-hocr-pages.zip")
+        archive_path = self._ensure_parent(output_dir / _safe_output_name(job_id, "ocr-hocr-pages.zip"))
 
         def zip_hocr() -> None:
             with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
@@ -193,18 +230,19 @@ class OCRService:
         return str(archive_path)
 
     async def _write_searchable_pdf(self, page_images: list[Path], output_dir: Path, language: str) -> str:
+        job_id = job_id_from_output_dir(output_dir)
         page_pdfs: list[Path] = []
         for page_number, page_image in enumerate(page_images, start=1):
-            output_base = output_dir / f"ocr-page-{page_number:04d}"
+            output_base = output_dir / f"{job_id}_ocr-page-{page_number:04d}"
             await self._run_command(["tesseract", str(page_image), str(output_base), "-l", language, "pdf"])
             page_pdfs.append(output_base.with_suffix(".pdf"))
 
         if len(page_pdfs) == 1:
-            output = self._ensure_parent(output_dir / "ocr-searchable.pdf")
+            output = self._ensure_parent(output_dir / _safe_output_name(job_id, "ocr-searchable.pdf"))
             await asyncio.to_thread(page_pdfs[0].replace, output)
             return str(output)
 
-        merged_output = self._ensure_parent(output_dir / "ocr-searchable.pdf")
+        merged_output = self._ensure_parent(output_dir / _safe_output_name(job_id, "ocr-searchable.pdf"))
         await self._run_command(["qpdf", "--empty", "--pages", *[str(path) for path in page_pdfs], "--", str(merged_output)])
         return str(merged_output)
 
@@ -220,6 +258,7 @@ class OCRService:
         input_file = Path(input_path)
         output_directory = Path(output_dir)
         output_directory.mkdir(parents=True, exist_ok=True)
+        job_id = job_id_from_output_dir(output_directory)
         normalized_output = self._normalize_output_format(output_format)
 
         if input_file.suffix.lower() == ".pdf":
@@ -242,15 +281,15 @@ class OCRService:
                 pages.append({"page": page_number, "text": await self._ocr_text(page_image, language)})
 
         if normalized_output == "docx":
-            return await self._write_docx(pages, output_directory / "ocr-output.docx")
+            return await self._write_docx(pages, output_directory / _safe_output_name(job_id, "ocr-output.docx"))
 
         combined = "\n\n".join(f"--- Page {page['page']} ---\n{page.get('text') or ''}" for page in pages).strip()
         if normalized_output == "json":
-            output = self._ensure_parent(output_directory / "ocr-output.json")
+            output = self._ensure_parent(output_directory / _safe_output_name(job_id, "ocr-output.json"))
             payload = {"pages": pages, "text": combined}
             await asyncio.to_thread(output.write_text, json.dumps(payload, indent=2), "utf-8")
             return str(output)
 
-        output = self._ensure_parent(output_directory / "ocr-output.txt")
+        output = self._ensure_parent(output_directory / _safe_output_name(job_id, "ocr-output.txt"))
         await asyncio.to_thread(output.write_text, combined, "utf-8")
         return str(output)

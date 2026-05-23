@@ -77,14 +77,6 @@ export const builtInPresets: {
         transparent: true,
       },
     },
-    {
-      id: "ultra-hd",
-      name: "Ultra HD",
-      values: {
-        dpi: 600,
-        format: "png",
-      },
-    },
   ],
   "pdf-merge": [],
   "pdf-rotate": [],
