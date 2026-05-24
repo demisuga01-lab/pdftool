@@ -88,6 +88,40 @@ async def _run_command(command: list[str]) -> tuple[str, str]:
     return stdout.strip(), stderr.strip()
 
 
+def _is_password_error(output: str) -> bool:
+    password_indicators = [
+        "invalid password",
+        "password required",
+        "encrypted",
+        "cannot authenticate",
+        "requires a password",
+        "needs a password",
+        "password",
+    ]
+    normalized = output.lower()
+    return any(indicator in normalized for indicator in password_indicators)
+
+
+def _file_size_or_404(file_path: Path) -> int:
+    try:
+        return file_path.stat().st_size
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Uploaded file not found. It may have expired.",
+        ) from exc
+
+
+def _password_required_pdf_info(file_path: Path) -> dict[str, Any]:
+    return {
+        "password_required": True,
+        "page_count": None,
+        "file_size": _file_size_or_404(file_path),
+        "encrypted": True,
+        "error": None,
+    }
+
+
 async def _pdf_page_count(file_path: Path) -> int:
     stdout, _ = await _run_command(["qpdf", "--show-npages", str(file_path)])
     try:
@@ -312,13 +346,20 @@ async def pdf_info(file_id: str, settings: Settings) -> dict[str, Any]:
         encryption_info = {**encryption_info, **(await _pdf_encryption_metadata(file_path))}
     encrypted = bool(encryption_info.get("encrypted", False))
     needs_password = bool(encryption_info.get("needs_password", encrypted))
+    if encrypted or needs_password:
+        return _password_required_pdf_info(file_path)
     if page_count <= 0:
-        page_count = 0 if encrypted else await _pdf_page_count(file_path)
+        try:
+            page_count = await _pdf_page_count(file_path)
+        except HTTPException as exc:
+            if _is_password_error(str(exc.detail)):
+                return _password_required_pdf_info(file_path)
+            raise
     return {
         "file_id": file_id,
         "page_count": page_count,
         "pages": page_count,
-        "size_bytes": file_path.stat().st_size,
+        "size_bytes": _file_size_or_404(file_path),
         "original_name": metadata.get("original_name"),
         "extension": "pdf",
         "encrypted": encrypted,
@@ -333,12 +374,14 @@ def preview_cache_path(settings: Settings, file_id: str, name: str) -> Path:
     return _ensure_inside(cache_dir / name, settings.TEMP_DIR, label="Preview path")
 
 
-async def render_pdf_page(file_id: str, page_number: int, settings: Settings, zoom: int = 100) -> Path:
+async def render_pdf_page(file_id: str, page_number: int, settings: Settings, zoom: int = 100) -> Path | dict[str, bool]:
     file_path = resolve_upload_path(file_id, settings)
     if file_path.suffix.lower() != ".pdf":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="file_id does not reference a PDF")
 
     info = await pdf_info(file_id, settings)
+    if info.get("password_required"):
+        return {"password_required": True}
     page_count = int(info["page_count"])
     if page_number < 1 or page_number > page_count:
         raise HTTPException(
@@ -352,20 +395,25 @@ async def render_pdf_page(file_id: str, page_number: int, settings: Settings, zo
     if output.exists() and output.stat().st_size > 0:
         return output
 
-    await _run_command(
-        [
-            "mutool",
-            "draw",
-            "-r",
-            str(dpi),
-            "-F",
-            "png",
-            "-o",
-            str(output),
-            str(file_path),
-            str(page_number),
-        ]
-    )
+    try:
+        await _run_command(
+            [
+                "mutool",
+                "draw",
+                "-r",
+                str(dpi),
+                "-F",
+                "png",
+                "-o",
+                str(output),
+                str(file_path),
+                str(page_number),
+            ]
+        )
+    except HTTPException as exc:
+        if _is_password_error(str(exc.detail)):
+            return {"password_required": True}
+        raise
     return output
 
 

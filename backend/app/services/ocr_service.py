@@ -89,6 +89,9 @@ class OCRService:
     def _password_error_message(self) -> str:
         return "This PDF is password-protected. Please enter the password before running OCR."
 
+    def _incorrect_password_message(self) -> str:
+        return "Incorrect PDF password. Please check the password and try again."
+
     async def _pdf_is_encrypted(self, input_path: Path) -> bool:
         def read() -> bool:
             from pypdf import PdfReader
@@ -158,11 +161,13 @@ class OCRService:
         safe_dpi = _clamp_dpi(dpi, default=300)
         job_id = job_id_from_output_dir(output_dir)
         page_pattern = output_dir / f"{job_id}_page-%04d.png"
-        if await self._pdf_is_encrypted(input_path) and not password:
+        password = password if password not in (None, "") else None
+        encrypted = await self._pdf_is_encrypted(input_path)
+        if encrypted and not password:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=self._password_error_message())
 
         render_source = input_path
-        if password and await self._pdf_is_encrypted(input_path) and shutil.which("qpdf"):
+        if password and encrypted and shutil.which("qpdf"):
             decrypted = output_dir / "decrypted-input.pdf"
             password_path = _write_password_file(password)
             try:
@@ -200,7 +205,7 @@ class OCRService:
         if returncode != 0 and not pages:
             detail = stderr_text or stdout_text or "Failed to render PDF pages before OCR"
             if self._looks_like_password_error(detail):
-                detail = self._password_error_message()
+                detail = self._incorrect_password_message() if password else self._password_error_message()
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
         if not pages:
             raise HTTPException(

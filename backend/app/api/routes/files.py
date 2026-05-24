@@ -67,9 +67,11 @@ async def thumbnail_file(file_id: str, settings: AppSettings) -> FileResponse:
 
 
 @router.get("/pdf-page/{file_id}/{page_number}")
-async def pdf_page(file_id: str, page_number: int, settings: AppSettings, zoom: int = 100) -> FileResponse:
-    file_path = await render_pdf_page(file_id, page_number, settings, zoom=zoom)
-    return FileResponse(path=file_path, media_type="image/png")
+async def pdf_page(file_id: str, page_number: int, settings: AppSettings, zoom: int = 100) -> Any:
+    result = await render_pdf_page(file_id, page_number, settings, zoom=zoom)
+    if isinstance(result, dict):
+        return result
+    return FileResponse(path=result, media_type="image/png")
 
 
 @router.get("/pdf-info/{file_id}")

@@ -660,12 +660,13 @@ async def ocr_pdf(
     language: Annotated[str, Form()] = "eng",
     output_format: Annotated[str, Form()] = "txt",
     dpi: Annotated[int, Form(ge=72, le=300)] = 300,
+    password: Annotated[str, Form()] = "",
 ) -> dict[str, str]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id)
     job_id, access_token = _new_job(settings)
     output_dir = _output_dir(settings, job_id)
     task = ocr_pdf_task.apply_async(
-        args=[str(input_path), str(output_dir), language, output_format, dpi],
+        args=[str(input_path), str(output_dir), language, output_format, dpi, password or None],
         queue="heavy",
         task_id=job_id,
     )

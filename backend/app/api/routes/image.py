@@ -528,12 +528,25 @@ async def ocr_image(
     deskew: Annotated[bool, Form()] = False,
     denoise: Annotated[bool, Form()] = False,
     enhance_contrast: Annotated[bool, Form()] = False,
+    password: Annotated[str, Form()] = "",
 ) -> dict[str, Any]:
     input_path = await _input_path_from_file_or_id(settings, file=file, file_id=file_id, expected_category=None)
     job_id, access_token = _new_job(settings)
     output_dir = _output_dir(settings, job_id)
     task = ocr_image_task.apply_async(
-        args=[str(input_path), str(output_dir), language, output_format, input_type, page_range, deskew, denoise, enhance_contrast, dpi],
+        args=[
+            str(input_path),
+            str(output_dir),
+            language,
+            output_format,
+            input_type,
+            page_range,
+            deskew,
+            denoise,
+            enhance_contrast,
+            dpi,
+            password or None,
+        ],
         queue="heavy",
         task_id=job_id,
     )
