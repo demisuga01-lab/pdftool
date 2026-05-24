@@ -57,6 +57,18 @@ TOOL_TIMEOUTS: dict[str, int] = {
 MAX_IMAGE_CANDIDATES_TARGET = 6
 MAX_IMAGE_CANDIDATES_NORMAL = 1
 MAX_IMAGE_CANDIDATES_MAXIMUM = 2
+SEVEN_ZIP_CANDIDATES = ("7z", "7za", "7zr", "/usr/bin/7z", "/usr/bin/7za")
+
+
+def _resolve_seven_zip_binary() -> str | None:
+    for candidate in SEVEN_ZIP_CANDIDATES:
+        resolved = shutil.which(candidate)
+        if resolved:
+            return resolved
+    return None
+
+
+SEVEN_ZIP_BINARY = _resolve_seven_zip_binary()
 
 
 def _safe_output_name(job_id: str, original_name: str) -> str:
@@ -688,6 +700,7 @@ class CompressionService:
 
     def _finalize(self, input_file: Path, output_dir: Path, candidates: list[dict[str, Any]], settings: dict[str, Any]) -> dict[str, Any]:
         original_size = input_file.stat().st_size
+        target_size = settings.get("target_size_bytes")
         valid_candidates = [
             candidate for candidate in candidates
             if self._valid_nonempty(Path(candidate["path"]))
@@ -695,9 +708,21 @@ class CompressionService:
         attempts = len(valid_candidates)
 
         if not valid_candidates:
+            if input_file.suffix.lower() == ".pdf":
+                return self._copy_result(
+                    input_file,
+                    input_file,
+                    output_dir,
+                    settings,
+                    attempts=attempts,
+                    method="original-kept",
+                    message="File is already optimized, minimal reduction achieved.",
+                    optimized=False,
+                    target_size_bytes=int(target_size) if target_size else None,
+                    reached_target=True if target_size else None,
+                )
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=UNSUPPORTED_MESSAGE)
 
-        target_size = settings.get("target_size_bytes")
         force = self._bool(settings.get("force_recompress"), False)
         keep_original = self._bool(settings.get("keep_original_if_smaller"), True)
 
@@ -807,8 +832,9 @@ class CompressionService:
 
     async def _recompress_zip_container(self, input_file: Path, extract_dir: Path, output: Path, settings: dict[str, Any]) -> Path | None:
         self._safe_extract_zip(input_file, extract_dir)
-        if shutil.which("7z"):
-            if await self._try_command(["7z", "a", "-tzip", f"-mx={settings['archive_level']}", str(output), f"{extract_dir}{self._path_glob_suffix()}"]):
+        binary = SEVEN_ZIP_BINARY or _resolve_seven_zip_binary()
+        if binary:
+            if await self._try_command([binary, "a", "-tzip", f"-mx={settings['archive_level']}", str(output), f"{extract_dir}{self._path_glob_suffix()}"]):
                 return output
         candidate = await self._zip_dir(extract_dir, output, settings, "office-zip-repack")
         return Path(candidate["path"])
@@ -846,6 +872,11 @@ class CompressionService:
 
     async def _zip_single(self, input_file: Path, output: Path, settings: dict[str, Any], message: str) -> dict[str, Any]:
         level = self._int(settings.get("archive_level"), 9, 1, 9)
+        binary = SEVEN_ZIP_BINARY or _resolve_seven_zip_binary()
+
+        if binary:
+            if await self._try_command([binary, "a", "-tzip", f"-mx={level}", str(output), str(input_file)]):
+                return {"path": output, "method": "7z-zip", "message": message}
 
         def write() -> None:
             with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=level) as archive:
@@ -856,6 +887,11 @@ class CompressionService:
 
     async def _zip_dir(self, input_dir: Path, output: Path, settings: dict[str, Any], method: str) -> dict[str, Any]:
         level = self._int(settings.get("archive_level"), 9, 1, 9)
+        binary = SEVEN_ZIP_BINARY or _resolve_seven_zip_binary()
+
+        if binary:
+            if await self._try_command([binary, "a", "-tzip", f"-mx={level}", str(output), f"{input_dir}{self._path_glob_suffix()}"]):
+                return {"path": output, "method": "7z-zip", "message": "Compressed successfully"}
 
         def write() -> None:
             with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=level) as archive:
@@ -867,16 +903,18 @@ class CompressionService:
         return {"path": output, "method": method, "message": "Compressed successfully"}
 
     async def _seven_zip_single(self, input_file: Path, output: Path, settings: dict[str, Any], message: str = "Compressed successfully") -> dict[str, Any] | None:
-        if not shutil.which("7z"):
+        binary = SEVEN_ZIP_BINARY or _resolve_seven_zip_binary()
+        if not binary:
             return None
-        if await self._try_command(["7z", "a", "-t7z", f"-mx={settings['archive_level']}", "-m0=lzma2", str(output), str(input_file)]):
+        if await self._try_command([binary, "a", "-t7z", f"-mx={settings['archive_level']}", "-m0=lzma2", str(output), str(input_file)]):
             return {"path": output, "method": "7z", "message": message}
         return None
 
     async def _seven_zip_dir(self, input_dir: Path, output: Path, settings: dict[str, Any], method: str) -> dict[str, Any] | None:
-        if not shutil.which("7z"):
+        binary = SEVEN_ZIP_BINARY or _resolve_seven_zip_binary()
+        if not binary:
             return None
-        if await self._try_command(["7z", "a", "-t7z", f"-mx={settings['archive_level']}", "-m0=lzma2", str(output), f"{input_dir}{self._path_glob_suffix()}"]):
+        if await self._try_command([binary, "a", "-t7z", f"-mx={settings['archive_level']}", "-m0=lzma2", str(output), f"{input_dir}{self._path_glob_suffix()}"]):
             return {"path": output, "method": method, "message": "Compressed successfully"}
         return None
 

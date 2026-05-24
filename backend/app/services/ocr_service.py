@@ -59,6 +59,28 @@ class OCRService:
             timeout_detail="OCR processing took too long to finish.",
         )
 
+    async def _run_mutool_with_password(self, command: list[str], password: str) -> tuple[int, str, str]:
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(input=password.encode()),
+                timeout=OCR_COMMAND_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            process.kill()
+            await process.wait()
+            raise
+        return (
+            int(process.returncode or 0),
+            stdout.decode(errors="replace"),
+            stderr.decode(errors="replace"),
+        )
+
     def _ensure_parent(self, output_path: str | Path) -> Path:
         output = Path(output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -156,22 +178,26 @@ class OCRService:
                     pass
 
         command = ["mutool", "draw"]
+        stdout_text = ""
+        stderr_text = ""
         if password and render_source == input_path:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password-protected PDF OCR requires qpdf on the server.")
-        command.extend(["-r", str(safe_dpi), "-F", "png", "-o", str(page_pattern), str(render_source)])
-
-        result = await run_command_result(
-            command,
-            check=False,
-            failure_status=status.HTTP_400_BAD_REQUEST,
-            timeout_seconds=OCR_COMMAND_TIMEOUT_SECONDS,
-            timeout_detail="OCR page rendering took too long to finish.",
-        )
-        stdout_text = result.stdout.strip()
-        stderr_text = result.stderr.strip()
+            command.extend(["-p", "-", "-r", str(safe_dpi), "-F", "png", "-o", str(page_pattern), str(render_source)])
+            returncode, stdout_text, stderr_text = await self._run_mutool_with_password(command, password)
+        else:
+            command.extend(["-r", str(safe_dpi), "-F", "png", "-o", str(page_pattern), str(render_source)])
+            result = await run_command_result(
+                command,
+                check=False,
+                failure_status=status.HTTP_400_BAD_REQUEST,
+                timeout_seconds=OCR_COMMAND_TIMEOUT_SECONDS,
+                timeout_detail="OCR page rendering took too long to finish.",
+            )
+            returncode = result.returncode
+            stdout_text = result.stdout.strip()
+            stderr_text = result.stderr.strip()
 
         pages = sorted(output_dir.glob(f"{job_id}_page-*.png"))
-        if result.returncode != 0 and not pages:
+        if returncode != 0 and not pages:
             detail = stderr_text or stdout_text or "Failed to render PDF pages before OCR"
             if self._looks_like_password_error(detail):
                 detail = self._password_error_message()

@@ -133,7 +133,7 @@ ENGINE_REGISTRY: dict[str, EngineDefinition] = {
         workflows=("compress",),
         input_categories=("archive", "text"),
         output_formats=("7z",),
-        executables=("7z",),
+        executables=("7z", "7za", "7zr", "/usr/bin/7z", "/usr/bin/7za"),
     ),
     "advzip": EngineDefinition(
         id="advzip",

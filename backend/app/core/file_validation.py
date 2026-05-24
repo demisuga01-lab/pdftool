@@ -24,6 +24,8 @@ ALLOWED_MIME_TYPES = {
         "application/vnd.ms-powerpoint",
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "application/zip",
+        "application/x-zip-compressed",
+        "application/octet-stream",
         "application/vnd.ms-office",
         "application/x-ole-storage",
         "application/vnd.oasis.opendocument.text",
@@ -92,7 +94,7 @@ def expected_category_for_filename(filename: str) -> str | None:
 def validate_file_magic(
     file_bytes: bytes,
     expected_category: str,
-    filename: str,
+    filename: str = "",
     ip_address: str | None = None,
 ) -> str:
     try:
@@ -107,6 +109,22 @@ def validate_file_magic(
             extra={"detected_mime": "unknown"},
         )
         raise HTTPException(status_code=400, detail="Could not determine file type.") from exc
+
+    if expected_category == "office" and detected_mime in {"application/zip", "application/x-zip-compressed", "application/octet-stream"}:
+        office_extensions = {".docx", ".xlsx", ".pptx", ".odt", ".ods", ".odp", ".doc", ".xls", ".ppt"}
+        file_ext = Path(filename).suffix.lower()
+        if file_ext in office_extensions:
+            return detected_mime
+        log_audit_event(
+            "invalid_file_type",
+            file_name=filename,
+            ip_address=ip_address,
+            extra={"detected_mime": detected_mime, "expected_category": expected_category},
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="File appears to be a ZIP archive, not an office document.",
+        )
 
     allowed = ALLOWED_MIME_TYPES.get(expected_category, [])
     is_allowed = any(detected_mime == mime or detected_mime.startswith(mime) for mime in allowed)
